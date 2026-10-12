@@ -1,0 +1,6 @@
+{
+  "name": "icp.mode",
+  "description": "AI-powered Ideal Customer Profile discovery, strategic analysis (Need Gap, 5C, STP, Marketing Mix), and explainable fit scoring for B2B leads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
