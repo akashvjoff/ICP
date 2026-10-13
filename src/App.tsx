@@ -18,6 +18,7 @@ import { DatasetDetailsPage } from './pages/DatasetDetailsPage';
 import { CompaniesPage } from './pages/CompaniesPage';
 import { CompanyProfilePage } from './pages/CompanyProfilePage';
 import { SegmentsPage } from './pages/SegmentsPage';
+import { StrategicAnalysisPage } from './pages/StrategicAnalysisPage';
 import { ICPReportPage } from './pages/ICPReportPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -90,6 +91,32 @@ function RouteSwitch() {
     return (
       <ProtectedRoute>
         <SegmentsPage />
+      </ProtectedRoute>
+    );
+  }
+  if (path.startsWith('/segments/')) {
+    const id = path.replace('/segments/', '');
+    return (
+      <ProtectedRoute>
+        <SegmentsPage params={{ id }} />
+      </ProtectedRoute>
+    );
+  }
+
+
+  // Protected: Strategic Marketing Analysis (Need Gap & 5C)
+  if (path === '/strategy') {
+    return (
+      <ProtectedRoute>
+        <StrategicAnalysisPage />
+      </ProtectedRoute>
+    );
+  }
+  if (path.startsWith('/strategy/')) {
+    const id = path.replace('/strategy/', '');
+    return (
+      <ProtectedRoute>
+        <StrategicAnalysisPage params={{ id }} />
       </ProtectedRoute>
     );
   }

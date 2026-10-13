@@ -130,3 +130,10 @@ To ensure modularity and strict separation of concerns, the codebase is organize
      - `leads`: uploaded accounts with raw and normalized columns
      - `strategic_analyses`: Need Gap, 5C, STP outputs
      - `scores`: itemized points, tier classification, audit log
+
+### Structured Company Intelligence Boundary
+
+- `POST /api/ai/company-intelligence` requires a verified Supabase bearer token and checks lead ownership through the caller's RLS-scoped client.
+- `src/server/companyAnalyzer.ts` defines the provider interface and Gemini, Mock, and Ollama implementations. Gemini models are discovered for the configured API key at runtime.
+- `src/types/companyIntelligence.ts` owns the Zod input/output contracts, claim provenance, confidence, evidence, and data-quality structure.
+- `src/server/companyIntelligenceService.ts` owns content-hash caching and completed/failed analysis persistence. Provider prompts and private CRM rows are never logged.

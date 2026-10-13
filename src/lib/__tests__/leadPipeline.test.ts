@@ -44,7 +44,7 @@ export function runLeadPipelineTests() {
   // --------------------------------------------------------------------------
   assert(isAllowedExtension('leads.csv'), 'Extension: .csv allowed');
   assert(isAllowedExtension('accounts.xlsx'), 'Extension: .xlsx allowed');
-  assert(isAllowedExtension('pipeline.tsv'), 'Extension: .tsv allowed');
+  assert(!isAllowedExtension('pipeline.tsv'), 'Extension: .tsv rejected');
   assert(!isAllowedExtension('payload.exe'), 'Extension: .exe rejected');
   assert(!isAllowedExtension('document.pdf'), 'Extension: .pdf rejected');
   assert(!isAllowedExtension('data.json'), 'Extension: .json rejected');
@@ -151,8 +151,8 @@ export function runLeadPipelineTests() {
     { companyName: 'Company', domain: 'Domain' },
     { piiColumnsToScrub: ['Contact Email', 'Phone'] }
   );
-  assert(piiRes.validLeads[0].rawRow['Contact Email'] === '[REDACTED_PII]', 'Privacy: Redacts email in raw audit record');
-  assert(piiRes.validLeads[0].rawRow['Phone'] === '[REDACTED_PII]', 'Privacy: Redacts phone in raw audit record');
+  assert(piiRes.validLeads[0].rawRow?.['Contact Email'] === '[REDACTED_PII]', 'Privacy: Redacts email in raw audit record');
+  assert(piiRes.validLeads[0].rawRow?.['Phone'] === '[REDACTED_PII]', 'Privacy: Redacts phone in raw audit record');
 
   // --------------------------------------------------------------------------
   // TEST 9: Column Auto-Detection

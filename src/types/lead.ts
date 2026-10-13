@@ -63,6 +63,7 @@ export interface NormalizedLead {
   industry: string;
   headcount: number | null;
   annualRevenue: string | null;
+  annualRevenueValue?: number | null;
   description: string;
   country: string;
   technologies: string[];
@@ -74,14 +75,16 @@ export interface NormalizedLead {
   productRaw?: string;
   leadStage?: string;
   dealValue?: number | null;
-  currency?: string;
+  currency?: string | null;
   retentionMonths?: number | null;
   customerPain?: string;
   reasonWonLost?: string;
+  userCorrectedDescription?: string | null;
 
   // AI vs Stored row separation
   isAiEnriched?: boolean; // true for up to 100 rows in free/demo tier
   enrichmentTier?: EnrichmentTier; // 'full' (has domain & within limit), 'limited' (no domain), 'stored_only' (rows > 100)
+  analysisStatus?: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
 
   // Data hygiene & duplicates
   isClean: boolean;
@@ -118,6 +121,8 @@ export interface LeadValidationSummary {
   duplicateRowsCount: number;
   aiEligibleCount: number;
   storedOnlyCount: number;
+  missingOptionalValuesCount: number;
+  recordsWithMissingOptionalValues: number;
   hasPiiAlert: boolean;
   piiColumnsDetected: string[];
 }

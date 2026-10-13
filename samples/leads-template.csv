@@ -1,0 +1,4 @@
+Company Name,Domain,Industry,Company Type,Employees,Geography,Product/Service,Business Model,Lead Status,Deal Value,Currency,Annual Revenue,Retention,Customer Pain,Reason Won/Lost
+Northstar Synthetic,northstar.example,Software,Private,42,Canada,Workflow automation,B2B SaaS,qualified,25000,USD,3500000,18,Manual reporting delays,Strong integration fit
+Harbor Test Works,https://www.harbor-test.example/about,Professional Services,Private,0,United Kingdom,Implementation services,Professional Services,new,0,GBP,0,0,,
+Domain Only Synthetic,domain-only.example,,,,Germany,,,,,,,,,

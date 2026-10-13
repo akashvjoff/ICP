@@ -4,6 +4,7 @@ interface FormFieldProps {
   label: string;
   sublabel?: string;
   error?: string;
+  htmlFor?: string;
   children: React.ReactNode;
   className?: string;
 }
@@ -12,13 +13,14 @@ export const FormField: React.FC<FormFieldProps> = ({
   label,
   sublabel,
   error,
+  htmlFor,
   children,
   className = '',
 }) => {
   return (
     <div className={`space-y-1.5 ${className}`}>
       <div className="flex items-center justify-between">
-        <label className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#0A0A0A]">
+        <label htmlFor={htmlFor} className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#0A0A0A]">
           {label}
         </label>
         {sublabel && (

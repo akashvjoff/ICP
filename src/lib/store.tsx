@@ -63,6 +63,9 @@ interface AppStoreContextType {
   weights: ScoringWeights;
   updateWeights: (weights: ScoringWeights) => void;
   addDataset: (newDataset: DatasetMeta, newLeads: NormalizedLead[]) => void;
+  updateDatasetProgress: (datasetId: string, progress: number, status: DatasetMeta['status']) => void;
+  updateLeadAnalysisStatuses: (updatedStatuses: Record<string, NormalizedLead['analysisStatus']>) => void;
+  updateLeadDescription: (leadId: string, description: string) => void;
   toasts: ToastMessage[];
   addToast: (text: string, type?: 'success' | 'warning' | 'info') => void;
   removeToast: (id: string) => void;
@@ -124,9 +127,22 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
     return contextToOfferingProfile(sellerContext);
   });
 
-  const [datasets, setDatasets] = useState<DatasetMeta[]>([INITIAL_DATASET]);
-  const [activeDatasetId, setActiveDatasetId] = useState<string>('dataset-01');
-  const [leads, setLeads] = useState<NormalizedLead[]>(SAMPLE_LEADS);
+  const [datasets, setDatasets] = useState<DatasetMeta[]>(() => {
+    try {
+      const saved = localStorage.getItem('icp_mode_datasets');
+      return saved ? JSON.parse(saved) : [INITIAL_DATASET];
+    } catch { return [INITIAL_DATASET]; }
+  });
+  const [activeDatasetId, setActiveDatasetId] = useState<string>(() => {
+    try { return localStorage.getItem('icp_mode_active_dataset') || 'dataset-01'; }
+    catch { return 'dataset-01'; }
+  });
+  const [leads, setLeads] = useState<NormalizedLead[]>(() => {
+    try {
+      const saved = localStorage.getItem('icp_mode_leads');
+      return saved ? JSON.parse(saved) : SAMPLE_LEADS;
+    } catch { return SAMPLE_LEADS; }
+  });
   const [analysis, setAnalysis] = useState<FullStrategicAnalysis>(SAMPLE_STRATEGIC_ANALYSIS);
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_SCORING_WEIGHTS);
   const [scores, setScores] = useState<LeadICPScore[]>(SAMPLE_SCORES);
@@ -165,12 +181,60 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const addDataset = (newDataset: DatasetMeta, newLeads: NormalizedLead[]) => {
-    setDatasets((prev) => [newDataset, ...prev]);
+    setDatasets((prev) => {
+      const next = [newDataset, ...prev.filter((dataset) => dataset.id !== newDataset.id)];
+      try { localStorage.setItem('icp_mode_datasets', JSON.stringify(next)); } catch {}
+      return next;
+    });
     setActiveDatasetId(newDataset.id);
     setLeads(newLeads);
-    const newScores = batchScoreLeads(newLeads, offering, analysis, weights);
-    setScores(newScores);
-    addToast(`Dataset "${newDataset.filename}" ingested and scored!`, 'success');
+    setScores([]);
+    try {
+      localStorage.setItem('icp_mode_active_dataset', newDataset.id);
+      localStorage.setItem('icp_mode_leads', JSON.stringify(newLeads));
+    } catch {}
+    addToast(`Dataset "${newDataset.filename}" stored. Analysis is queued.`, 'success');
+  };
+
+  const updateLeadDescription = (leadId: string, description: string) => {
+    setLeads((prev) => {
+      const next = prev.map((lead) =>
+        lead.id === leadId
+          ? { ...lead, description, userCorrectedDescription: description }
+          : lead
+      );
+      try {
+        localStorage.setItem('icp_mode_leads', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const updateDatasetProgress = (datasetId: string, progress: number, status: DatasetMeta['status']) => {
+    setDatasets((prev) => {
+      const next = prev.map((d) =>
+        d.id === datasetId
+          ? { ...d, processingProgress: progress, status }
+          : d
+      );
+      try {
+        localStorage.setItem('icp_mode_datasets', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const updateLeadAnalysisStatuses = (updatedStatuses: Record<string, NormalizedLead['analysisStatus']>) => {
+    setLeads((prev) => {
+      const next = prev.map((lead) => {
+        const newStatus = updatedStatuses[lead.id];
+        return newStatus !== undefined ? { ...lead, analysisStatus: newStatus } : lead;
+      });
+      try {
+        localStorage.setItem('icp_mode_leads', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const addToast = (text: string, type: 'success' | 'warning' | 'info' = 'success') => {
@@ -190,6 +254,11 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
     setLeads([]);
     setScores([]);
     setActiveDatasetId('');
+    try {
+      localStorage.removeItem('icp_mode_datasets');
+      localStorage.removeItem('icp_mode_active_dataset');
+      localStorage.removeItem('icp_mode_leads');
+    } catch {}
     addToast('All lead datasets cleared. Empty state active.', 'warning');
   };
 
@@ -229,6 +298,9 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
         weights,
         updateWeights,
         addDataset,
+        updateDatasetProgress,
+        updateLeadAnalysisStatuses,
+        updateLeadDescription,
         toasts,
         addToast,
         removeToast,

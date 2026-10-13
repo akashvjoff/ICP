@@ -5,7 +5,7 @@
 ---
 
 ## 1. Multi-Specialist Agent Architecture
-In `icp.mode`, AI processing is decomposed into focused specialized agents executing server-side via the `@google/genai` SDK (`gemini-3.8-flash` for high-throughput reasoning). Each agent has strict input/output schemas and guardrails.
+In `icp.mode`, AI processing is decomposed into focused specialized agents executing server-side via the `@google/genai` SDK. The company-intelligence provider discovers models available to the configured API key and prefers a fast, low-cost text model. Each agent has strict input/output schemas and guardrails.
 
 ```
 ┌────────────────────────────────────────────────────────┐

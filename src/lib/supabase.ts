@@ -1,14 +1,16 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database, DbSellerProfile, DbDataset, DbLead, DbCompanyAnalysis, DbSegment, DbLeadScore, DbIcpReport, DbScoringConfig, DbAnalysisJob } from '../types/database';
 
-// Environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Environment variables (Vite build-time or server-injected runtime config fallback)
+const runtimeConfig = (typeof window !== 'undefined' && (window as unknown as { __ICP_CONFIG__?: { supabaseUrl?: string; supabaseAnonKey?: string } }).__ICP_CONFIG__) || {};
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || runtimeConfig.supabaseUrl || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || runtimeConfig.supabaseAnonKey || '';
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
   supabaseAnonKey &&
   !supabaseUrl.includes('YOUR_SUPABASE') &&
+  !supabaseUrl.includes('YOUR_PROJECT_ID') &&
   supabaseUrl.startsWith('https://')
 );
 
@@ -286,7 +288,7 @@ export const dbService = {
       .insert({
         owner_user_id: userId,
         dataset_id: datasetId,
-        status: 'processing',
+        status: 'queued',
         total_count: totalCount,
         completed_count: 0,
         failed_count: 0,

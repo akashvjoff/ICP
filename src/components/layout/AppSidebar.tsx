@@ -17,6 +17,7 @@ import {
   X,
   ExternalLink,
   LogOut,
+  Compass,
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -45,15 +46,19 @@ export const AppSidebar: React.FC = () => {
     navigate('/auth');
   };
 
-  const reportPath = datasets.length > 0
-    ? `/icp/report/${activeDatasetId || datasets[0].id}`
+  const selectedDatasetId = activeDatasetId || datasets[0]?.id;
+  const strategyPath = selectedDatasetId ? `/strategy/${selectedDatasetId}` : '/strategy';
+  const segmentsPath = selectedDatasetId ? `/segments/${selectedDatasetId}` : '/segments';
+  const reportPath = selectedDatasetId
+    ? `/icp/report/${selectedDatasetId}`
     : '/icp/report/demo';
 
   const menuItems: SidebarItem[] = [
     { id: 'dashboard', label: 'OVERVIEW', path: '/dashboard', icon: LayoutDashboard },
     { id: 'uploads', label: 'UPLOADS', path: '/uploads/new', icon: UploadCloud, tag: 'WIZARD' },
     { id: 'companies', label: 'COMPANIES', path: '/companies', icon: Building2 },
-    { id: 'segments', label: 'SEGMENTS', path: '/segments', icon: GitFork },
+    { id: 'strategy', label: 'STRATEGY', path: strategyPath, icon: Compass, tag: '5C' },
+    { id: 'segments', label: 'SEGMENTS', path: segmentsPath, icon: GitFork },
     { id: 'icp-report', label: 'ICP REPORT', path: reportPath, icon: FileText, tag: 'PRO' },
     { id: 'settings', label: 'SETTINGS', path: '/settings', icon: Settings },
   ];
@@ -66,10 +71,10 @@ export const AppSidebar: React.FC = () => {
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="lg:hidden sticky top-0 z-40 bg-[#F9F8F4] border-b-[3px] border-[#0A0A0A] px-4 py-3 flex items-center justify-between">
+      <div className="lg:hidden sticky top-0 z-40 bg-[#F9F8F4] border-b-[3px] border-[#0A0A0A] px-4 py-3 flex items-center justify-between print:hidden">
         <button
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 font-black text-xl tracking-tighter text-[#0A0A0A]"
+          className="flex items-center gap-2 font-black text-xl tracking-tighter text-[#0A0A0A] cursor-pointer"
         >
           <span className="w-3 h-3 bg-[#A1F000] border-[1.5px] border-[#0A0A0A] inline-block shadow-[1px_1px_0px_#0A0A0A]" />
           <span>icp<span className="text-[#A1F000]">.</span>mode</span>
@@ -83,7 +88,7 @@ export const AppSidebar: React.FC = () => {
           )}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-1.5 border-[2px] border-[#0A0A0A] rounded-lg bg-white shadow-[2px_2px_0px_#0A0A0A]"
+            className="p-1.5 border-[2px] border-[#0A0A0A] rounded-lg bg-white shadow-[2px_2px_0px_#0A0A0A] cursor-pointer"
             aria-label="Toggle navigation"
           >
             {mobileOpen ? <X className="w-5 h-5 text-[#0A0A0A]" /> : <Menu className="w-5 h-5 text-[#0A0A0A]" />}
@@ -100,6 +105,7 @@ export const AppSidebar: React.FC = () => {
           border-r-[3.5px] border-[#0A0A0A]
           flex flex-col justify-between
           transition-transform duration-200 ease-in-out
+          print:hidden
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
@@ -153,12 +159,19 @@ export const AppSidebar: React.FC = () => {
 
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive = path === item.path || (item.id === 'icp-report' && path.startsWith('/icp/report'));
+              const isActive =
+                path === item.path ||
+                (item.id === 'icp-report' && path.startsWith('/icp/report')) ||
+                (item.id === 'strategy' && path.startsWith('/strategy')) ||
+                (item.id === 'segments' && path.startsWith('/segments')) ||
+                (item.id === 'companies' && path.startsWith('/companies')) ||
+                (item.id === 'uploads' && path.startsWith('/uploads'));
 
               return (
                 <button
                   key={item.id}
                   onClick={() => handleNav(item.path)}
+                  aria-current={isActive ? 'page' : undefined}
                   className={`
                     w-full flex items-center justify-between
                     px-3.5 py-2.5 rounded-xl
@@ -256,7 +269,7 @@ export const AppSidebar: React.FC = () => {
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-30 bg-[#0A0A0A]/50 backdrop-blur-xs"
+          className="lg:hidden fixed inset-0 z-30 bg-[#0A0A0A]/50 backdrop-blur-xs print:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}

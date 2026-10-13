@@ -11,13 +11,10 @@ export const UPLOAD_CONFIG = {
   MAX_AI_ENRICHED_ROWS_DEMO: 100, // Maximum AI-enriched rows in free/demo tier
 
   // Supported extensions
-  ALLOWED_EXTENSIONS: ['.csv', '.xlsx', '.xls', '.tsv', '.txt'] as const,
+  ALLOWED_EXTENSIONS: ['.csv', '.xlsx'] as const,
   ALLOWED_MIME_TYPES: [
     'text/csv',
-    'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/tab-separated-values',
-    'text/plain',
   ],
 
   // PII detection patterns - Personal data must NEVER be passed to AI models

@@ -32,11 +32,17 @@ export const Drawer: React.FC<DrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="drawer-title"
+      className="fixed inset-0 z-50 overflow-hidden"
+    >
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-[#0A0A0A]/50 backdrop-blur-xs transition-opacity"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       <div className="fixed inset-y-0 right-0 flex max-w-full pl-6 sm:pl-10">
@@ -45,7 +51,7 @@ export const Drawer: React.FC<DrawerProps> = ({
           <div className="flex items-start justify-between border-b-[2.5px] border-[#0A0A0A] px-6 py-5 bg-white">
             <div>
               <SectionEyebrow color="bg-[#6AAAFB]">{eyebrow}</SectionEyebrow>
-              <h2 className="text-2xl font-black text-[#0A0A0A] tracking-tight">{title}</h2>
+              <h2 id="drawer-title" className="text-2xl font-black text-[#0A0A0A] tracking-tight">{title}</h2>
               {subtitle && <p className="mt-1 font-mono text-xs text-[#0A0A0A]/70 font-semibold">{subtitle}</p>}
             </div>
             <button

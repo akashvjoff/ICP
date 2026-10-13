@@ -52,16 +52,20 @@
 ---
 
 ## Milestone 3: Lead Ingestion, Cleaning & Column Mapping (Step 2)
-- [ ] PapaParse file upload (drag & drop CSV/XLSX or raw text paste)
-- [ ] Intelligent column auto-detection (Company Name, Domain/Website, Industry, Headcount, Revenue, Description)
-- [ ] Interactive column mapper with missing field warnings
-- [ ] Data hygiene engine: deduplication by domain, whitespace trimming, URL normalization
-- [ ] Pre-flight summary: total leads, valid records, enriched indicators
+- [x] CSV/XLSX upload with click selection and drag-and-drop (5 MB trust-boundary validation)
+- [x] Intelligent column auto-detection for company, website, firmographic, and commercial fields
+- [x] Interactive column mapper with duplicate-mapping prevention and optional unmapped fields
+- [x] Data hygiene engine: exact-domain deduplication, whitespace trimming, URL normalization, and numeric validation
+- [x] Pre-flight review: total, valid, invalid, possible duplicates, missing mapped values, skipped rows, and preview
+- [x] Authenticated Supabase persistence for datasets and leads with a queued analysis job (AI execution intentionally excluded)
+- [x] Additive upload schema migration, synthetic automated tests, and sample CSV
 
 ---
 
 ## Milestone 4: Gemini-Powered Strategic Marketing Pipeline (Step 3)
-- [ ] Server-side Gemini API client integration with schema validation
+- [x] Secure server-side company intelligence provider with runtime Gemini model discovery, structured Zod validation, provenance, confidence, caching, and persisted errors
+- [x] Mock provider for synthetic tests and optional Ollama local-development adapter
+- [ ] Cohort-level strategic pipeline orchestration beyond individual company intelligence
 - [ ] Step 3A: Need Gap Analysis Engine (Quantifies acute vs latent customer pain and capability coverage)
 - [ ] Step 3B: 5C / Stakeholder Analysis (Company, Customers, Competitors, Collaborators, Context)
 - [ ] Step 3C: STP Engine (Need-based segment clustering, target attractiveness, positioning differentiation)

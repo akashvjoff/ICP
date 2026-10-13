@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { AppLayout } from '../components/layout/AppLayout';
@@ -11,6 +11,7 @@ import { StatusChip } from '../components/ui/StatusChip';
 import { TableShell } from '../components/ui/TableShell';
 import { EmptyState } from '../components/ui/EmptyState';
 import { formatScore, formatHeadcount } from '../lib/formatters';
+import { batchScoreLeads } from '../lib/scoring';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -23,6 +24,9 @@ import {
   Target,
   RefreshCw,
   AlertTriangle,
+  Filter,
+  ArrowUpDown,
+  ShieldAlert,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -35,6 +39,9 @@ export const DashboardPage: React.FC = () => {
     activeDatasetId,
     isDemoMode,
     sellerContext,
+    offering,
+    analysis,
+    weights,
     isContextComplete,
     contextCompletionScore,
     missingContextFields,
@@ -42,15 +49,61 @@ export const DashboardPage: React.FC = () => {
     resetToDemoData,
   } = useAppStore();
 
-  const activeDataset = datasets.find(d => d.id === activeDatasetId) || datasets[0];
+  const [tierFilter, setTierFilter] = useState<string>('all');
+  const [coverageFilter, setCoverageFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'score_desc' | 'score_asc' | 'coverage_desc' | 'headcount_desc'>('score_desc');
+
+  const activeDataset = datasets.find((d) => d.id === activeDatasetId) || datasets[0];
 
   const totalLeads = leads.length;
-  const classifiedCount = leads.filter(l => l.aiClassification).length || totalLeads;
+  const classifiedCount = leads.filter((l) => l.aiClassification).length || totalLeads;
   const candidateSegmentsCount = segments.length;
-  const highFitCount = scores.filter(s => s.tier.includes('Tier 1')).length;
+
+  // Real scores: use store scores if populated, or compute deterministic scores
+  const allScoredLeads = useMemo(() => {
+    if (scores.length > 0) return scores;
+    if (leads.length > 0) {
+      return batchScoreLeads(leads, offering, analysis, weights);
+    }
+    return [];
+  }, [scores, leads, offering, analysis, weights]);
+
+  const highFitCount = allScoredLeads.filter((s) => s.tier.includes('Tier 1') && !s.isDisqualified).length;
 
   const topSegment = segments[0] || null;
-  const topRankedScores = [...scores].sort((a, b) => b.totalScore - a.totalScore).slice(0, 5);
+
+  const filteredAndSortedScores = useMemo(() => {
+    let result = [...allScoredLeads];
+
+    // Filter by tier
+    if (tierFilter !== 'all') {
+      if (tierFilter === 'tier1') result = result.filter((s) => s.tier.includes('Tier 1') && !s.isDisqualified);
+      else if (tierFilter === 'tier2') result = result.filter((s) => s.tier.includes('Tier 2') && !s.isDisqualified);
+      else if (tierFilter === 'tier3') result = result.filter((s) => s.tier.includes('Tier 3') && !s.isDisqualified);
+      else if (tierFilter === 'disqualified') result = result.filter((s) => s.isDisqualified || s.tier.includes('Disqualified'));
+    }
+
+    // Filter by evidence coverage
+    if (coverageFilter === 'sufficient') {
+      result = result.filter((s) => (s.evidenceCoverage ?? 100) >= 70);
+    } else if (coverageFilter === 'insufficient') {
+      result = result.filter((s) => (s.evidenceCoverage ?? 100) < 70);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      const leadA = leads.find((l) => l.id === a.leadId);
+      const leadB = leads.find((l) => l.id === b.leadId);
+
+      if (sortBy === 'score_desc') return b.totalScore - a.totalScore;
+      if (sortBy === 'score_asc') return a.totalScore - b.totalScore;
+      if (sortBy === 'coverage_desc') return (b.evidenceCoverage ?? 100) - (a.evidenceCoverage ?? 100);
+      if (sortBy === 'headcount_desc') return (leadB?.headcount || 0) - (leadA?.headcount || 0);
+      return 0;
+    });
+
+    return result;
+  }, [allScoredLeads, tierFilter, coverageFilter, sortBy, leads]);
 
   return (
     <AppLayout>
@@ -330,21 +383,70 @@ export const DashboardPage: React.FC = () => {
 
             {/* Bottom: Ranked Company Preview Table */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <h3 className="text-xl font-black text-[#0A0A0A] tracking-tight">
                     Ranked Company Preview
                   </h3>
                   <span className="font-mono text-xs font-bold text-[#0A0A0A]/60">
-                    TOP CANDIDATE ACCOUNTS
+                    {filteredAndSortedScores.length} OF {allScoredLeads.length} ACCOUNTS
                   </span>
                 </div>
                 <button
                   onClick={() => navigate('/companies')}
                   className="font-mono text-xs font-black text-[#0A0A0A] hover:text-[#8C6ADE] underline underline-offset-4 cursor-pointer"
                 >
-                  VIEW ALL {scores.length} COMPANIES →
+                  VIEW ALL {leads.length} COMPANIES →
                 </button>
+              </div>
+
+              {/* Filtering & Sorting Controls Bar (Prompt 12) */}
+              <div className="bg-white border-[2px] border-[#0A0A0A] p-3 rounded-xl shadow-[2px_2px_0px_#0A0A0A] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <Filter className="w-3.5 h-3.5 text-[#0A0A0A]/60" />
+                    <span className="font-bold text-[#0A0A0A]/70">TIER:</span>
+                    <select
+                      value={tierFilter}
+                      onChange={(e) => setTierFilter(e.target.value)}
+                      className="bg-[#F9F8F4] border-[1.5px] border-[#0A0A0A] px-2 py-1 rounded font-bold text-[#0A0A0A] cursor-pointer"
+                    >
+                      <option value="all">All Tiers ({allScoredLeads.length})</option>
+                      <option value="tier1">Tier 1: High Conviction</option>
+                      <option value="tier2">Tier 2: Moderate Fit</option>
+                      <option value="tier3">Tier 3: Niche / Edge</option>
+                      <option value="disqualified">Disqualified Accounts</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-[#0A0A0A]/70">COVERAGE:</span>
+                    <select
+                      value={coverageFilter}
+                      onChange={(e) => setCoverageFilter(e.target.value)}
+                      className="bg-[#F9F8F4] border-[1.5px] border-[#0A0A0A] px-2 py-1 rounded font-bold text-[#0A0A0A] cursor-pointer"
+                    >
+                      <option value="all">All Evidence</option>
+                      <option value="sufficient">Sufficient (≥70%)</option>
+                      <option value="insufficient">Insufficient (&lt;70%)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-[#0A0A0A]/60" />
+                  <span className="font-bold text-[#0A0A0A]/70">SORT:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="bg-[#F9F8F4] border-[1.5px] border-[#0A0A0A] px-2 py-1 rounded font-bold text-[#0A0A0A] cursor-pointer"
+                  >
+                    <option value="score_desc">ICP Fit Score (High → Low)</option>
+                    <option value="score_asc">ICP Fit Score (Low → High)</option>
+                    <option value="coverage_desc">Evidence Coverage (High → Low)</option>
+                    <option value="headcount_desc">Headcount (Large → Small)</option>
+                  </select>
+                </div>
               </div>
 
               <TableShell>
@@ -355,13 +457,15 @@ export const DashboardPage: React.FC = () => {
                       <th className="py-3 px-4 font-black tracking-wider uppercase">VERTICAL</th>
                       <th className="py-3 px-4 font-black tracking-wider uppercase text-right">HEADCOUNT</th>
                       <th className="py-3 px-4 font-black tracking-wider uppercase text-right">ICP FIT SCORE</th>
+                      <th className="py-3 px-4 font-black tracking-wider uppercase text-center">COVERAGE</th>
+                      <th className="py-3 px-4 font-black tracking-wider uppercase">INTENT STATUS</th>
                       <th className="py-3 px-4 font-black tracking-wider uppercase">CLASSIFICATION</th>
                       <th className="py-3 px-4 font-black tracking-wider uppercase text-center">ACTION</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y-[1.5px] divide-[#0A0A0A]/15 font-sans font-medium">
-                    {topRankedScores.map((score) => {
-                      const lead = leads.find(l => l.id === score.leadId);
+                    {filteredAndSortedScores.slice(0, 10).map((score) => {
+                      const lead = leads.find((l) => l.id === score.leadId);
                       return (
                         <tr
                           key={score.leadId}
@@ -369,8 +473,13 @@ export const DashboardPage: React.FC = () => {
                           onClick={() => navigate(`/companies/${score.leadId}`)}
                         >
                           <td className="py-3.5 px-4">
-                            <div className="font-extrabold text-[#0A0A0A] text-sm group-hover:text-[#8C6ADE] transition-colors">
-                              {score.companyName}
+                            <div className="font-extrabold text-[#0A0A0A] text-sm group-hover:text-[#8C6ADE] transition-colors flex items-center gap-1.5">
+                              <span>{score.companyName}</span>
+                              {score.isDisqualified && (
+                                <span className="bg-[#FFB6C2] text-rose-900 border border-rose-900 text-[9px] font-mono px-1 py-0.2 rounded font-black">
+                                  DISQUALIFIED
+                                </span>
+                              )}
                             </div>
                             <div className="font-mono text-[11px] text-[#0A0A0A]/60 font-bold">
                               {score.domain || 'No website'}
@@ -388,9 +497,31 @@ export const DashboardPage: React.FC = () => {
                             </span>
                             <span className="text-[#0A0A0A]/40 text-xs font-bold"> / 100</span>
                           </td>
+                          <td className="py-3.5 px-4 text-center font-mono">
+                            <span
+                              className={`px-2 py-0.5 rounded border text-[10px] font-black ${
+                                (score.evidenceCoverage ?? 100) >= 70
+                                  ? 'bg-[#E5F7E5] border-emerald-800 text-emerald-950'
+                                  : 'bg-[#FFB6C2] border-rose-800 text-rose-950'
+                              }`}
+                            >
+                              {score.evidenceCoverage ?? 100}%
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-[10px] font-bold text-[#0A0A0A]/70">
+                            {score.intentLabel || 'BUYING INTENT: UNKNOWN'}
+                          </td>
                           <td className="py-3.5 px-4">
                             <StatusChip
-                              color={score.totalScore >= 80 ? 'mint' : score.totalScore >= 60 ? 'peach' : 'pink'}
+                              color={
+                                score.isDisqualified
+                                  ? 'pink'
+                                  : score.totalScore >= 80
+                                  ? 'mint'
+                                  : score.totalScore >= 60
+                                  ? 'peach'
+                                  : 'pink'
+                              }
                             >
                               {score.tier}
                             </StatusChip>

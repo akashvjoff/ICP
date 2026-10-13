@@ -18,24 +18,29 @@ export const CompaniesPage: React.FC = () => {
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'scoreDesc' | 'scoreAsc' | 'name'>('scoreDesc');
 
-  const filtered = scores
-    .filter((score) => {
-      const lead = leads.find(l => l.id === score.leadId);
+  const companyRows = leads.map((lead) => ({
+    lead,
+    score: scores.find((score) => score.leadId === lead.id),
+  }));
+
+  const filtered = companyRows
+    .filter(({ lead, score }) => {
       const matchesSearch =
-        score.companyName.toLowerCase().includes(search.toLowerCase()) ||
-        (score.domain ? score.domain.toLowerCase().includes(search.toLowerCase()) : false) ||
-        (lead && lead.industry.toLowerCase().includes(search.toLowerCase()));
+        lead.companyName.toLowerCase().includes(search.toLowerCase()) ||
+        (lead.domain ? lead.domain.toLowerCase().includes(search.toLowerCase()) : false) ||
+        lead.industry.toLowerCase().includes(search.toLowerCase());
 
       if (!matchesSearch) return false;
-      if (tierFilter === 'tier1') return score.tier.includes('Tier 1');
-      if (tierFilter === 'tier2') return score.tier.includes('Tier 2');
-      if (tierFilter === 'tier4') return score.tier.includes('Tier 4');
+      if (tierFilter === 'tier1') return (score?.tier.includes('Tier 1') && !score?.isDisqualified) ?? false;
+      if (tierFilter === 'tier2') return (score?.tier.includes('Tier 2') && !score?.isDisqualified) ?? false;
+      if (tierFilter === 'tier3') return (score?.tier.includes('Tier 3') && !score?.isDisqualified) ?? false;
+      if (tierFilter === 'tier4' || tierFilter === 'disqualified') return (score?.isDisqualified || score?.tier.includes('Disqualified') || score?.tier.includes('Tier 4')) ?? false;
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === 'scoreDesc') return b.totalScore - a.totalScore;
-      if (sortBy === 'scoreAsc') return a.totalScore - b.totalScore;
-      return a.companyName.localeCompare(b.companyName);
+      if (sortBy === 'scoreDesc') return (b.score?.totalScore ?? -1) - (a.score?.totalScore ?? -1);
+      if (sortBy === 'scoreAsc') return (a.score?.totalScore ?? Number.MAX_SAFE_INTEGER) - (b.score?.totalScore ?? Number.MAX_SAFE_INTEGER);
+      return a.lead.companyName.localeCompare(b.lead.companyName);
     });
 
   return (
@@ -89,7 +94,7 @@ export const CompaniesPage: React.FC = () => {
                 tierFilter === 'all' ? 'bg-[#A1F000] text-[#0A0A0A] shadow-[2px_2px_0px_#0A0A0A]' : 'bg-white text-[#0A0A0A]'
               }`}
             >
-              ALL ({scores.length})
+              ALL ({leads.length})
             </button>
             <button
               onClick={() => setTierFilter('tier1')}
@@ -106,6 +111,14 @@ export const CompaniesPage: React.FC = () => {
               }`}
             >
               TIER 2
+            </button>
+            <button
+              onClick={() => setTierFilter('tier3')}
+              className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold border-[2px] border-[#0A0A0A] cursor-pointer ${
+                tierFilter === 'tier3' ? 'bg-[#E4E6FB] text-[#0A0A0A] shadow-[2px_2px_0px_#0A0A0A]' : 'bg-white text-[#0A0A0A]'
+              }`}
+            >
+              TIER 3
             </button>
             <button
               onClick={() => setTierFilter('tier4')}
@@ -151,20 +164,19 @@ export const CompaniesPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map((score) => {
-                  const lead = leads.find(l => l.id === score.leadId);
+                filtered.map(({ lead, score }) => {
                   return (
                     <tr
-                      key={score.leadId}
+                      key={lead.id}
                       className="hover:bg-[#FFE3B3]/20 transition-colors cursor-pointer group"
-                      onClick={() => navigate(`/companies/${score.leadId}`)}
+                      onClick={() => navigate(`/companies/${lead.id}`)}
                     >
                       <td className="py-3.5 px-4">
                         <div className="font-extrabold text-[#0A0A0A] text-sm group-hover:text-[#8C6ADE] transition-colors">
-                          {score.companyName}
+                          {lead.companyName}
                         </div>
                         <div className="font-mono text-[11px] text-[#0A0A0A]/60 font-bold">
-                          {score.domain || 'No website'}
+                          {lead.domain || 'No website'}
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-[#0A0A0A]/85 font-semibold">
@@ -178,22 +190,22 @@ export const CompaniesPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono tabular-nums">
                         <span className="text-base font-black text-[#0A0A0A]">
-                          {formatScore(score.totalScore)}
+                          {score ? formatScore(score.totalScore) : '—'}
                         </span>
-                        <span className="text-[#0A0A0A]/40 text-xs font-bold"> / 100</span>
+                        {score && <span className="text-[#0A0A0A]/40 text-xs font-bold"> / 100</span>}
                       </td>
                       <td className="py-3.5 px-4">
                         <StatusChip
-                          color={score.totalScore >= 80 ? 'mint' : score.totalScore >= 60 ? 'peach' : 'pink'}
+                          color={!score ? 'lavender' : score.totalScore >= 80 ? 'mint' : score.totalScore >= 60 ? 'peach' : 'pink'}
                         >
-                          {score.tier}
+                          {score?.tier || 'PENDING'}
                         </StatusChip>
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/companies/${score.leadId}`);
+                            navigate(`/companies/${lead.id}`);
                           }}
                           className="font-mono text-xs font-black text-[#0A0A0A] bg-[#FFE3B3] border-[1.5px] border-[#0A0A0A] px-2.5 py-1 rounded-md shadow-[1.5px_1.5px_0px_#0A0A0A] hover:bg-[#A1F000] cursor-pointer inline-flex items-center gap-1"
                         >

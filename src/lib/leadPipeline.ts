@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import type { Cell } from 'exceljs';
 import { z } from 'zod';
 import {
   RawLeadRecord,
@@ -59,6 +59,83 @@ export interface PipelineProcessResult {
   invalidRows: IngestionError[];
   duplicateGroups: DuplicateGroup[];
   summary: LeadValidationSummary;
+}
+
+const OPTIONAL_MAPPING_FIELDS: Array<keyof ColumnMapping> = [
+  'industry',
+  'companyType',
+  'headcount',
+  'country',
+  'product',
+  'businessModel',
+  'leadStage',
+  'dealValue',
+  'currency',
+  'annualRevenue',
+  'retentionMonths',
+  'customerPain',
+  'reasonWonLost',
+  'description',
+  'technologies',
+];
+
+const ALLOWED_LEAD_STATUSES = new Set([
+  'new',
+  'qualified',
+  'disqualified',
+  'contacted',
+  'opportunity',
+  'won',
+  'lost',
+]);
+
+function hasValue(value: unknown): boolean {
+  return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+function sanitizeUntrustedCell(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const text = String(value).trim();
+  if (/^[=+@\t\r]/.test(text) || (/^-/.test(text) && !/^-\d+(?:\.\d+)?$/.test(text))) {
+    return `'${text}`;
+  }
+  return text;
+}
+
+function parseOptionalNumber(
+  value: unknown,
+  fieldLabel: string,
+  warnings: string[],
+  integer = false
+): number | null {
+  if (!hasValue(value)) return null;
+  const text = String(value).trim();
+  const normalized = text.replace(/[$,£€₹\s]/g, '');
+  if (!/^-?\d+(?:\.\d+)?$/.test(normalized)) {
+    warnings.push(`${fieldLabel} "${text}" is not a valid number and was stored as blank.`);
+    return null;
+  }
+  const parsed = integer ? Number.parseInt(normalized, 10) : Number.parseFloat(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    warnings.push(`${fieldLabel} "${text}" must be zero or greater and was stored as blank.`);
+    return null;
+  }
+  return parsed;
+}
+
+export function validateUniqueMapping(mapping: ColumnMapping): string[] {
+  const used = new Map<string, string>();
+  const errors: string[] = [];
+  Object.entries(mapping).forEach(([target, source]) => {
+    if (!source) return;
+    const existing = used.get(source);
+    if (existing) {
+      errors.push(`Column "${source}" cannot map to both ${existing} and ${target}.`);
+    } else {
+      used.set(source, target);
+    }
+  });
+  return errors;
 }
 
 // ------------------------------------------------------------------------------
@@ -190,7 +267,15 @@ export function autoDetectColumns(headers: string[]): ColumnMapping {
     )) {
       mapping.description = h.raw;
     }
-    // 9. Business Model
+    // 9. Company Type
+    else if (!mapping.companyType && (
+      h.lower === 'company type' ||
+      h.lower === 'organization type' ||
+      h.lower === 'account type'
+    )) {
+      mapping.companyType = h.raw;
+    }
+    // 10. Business Model
     else if (!mapping.businessModel && (
       h.lower.includes('business model') ||
       h.lower.includes('model') ||
@@ -198,7 +283,7 @@ export function autoDetectColumns(headers: string[]): ColumnMapping {
     )) {
       mapping.businessModel = h.raw;
     }
-    // 10. Product / Service
+    // 11. Product / Service
     else if (!mapping.product && (
       h.lower.includes('product') ||
       h.lower.includes('offering') ||
@@ -206,7 +291,7 @@ export function autoDetectColumns(headers: string[]): ColumnMapping {
     )) {
       mapping.product = h.raw;
     }
-    // 11. Deal Value / Opportunity
+    // 12. Deal Value / Opportunity
     else if (!mapping.dealValue && (
       h.lower.includes('deal value') ||
       h.lower.includes('deal_value') ||
@@ -215,7 +300,23 @@ export function autoDetectColumns(headers: string[]): ColumnMapping {
     )) {
       mapping.dealValue = h.raw;
     }
-    // 12. Lead Stage / Status
+    // 13. Currency
+    else if (!mapping.currency && (
+      h.lower === 'currency' ||
+      h.lower === 'currency code' ||
+      h.lower === 'iso currency'
+    )) {
+      mapping.currency = h.raw;
+    }
+    // 14. Retention
+    else if (!mapping.retentionMonths && (
+      h.lower.includes('retention') ||
+      h.lower.includes('months retained') ||
+      h.lower.includes('tenure')
+    )) {
+      mapping.retentionMonths = h.raw;
+    }
+    // 15. Lead Stage / Status
     else if (!mapping.leadStage && (
       h.lower.includes('stage') ||
       h.lower.includes('lead_status') ||
@@ -223,7 +324,7 @@ export function autoDetectColumns(headers: string[]): ColumnMapping {
     )) {
       mapping.leadStage = h.raw;
     }
-    // 13. Customer Pain
+    // 16. Customer Pain
     else if (!mapping.customerPain && (
       h.lower.includes('pain') ||
       h.lower.includes('problem') ||
@@ -232,7 +333,7 @@ export function autoDetectColumns(headers: string[]): ColumnMapping {
     )) {
       mapping.customerPain = h.raw;
     }
-    // 14. Reason Won / Lost
+    // 17. Reason Won / Lost
     else if (!mapping.reasonWonLost && (
       h.lower.includes('won') ||
       h.lower.includes('lost') ||
@@ -262,7 +363,7 @@ export function autoDetectColumns(headers: string[]): ColumnMapping {
 // ------------------------------------------------------------------------------
 
 /**
- * Validates file meta (size, extension) and parses CSV, TSV, or XLSX.
+ * Validates file metadata and parses CSV or XLSX without executing formulas.
  */
 export async function parseLeadFile(file: File): Promise<ParseResult> {
   const fileName = file.name;
@@ -287,78 +388,112 @@ export async function parseLeadFile(file: File): Promise<ParseResult> {
     throw new Error(`The file "${fileName}" is empty (0 bytes).`);
   }
 
-  const isExcel = fileName.toLowerCase().endsWith('.xlsx') || fileName.toLowerCase().endsWith('.xls');
+  return parseLeadBytes(fileName, new Uint8Array(await file.arrayBuffer()), fileSizeBytes);
+}
 
-  if (isExcel) {
-    return parseExcelFile(file);
-  } else {
-    return parseCsvFile(file);
+export async function parseLeadBytes(
+  fileName: string,
+  bytes: Uint8Array,
+  declaredSizeBytes = bytes.byteLength
+): Promise<ParseResult> {
+  if (!isAllowedExtension(fileName)) {
+    throw new Error(`Unsupported file extension for "${fileName}". Please provide a .csv or .xlsx spreadsheet.`);
   }
+  if (declaredSizeBytes !== bytes.byteLength) {
+    throw new Error('Uploaded file size did not match the received content. Please select the file again.');
+  }
+  if (bytes.byteLength > UPLOAD_CONFIG.MAX_FILE_SIZE_BYTES) {
+    throw new Error(`File exceeds the maximum allowed limit of ${UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}.`);
+  }
+  if (bytes.byteLength === 0) {
+    throw new Error(`The file "${fileName}" is empty (0 bytes).`);
+  }
+  return fileName.toLowerCase().endsWith('.xlsx')
+    ? parseExcelBytes(fileName, bytes)
+    : parseCsvText(fileName, new TextDecoder('utf-8', { fatal: false }).decode(bytes), bytes.byteLength);
 }
 
 /**
- * Parse Excel .xlsx or .xls file using sheetjs
+ * Parse an Excel .xlsx file using SheetJS with formula extraction disabled.
  */
-async function parseExcelFile(file: File): Promise<ParseResult> {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+function excelCellText(cell: Cell): string {
+  const value = cell.value;
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object' && 'formula' in value) {
+    return sanitizeUntrustedCell(`=${String(value.formula)}`);
+  }
+  if (typeof value === 'object' && 'richText' in value) {
+    return sanitizeUntrustedCell(value.richText.map((part) => part.text).join(''));
+  }
+  if (typeof value === 'object' && 'text' in value) {
+    return sanitizeUntrustedCell(String(value.text));
+  }
+  return sanitizeUntrustedCell(cell.text || String(value));
+}
 
-    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+async function parseExcelBytes(fileName: string, bytes: Uint8Array): Promise<ParseResult> {
+  try {
+    const { default: ExcelJS } = await import('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    const workbookBytes = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength
+    ) as Parameters<typeof workbook.xlsx.load>[0];
+    await workbook.xlsx.load(workbookBytes);
+
+    if (workbook.worksheets.length === 0) {
       throw new Error('Excel workbook contains no sheets.');
     }
 
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
+    const worksheet = workbook.worksheets[0];
     if (!worksheet) {
-      throw new Error(`First sheet "${firstSheetName}" is empty or unreadable.`);
+      throw new Error('The first Excel worksheet is empty or unreadable.');
     }
 
-    // Convert sheet to json 2D array of rows
-    const jsonData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
-      header: 1,
-      blankrows: false,
+    if (worksheet.actualRowCount === 0) {
+      throw new Error(`The Excel spreadsheet "${fileName}" contains no data rows.`);
+    }
+
+    const headerRow = worksheet.getRow(1);
+    const columnCount = Math.max(headerRow.cellCount, worksheet.actualColumnCount);
+    const headers = Array.from({ length: columnCount }, (_, index) => {
+      const text = excelCellText(headerRow.getCell(index + 1));
+      return text || `Column_${index + 1}`;
     });
-
-    if (!jsonData || jsonData.length === 0) {
-      throw new Error(`The Excel spreadsheet "${file.name}" contains no data rows.`);
-    }
-
-    // First row is headers
-    const rawHeaderRow = jsonData[0] || [];
-    const headers = rawHeaderRow.map((h, i) => (h !== undefined && h !== null ? String(h).trim() : `Column_${i + 1}`));
 
     if (headers.length === 0) {
       throw new Error('No column headers detected in the Excel sheet.');
     }
+    if (new Set(headers.map((header) => header.toLowerCase())).size !== headers.length) {
+      throw new Error('Duplicate column headers were detected. Rename duplicate headers and upload the file again.');
+    }
 
     // Subsequent rows are data
     const rawRows: RawLeadRecord[] = [];
-    for (let r = 1; r < jsonData.length; r++) {
-      const rowArr = jsonData[r] || [];
-      // Skip totally blank rows
-      if (rowArr.every((cell) => cell === undefined || cell === null || String(cell).trim() === '')) {
+    for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+      const row = worksheet.getRow(rowNumber);
+      const cellValues = headers.map((_, index) => excelCellText(row.getCell(index + 1)));
+      if (cellValues.every((value) => value === '')) {
         continue;
       }
 
       const rowObj: RawLeadRecord = {};
       headers.forEach((hdr, idx) => {
-        const val = rowArr[idx];
-        rowObj[hdr] = val !== undefined && val !== null ? String(val).trim() : '';
+        rowObj[hdr] = cellValues[idx];
       });
       rawRows.push(rowObj);
     }
 
     if (rawRows.length === 0) {
-      throw new Error(`No lead records found under the headers in "${file.name}".`);
+      throw new Error(`No lead records found under the headers in "${fileName}".`);
     }
 
     const detectedMapping = autoDetectColumns(headers);
     const piiColumnsDetected = detectPiiColumns(headers);
 
     return {
-      fileName: file.name,
-      fileSizeBytes: file.size,
+      fileName,
+      fileSizeBytes: bytes.byteLength,
       headers,
       rawRows,
       detectedMapping,
@@ -372,13 +507,11 @@ async function parseExcelFile(file: File): Promise<ParseResult> {
 }
 
 /**
- * Parse CSV / TSV / TXT file using PapaParse with automatic delimiter detection
+ * Parse CSV text using PapaParse with safe delimiter detection.
  */
-async function parseCsvFile(file: File): Promise<ParseResult> {
-  const content = await file.text();
-
+async function parseCsvText(fileName: string, content: string, fileSizeBytes: number): Promise<ParseResult> {
   if (!content.trim()) {
-    throw new Error(`The file "${file.name}" is completely blank.`);
+    throw new Error(`The file "${fileName}" is completely blank.`);
   }
 
   return new Promise((resolve, reject) => {
@@ -391,23 +524,29 @@ async function parseCsvFile(file: File): Promise<ParseResult> {
         const headers = (results.meta.fields || []).map((h) => h.trim());
 
         if (headers.length === 0) {
-          reject(new Error(`No column headers detected in "${file.name}". Please ensure the first row contains column names.`));
+          reject(new Error(`No column headers detected in "${fileName}". Please ensure the first row contains column names.`));
           return;
         }
 
-        const rawRows = results.data;
-        if (!rawRows || rawRows.length === 0) {
-          reject(new Error(`No lead rows detected in "${file.name}".`));
+        if (!results.data || results.data.length === 0) {
+          reject(new Error(`No lead rows detected in "${fileName}".`));
           return;
         }
 
+        if (new Set(headers.map((header) => header.toLowerCase())).size !== headers.length) {
+          reject(new Error('Duplicate column headers were detected. Rename duplicate headers and upload the file again.'));
+          return;
+        }
+        const rawRows = results.data.map((row) => Object.fromEntries(
+          Object.entries(row).map(([key, value]) => [key.trim(), sanitizeUntrustedCell(value)])
+        ));
         const detectedMapping = autoDetectColumns(headers);
         const piiColumnsDetected = detectPiiColumns(headers);
         const parseErrors = results.errors.map((e) => `Line ${e.row}: ${e.message}`);
 
         resolve({
-          fileName: file.name,
-          fileSizeBytes: file.size,
+          fileName,
+          fileSizeBytes,
           headers,
           rawRows,
           detectedMapping,
@@ -446,15 +585,22 @@ export function processLeadPipeline(
 
   const validLeads: NormalizedLead[] = [];
   const invalidRows: IngestionError[] = [];
+  let missingOptionalValuesCount = 0;
+  let recordsWithMissingOptionalValues = 0;
+
+  const mappingErrors = validateUniqueMapping(mapping);
+  if (mappingErrors.length > 0) {
+    throw new Error(mappingErrors.join(' '));
+  }
+  if (!mapping.companyName && !mapping.domain) {
+    throw new Error('Map at least Company Name or Website/Domain before validating records.');
+  }
 
   // Data structures for duplicate tracking
   const domainLeadMap = new Map<string, NormalizedLead[]>();
   const nameLeadMap = new Map<string, NormalizedLead[]>();
 
-  // Cap at maxTotalRows (e.g. 500)
-  const rowsToProcess = rawRows.slice(0, maxTotalRows);
-
-  rowsToProcess.forEach((raw, index) => {
+  rawRows.forEach((raw, index) => {
     const rowNum = index + 1;
 
     // Scrub PII from raw audit object if configured
@@ -473,10 +619,12 @@ export function processLeadPipeline(
       ? String(raw[mapping.domain]).trim()
       : '';
 
-    // ZOD Schema Validation: requires at least name OR domain
+    const normalizedDomain = normalizeCompanyDomain(rawWebsite);
+
+    // ZOD Schema Validation: requires a name or a syntactically valid domain.
     const validationCheck = LeadRowValidator.safeParse({
       companyName: rawCompanyName,
-      domain: rawWebsite,
+      domain: normalizedDomain,
     });
 
     if (!validationCheck.success) {
@@ -484,52 +632,70 @@ export function processLeadPipeline(
         rowNumber: rowNum,
         companyName: rawCompanyName || undefined,
         domain: rawWebsite || undefined,
-        reason: 'Missing required identifier: row contains neither a valid Company Name nor a Website/Domain.',
+        reason: rawWebsite
+          ? 'Missing required identifier: the Website/Domain value is invalid and Company Name is blank.'
+          : 'Missing required identifier: row contains neither a Company Name nor a Website/Domain.',
         raw: sanitizedRaw,
       });
       return;
     }
 
-    // Normalize domain
-    const normalizedDomain = normalizeCompanyDomain(rawWebsite);
     const hasValidDomain = Boolean(normalizedDomain);
+
+    if (validLeads.length >= maxTotalRows) {
+      invalidRows.push({
+        rowNumber: rowNum,
+        companyName: rawCompanyName || undefined,
+        domain: normalizedDomain || rawWebsite || undefined,
+        reason: `Valid-record limit exceeded. A dataset can store at most ${maxTotalRows} valid records.`,
+        raw: sanitizedRaw,
+      });
+      return;
+    }
 
     // Final company name: if missing but domain present, derive friendly display name from domain
     let companyName = rawCompanyName;
     if (!companyName && normalizedDomain) {
       // Derive friendly name e.g. "stripe.com" -> "Stripe"
-      const domainParts = normalizedDomain.split('.')[0];
-      companyName = domainParts.charAt(0).toUpperCase() + domainParts.slice(1);
-    } else if (!companyName) {
-      companyName = `Account ${rowNum}`;
+      companyName = normalizedDomain;
     }
+
+    const validationWarnings: string[] = [];
+    const mappedOptionalFields = OPTIONAL_MAPPING_FIELDS.filter((field) => Boolean(mapping[field]));
+    const rowMissingCount = mappedOptionalFields.filter((field) => {
+      const source = mapping[field];
+      return source ? !hasValue(raw[source]) : false;
+    }).length;
+    missingOptionalValuesCount += rowMissingCount;
+    if (rowMissingCount > 0) recordsWithMissingOptionalValues += 1;
 
     // Optional Firmographics
-    const industry = mapping.industry && raw[mapping.industry]
+    const industry = mapping.industry && hasValue(raw[mapping.industry])
       ? String(raw[mapping.industry]).trim()
-      : 'General Enterprise / Tech';
+      : '';
 
     // Parse headcount
-    let headcount: number | null = null;
-    if (mapping.headcount && raw[mapping.headcount] !== undefined) {
-      const cleaned = String(raw[mapping.headcount]).replace(/[^0-9]/g, '');
-      if (cleaned) headcount = parseInt(cleaned, 10);
-    }
+    const headcount = mapping.headcount
+      ? parseOptionalNumber(raw[mapping.headcount], 'Employees', validationWarnings, true)
+      : null;
 
     // Revenue
-    const annualRevenue = mapping.annualRevenue && raw[mapping.annualRevenue]
+    const annualRevenue = mapping.annualRevenue && hasValue(raw[mapping.annualRevenue])
       ? String(raw[mapping.annualRevenue]).trim()
+      : null;
+    const annualRevenueValue = mapping.annualRevenue
+      ? parseOptionalNumber(raw[mapping.annualRevenue], 'Annual revenue', validationWarnings)
       : null;
 
     // Description
-    const description = mapping.description && raw[mapping.description]
+    const description = mapping.description && hasValue(raw[mapping.description])
       ? String(raw[mapping.description]).trim()
-      : `${companyName} operating in ${industry}.`;
+      : '';
 
     // Country / Geography
-    const country = mapping.country && raw[mapping.country]
+    const country = mapping.country && hasValue(raw[mapping.country])
       ? String(raw[mapping.country]).trim()
-      : 'Global';
+      : '';
 
     // Technologies
     let technologies: string[] = [];
@@ -541,24 +707,32 @@ export function processLeadPipeline(
     }
 
     // Optional Commercials
-    const companyType = mapping.companyType && raw[mapping.companyType] ? String(raw[mapping.companyType]).trim() : undefined;
-    const businessModel = mapping.businessModel && raw[mapping.businessModel] ? String(raw[mapping.businessModel]).trim() : undefined;
-    const productRaw = mapping.product && raw[mapping.product] ? String(raw[mapping.product]).trim() : undefined;
-    const leadStage = mapping.leadStage && raw[mapping.leadStage] ? String(raw[mapping.leadStage]).trim() : 'new';
-    
-    let dealValue: number | null = null;
-    if (mapping.dealValue && raw[mapping.dealValue]) {
-      const numVal = parseFloat(String(raw[mapping.dealValue]).replace(/[^0-9.-]/g, ''));
-      if (!isNaN(numVal)) dealValue = numVal;
+    const companyType = mapping.companyType && hasValue(raw[mapping.companyType]) ? String(raw[mapping.companyType]).trim() : undefined;
+    const businessModel = mapping.businessModel && hasValue(raw[mapping.businessModel]) ? String(raw[mapping.businessModel]).trim() : undefined;
+    const productRaw = mapping.product && hasValue(raw[mapping.product]) ? String(raw[mapping.product]).trim() : undefined;
+    const rawLeadStage = mapping.leadStage && hasValue(raw[mapping.leadStage])
+      ? String(raw[mapping.leadStage]).trim().toLowerCase()
+      : 'new';
+    const leadStage = ALLOWED_LEAD_STATUSES.has(rawLeadStage) ? rawLeadStage : 'new';
+    if (rawLeadStage !== leadStage) {
+      validationWarnings.push(`Lead status "${rawLeadStage}" is unsupported and was normalized to "new".`);
     }
 
-    const currency = mapping.currency && raw[mapping.currency] ? String(raw[mapping.currency]).trim() : 'USD';
+    const dealValue = mapping.dealValue
+      ? parseOptionalNumber(raw[mapping.dealValue], 'Deal value', validationWarnings)
+      : null;
 
-    let retentionMonths: number | null = null;
-    if (mapping.retentionMonths && raw[mapping.retentionMonths]) {
-      const numRet = parseInt(String(raw[mapping.retentionMonths]).replace(/[^0-9]/g, ''), 10);
-      if (!isNaN(numRet)) retentionMonths = numRet;
+    const rawCurrency = mapping.currency && hasValue(raw[mapping.currency])
+      ? String(raw[mapping.currency]).trim().toUpperCase()
+      : null;
+    const currency = rawCurrency && /^[A-Z]{3}$/.test(rawCurrency) ? rawCurrency : null;
+    if (rawCurrency && !currency) {
+      validationWarnings.push(`Currency "${rawCurrency}" is not a three-letter ISO code and was stored as blank.`);
     }
+
+    const retentionMonths = mapping.retentionMonths
+      ? parseOptionalNumber(raw[mapping.retentionMonths], 'Retention months', validationWarnings, true)
+      : null;
 
     const customerPain = mapping.customerPain && raw[mapping.customerPain] ? String(raw[mapping.customerPain]).trim() : undefined;
     const reasonWonLost = mapping.reasonWonLost && raw[mapping.reasonWonLost] ? String(raw[mapping.reasonWonLost]).trim() : undefined;
@@ -582,6 +756,7 @@ export function processLeadPipeline(
       industry,
       headcount,
       annualRevenue,
+      annualRevenueValue,
       description,
       country,
       technologies,
@@ -596,15 +771,16 @@ export function processLeadPipeline(
       reasonWonLost,
       isAiEnriched,
       enrichmentTier,
+      analysisStatus: isAiEnriched ? 'pending' : 'skipped',
       isClean: true,
       isDuplicate: false,
-      validationWarnings: [],
+      validationWarnings,
       rawRow: sanitizedRaw,
       ingestedAt: new Date().toISOString(),
     };
 
     if (!hasValidDomain) {
-      lead.validationWarnings?.push('No valid company domain provided. AI enrichment capability will be limited.');
+      lead.validationWarnings?.push('No valid company domain provided. Later enrichment capability will be limited.');
     }
 
     // Duplicate tracking
@@ -650,7 +826,7 @@ export function processLeadPipeline(
     }
   });
 
-  // 2. Check exact company name collisions where domain is absent or different
+  // 2. Flag exact normalized-name collisions for review, but never auto-merge them.
   nameLeadMap.forEach((matchedLeads, nameKey) => {
     if (matchedLeads.length > 1) {
       // Check if not already caught by exact domain
@@ -658,19 +834,13 @@ export function processLeadPipeline(
       if (domains.size > 1 || domains.size === 0) {
         duplicateGroups.push({
           key: `dup-name-${nameKey}`,
-          type: domains.size > 1 ? 'uncertain' : 'exact_name',
+          type: 'uncertain',
           companyName: matchedLeads[0].companyName,
           leads: matchedLeads,
         });
 
-        matchedLeads.forEach((l, idx) => {
-          if (idx > 0 && !l.isDuplicate) {
-            l.isDuplicate = true;
-            l.duplicateReason = domains.size > 1
-              ? `Uncertain duplicate: Same name (${l.companyName}) but different domains.`
-              : `Exact name collision (${l.companyName}).`;
-            l.duplicateGroupKey = `dup-name-${nameKey}`;
-          }
+        matchedLeads.forEach((lead) => {
+          lead.validationWarnings?.push(`Possible duplicate name: ${lead.companyName}. Review manually; this record was not auto-merged.`);
         });
       }
     }
@@ -682,7 +852,19 @@ export function processLeadPipeline(
     finalLeads = validLeads.filter((l) => !l.isDuplicate);
   }
 
-  const duplicateRowsCount = validLeads.filter((l) => l.isDuplicate).length;
+  // Allocate the later-analysis allowance only after exact-domain duplicates
+  // have been removed so that up to 100 distinct stored records are eligible.
+  finalLeads.forEach((lead, index) => {
+    lead.isAiEnriched = index < maxAiEnrichedDemo;
+    lead.enrichmentTier = lead.isAiEnriched
+      ? (lead.hasValidDomain ? 'full' : 'limited')
+      : 'stored_only';
+  });
+
+  const duplicateRowsCount = duplicateGroups.reduce(
+    (count, group) => count + Math.max(0, group.leads.length - 1),
+    0
+  );
   const aiEligibleCount = finalLeads.filter((l) => l.isAiEnriched).length;
   const storedOnlyCount = finalLeads.filter((l) => !l.isAiEnriched).length;
 
@@ -697,6 +879,8 @@ export function processLeadPipeline(
       duplicateRowsCount,
       aiEligibleCount,
       storedOnlyCount,
+      missingOptionalValuesCount,
+      recordsWithMissingOptionalValues,
       hasPiiAlert: piiColumns.length > 0,
       piiColumnsDetected: piiColumns,
     },

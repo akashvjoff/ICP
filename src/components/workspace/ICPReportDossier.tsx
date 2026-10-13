@@ -51,15 +51,24 @@ export const ICPReportDossier: React.FC<ICPReportDossierProps> = ({
   const disqualifiedCount = scores.filter(s => s.tier.includes('Tier 4')).length;
 
   const handleExportCSV = () => {
+    const sanitizeCsv = (val: unknown): string => {
+      if (val === null || val === undefined) return '""';
+      let str = String(val).replace(/"/g, '""');
+      if (/^[=+\-@\t\r]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str}"`;
+    };
+
     const headers = ['Company Name', 'Domain', 'ICP Fit Score', 'Tier', 'Recommended Action', 'Key Strengths', 'Key Disqualifiers'];
     const rows = scores.map(s => [
-      `"${s.companyName}"`,
-      `"${s.domain}"`,
+      sanitizeCsv(s.companyName),
+      sanitizeCsv(s.domain),
       s.totalScore,
-      `"${s.tier}"`,
-      `"${s.recommendedAction}"`,
-      `"${s.primaryStrengths.join('; ')}"`,
-      `"${s.primaryDisqualifiers.join('; ')}"`
+      sanitizeCsv(s.tier),
+      sanitizeCsv(s.recommendedAction),
+      sanitizeCsv(s.primaryStrengths.join('; ')),
+      sanitizeCsv(s.primaryDisqualifiers.join('; '))
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);

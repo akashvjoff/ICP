@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore, DatasetMeta } from '../lib/store';
 import { useAuth } from '../lib/auth';
-import { supabaseService, isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SectionHeading } from '../components/ui/SectionHeading';
 import { SectionEyebrow } from '../components/ui/SectionEyebrow';
@@ -21,8 +21,7 @@ import {
   PipelineProcessResult,
 } from '../lib/leadPipeline';
 import { UPLOAD_CONFIG, formatBytes } from '../lib/uploadConfig';
-import { SAMPLE_LEADS } from '../lib/mockData';
-import { RawLeadRecord, ColumnMapping, NormalizedLead, IngestionError, DuplicateGroup } from '../types/lead';
+import { RawLeadRecord, ColumnMapping } from '../types/lead';
 import { formatHeadcount } from '../lib/formatters';
 import {
   UploadCloud,
@@ -45,7 +44,7 @@ import {
 export const UploadWizardPage: React.FC = () => {
   const { navigate } = useRouter();
   const { addDataset, addToast, isContextComplete, missingContextFields } = useAppStore();
-  const { workspaceUser } = useAuth();
+  const { session } = useAuth();
 
   // Wizard Navigation
   const [wizardStep, setWizardStep] = useState<number>(1);
@@ -62,6 +61,7 @@ export const UploadWizardPage: React.FC = () => {
   const [rawRows, setRawRows] = useState<RawLeadRecord[]>([]);
   const [mapping, setMapping] = useState<ColumnMapping>({});
   const [piiColumnsDetected, setPiiColumnsDetected] = useState<string[]>([]);
+  const [parseWarnings, setParseWarnings] = useState<string[]>([]);
 
   // Pipeline result
   const [pipelineResult, setPipelineResult] = useState<PipelineProcessResult | null>(null);
@@ -110,6 +110,7 @@ export const UploadWizardPage: React.FC = () => {
       setRawRows(parsed.rawRows);
       setMapping(parsed.detectedMapping);
       setPiiColumnsDetected(parsed.piiColumnsDetected);
+      setParseWarnings(parsed.parseErrors);
 
       // Run pipeline on raw rows with auto-detected mapping
       const res = processLeadPipeline(parsed.rawRows, parsed.detectedMapping, {
@@ -159,73 +160,25 @@ export const UploadWizardPage: React.FC = () => {
   };
 
   const handleLoadCalibratedSample = () => {
-    setFile(null);
-    setFileName('Q1_Enterprise_Observed_Leads.csv');
-    setFileSizeStr('14.2 KB');
-    setFileError(null);
-
-    const norm = SAMPLE_LEADS;
-    const headers = [
-      'Company Name',
-      'Domain',
-      'Industry',
-      'Headcount',
-      'Annual Revenue',
-      'Technologies',
-      'Description',
-      'Country',
-      'Business Model',
-      'Lead Stage',
-      'Deal Value',
-    ];
-    setRawHeaders(headers);
-
-    const rows: RawLeadRecord[] = norm.map((l) => ({
-      'Company Name': l.companyName,
-      Domain: l.domain || '',
-      Industry: l.industry,
-      Headcount: l.headcount || 0,
-      'Annual Revenue': l.annualRevenue || '',
-      Technologies: l.technologies.join(', '),
-      Description: l.description,
-      Country: l.country,
-      'Business Model': 'B2B SaaS',
-      'Lead Stage': 'qualified',
-      'Deal Value': '65000',
-    }));
-
-    setRawRows(rows);
-    const detected: ColumnMapping = {
-      companyName: 'Company Name',
-      domain: 'Domain',
-      industry: 'Industry',
-      headcount: 'Headcount',
-      annualRevenue: 'Annual Revenue',
-      technologies: 'Technologies',
-      description: 'Description',
-      country: 'Country',
-      businessModel: 'Business Model',
-      leadStage: 'Lead Stage',
-      dealValue: 'Deal Value',
-    };
-    setMapping(detected);
-    setPiiColumnsDetected([]);
-
-    const res = processLeadPipeline(rows, detected, {
-      maxTotalRows: UPLOAD_CONFIG.MAX_ROWS_PER_DATASET,
-      maxAiEnrichedDemo: UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO,
-      skipDuplicates: true,
-    });
-    setPipelineResult(res);
-
-    addToast('Calibrated benchmark sample leads loaded.', 'info');
-    setWizardStep(2);
+    const content = generateSampleCsvContent();
+    const sampleFile = new File([content], 'Q1_Enterprise_Observed_Leads.csv', { type: 'text/csv' });
+    void handleProcessSelectedFile(sampleFile);
   };
 
   // ----------------------------------------------------------------------------
   // STEP 2: COLUMN MAPPING
   // ----------------------------------------------------------------------------
   const handleUpdateMapping = (field: keyof ColumnMapping, val: string) => {
+    const duplicateTarget = Object.entries(mapping).find(
+      ([target, source]) => target !== field && Boolean(val) && source === val
+    );
+    if (duplicateTarget) {
+      const message = `Column "${val}" is already mapped to ${duplicateTarget[0]}. Choose a different source column.`;
+      setFileError(message);
+      addToast(message, 'warning');
+      return;
+    }
+    setFileError(null);
     const updated = { ...mapping, [field]: val || undefined };
     setMapping(updated);
     runPipeline(rawRows, updated, skipDuplicates);
@@ -252,93 +205,73 @@ export const UploadWizardPage: React.FC = () => {
     setIsProcessing(true);
     setProcessingError(null);
     setProgressPercent(10);
-    setProcessingStage('Phase 1/4: Sanitizing records & verifying domain protocols...');
+    setProcessingStage('Revalidating the original file at the secure upload boundary...');
 
     const finalLeads = pipelineResult.validLeads;
+    let storedLeads = finalLeads;
     const newDatasetId = `dataset-${Date.now().toString().slice(-6)}`;
     setCreatedDatasetId(newDatasetId);
 
     // Compute tier distributions
-    const tier1Count = finalLeads.filter((_, i) => i < 2).length;
-    const tier2Count = finalLeads.filter((_, i) => i >= 2 && i < 4).length;
-    const disqualifiedCount = finalLeads.filter((_, i) => i >= 4).length;
+    const tier1Count = 0;
+    const tier2Count = 0;
+    const disqualifiedCount = 0;
 
     const datasetMeta: DatasetMeta = {
       id: newDatasetId,
       filename: fileName,
       fileSize: fileSizeStr,
-      totalRows: finalLeads.length,
+      totalRows: rawRows.length,
       validRows: finalLeads.length,
       uploadedAt: new Date().toISOString(),
-      status: 'Completed',
-      processingProgress: 100,
+      status: 'Processing',
+      processingProgress: 0,
       tier1Count,
       tier2Count,
       disqualifiedCount,
     };
 
     try {
-      // Simulate/execute phases
-      await new Promise((r) => setTimeout(r, 400));
-      setProgressPercent(40);
-      setProcessingStage('Phase 2/4: Deduplicating accounts & generating quality ledger...');
+      if (isSupabaseConfigured) {
+        if (!file) throw new Error('Select the original CSV or XLSX file before saving to Supabase.');
+        if (!session?.access_token) throw new Error('Your session expired. Sign in again before saving this dataset.');
 
-      await new Promise((r) => setTimeout(r, 400));
-      setProgressPercent(70);
-      setProcessingStage('Phase 3/4: Persisting leads to workspace storage...');
-
-      // Live Supabase persistence if authenticated & configured
-      if (isSupabaseConfigured && workspaceUser && workspaceUser.id) {
-        try {
-          // 1. Create dataset record
-          const dbDataset = await supabaseService.createDataset(workspaceUser.id, {
-            name: fileName.replace(/\.[^/.]+$/, ''),
-            original_filename: fileName,
-            row_count: finalLeads.length,
-            status: 'completed',
-          });
-
-          if (dbDataset) {
-            const actualDatasetId = dbDataset.id;
-            setCreatedDatasetId(actualDatasetId);
-            datasetMeta.id = actualDatasetId;
-
-            // 2. Insert leads batch
-            const leadPayload = finalLeads.map((l) => ({
-              company_name: l.companyName,
-              normalized_domain: l.domain,
-              website: l.website || null,
-              industry_raw: l.industry,
-              company_size_raw: l.headcount ? String(l.headcount) : null,
-              business_model_raw: l.businessModel || null,
-              product_raw: l.productRaw || null,
-              geography: l.country,
-              lead_status: (l.leadStage as 'new') || 'new',
-              deal_value: l.dealValue || null,
-              currency: l.currency || 'USD',
-              retention_months: l.retentionMonths || null,
-              notes: l.description,
-              raw_row: (l.rawRow || {}) as Record<string, unknown>,
-            }));
-
-            await supabaseService.createLeadsBatch(workspaceUser.id, actualDatasetId, leadPayload);
-
-            // 3. Create analysis job record
-            await supabaseService.createAnalysisJob(workspaceUser.id, actualDatasetId, finalLeads.length);
-          }
-        } catch (dbErr) {
-          console.warn('Supabase remote write error (falling back to workspace store):', dbErr);
+        setProgressPercent(45);
+        setProcessingStage('Persisting the validated dataset and leads to your Supabase workspace...');
+        const fileBase64 = await fileToBase64(file);
+        const response = await fetch('/api/uploads', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileSizeBytes: file.size,
+            fileBase64,
+            mapping,
+            skipDuplicates,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Supabase upload failed.');
+        datasetMeta.id = payload.datasetId;
+        datasetMeta.validRows = payload.summary?.validRowsCount ?? finalLeads.length;
+        datasetMeta.totalRows = payload.summary?.totalRowsParsed ?? rawRows.length;
+        if (Array.isArray(payload.leadIds) && payload.leadIds.length === finalLeads.length) {
+          storedLeads = finalLeads.map((lead, index) => ({ ...lead, id: payload.leadIds[index] }));
         }
+        setCreatedDatasetId(payload.datasetId);
       }
 
-      await new Promise((r) => setTimeout(r, 400));
       setProgressPercent(100);
-      setProcessingStage('Phase 4/4: Calculating deterministic ICP scores & ranking leads...');
+      setProcessingStage('Dataset stored. Analysis job queued for the next pipeline stage.');
 
       // Add to central workspace store
-      addDataset(datasetMeta, finalLeads);
+      addDataset(datasetMeta, storedLeads);
       setIsProcessing(false);
-      addToast(`Dataset "${fileName}" successfully ingested (${finalLeads.length} leads).`, 'success');
+      addToast(`Dataset "${fileName}" stored and queued (${finalLeads.length} leads).`, 'success');
+      navigate(`/uploads/${datasetMeta.id}`);
     } catch (err: unknown) {
       setIsProcessing(false);
       const msg = err instanceof Error ? err.message : 'Processing failed.';
@@ -346,6 +279,18 @@ export const UploadWizardPage: React.FC = () => {
       addToast(msg, 'warning');
     }
   };
+
+  const fileToBase64 = (selectedFile: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = String(reader.result || '');
+      const commaIndex = value.indexOf(',');
+      if (commaIndex < 0) reject(new Error('Unable to encode the selected file.'));
+      else resolve(value.slice(commaIndex + 1));
+    };
+    reader.onerror = () => reject(new Error('Unable to read the selected file.'));
+    reader.readAsDataURL(selectedFile);
+  });
 
   // Helper to preview sample values for a header
   const getSampleValues = (headerName?: string): string => {
@@ -356,6 +301,15 @@ export const UploadWizardPage: React.FC = () => {
       .filter(Boolean);
     return samples.length > 0 ? `e.g. "${samples.join('", "')}"` : '';
   };
+
+  const additionalMappingFields: Array<{ key: keyof ColumnMapping; label: string }> = [
+    { key: 'companyType', label: 'COMPANY TYPE' },
+    { key: 'product', label: 'PRODUCT / SERVICE' },
+    { key: 'currency', label: 'CURRENCY CODE' },
+    { key: 'retentionMonths', label: 'RETENTION (MONTHS)' },
+    { key: 'reasonWonLost', label: 'REASON WON / LOST' },
+    { key: 'description', label: 'DESCRIPTION / NOTES' },
+  ];
 
   return (
     <AppLayout>
@@ -427,6 +381,7 @@ export const UploadWizardPage: React.FC = () => {
                 <ShieldAlert className="w-5 h-5 text-rose-700 shrink-0" />
                 <div className="font-bold">{fileError}</div>
               </div>
+
             )}
 
             {/* Drag & Drop Zone */}
@@ -446,7 +401,7 @@ export const UploadWizardPage: React.FC = () => {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".csv,.xlsx,.xls,.tsv,.txt"
+                accept=".csv,.xlsx"
                 className="hidden"
               />
               <div className="w-16 h-16 rounded-full bg-[#A1F000] border-[2.5px] border-[#0A0A0A] flex items-center justify-center text-[#0A0A0A] mb-4 shadow-[2px_2px_0px_#0A0A0A] group-hover:scale-110 transition-transform">
@@ -456,7 +411,7 @@ export const UploadWizardPage: React.FC = () => {
                 Drop your CSV or XLSX file here
               </h3>
               <p className="text-xs sm:text-sm text-[#0A0A0A]/70 max-w-md mb-4 font-medium">
-                Supports .csv, .xlsx, and .tsv formats up to {UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Delimiters and headers are detected automatically.
+                Supports .csv and .xlsx files up to {UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Headers are detected automatically.
               </p>
               <span className="font-mono text-xs font-bold text-[#8C6ADE] underline underline-offset-4">
                 Click to browse files on your computer
@@ -522,6 +477,21 @@ export const UploadWizardPage: React.FC = () => {
                 </div>
                 <StickerBadge color="lime" rotate="-2">AUTO-MAPPED WITH ZOD VALIDATION</StickerBadge>
               </div>
+
+              {fileError && (
+                <div className="bg-[#FFB6C2] border-[2px] border-[#0A0A0A] p-3.5 rounded-xl shadow-[2px_2px_0px_#0A0A0A] text-xs font-bold">
+                  {fileError}
+                </div>
+              )}
+
+              {parseWarnings.length > 0 && (
+                <div className="bg-[#FFE3B3] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[2px_2px_0px_#0A0A0A] text-xs">
+                  <span className="font-mono font-black uppercase block mb-2">Parser warnings — review before continuing</span>
+                  <ul className="list-disc pl-5 space-y-1 font-medium">
+                    {parseWarnings.slice(0, 10).map((warning, index) => <li key={index}>{warning}</li>)}
+                  </ul>
+                </div>
+              )}
 
               {/* PII Alert Banner if personal data columns detected */}
               {piiColumnsDetected.length > 0 && (
@@ -758,10 +728,50 @@ export const UploadWizardPage: React.FC = () => {
                       ))}
                     </select>
                   </div>
+
+                  {additionalMappingFields.map((field) => (
+                    <div key={field.key} className="space-y-1.5 bg-[#F9F8F4] p-3 rounded-xl border-[2px] border-[#0A0A0A]">
+                      <label className="font-black uppercase text-[#0A0A0A] block">{field.label}</label>
+                      <select
+                        value={mapping[field.key] || ''}
+                        onChange={(event) => handleUpdateMapping(field.key, event.target.value)}
+                        className="w-full bg-white border-[2px] border-[#0A0A0A] rounded-xl px-2.5 py-1.5 text-xs font-bold"
+                      >
+                        <option value="">[Ignore Column]</option>
+                        {rawHeaders.map((header) => (
+                          <option key={header} value={header}>{header}</option>
+                        ))}
+                      </select>
+                      <span className="text-[10px] text-[#0A0A0A]/60 block truncate">{getSampleValues(mapping[field.key])}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               {/* Navigation Actions */}
+              <TableShell title="Parsed File Preview" countLabel={`FIRST ${Math.min(10, rawRows.length)} OF ${rawRows.length}`}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead>
+                      <tr className="border-b-[2px] border-[#0A0A0A] bg-[#F9F8F4]">
+                        {rawHeaders.slice(0, 6).map((header) => (
+                          <th key={header} className="px-3 py-2 font-black uppercase whitespace-nowrap">{header}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#0A0A0A]/15">
+                      {rawRows.slice(0, 10).map((row, rowIndex) => (
+                        <tr key={rowIndex}>
+                          {rawHeaders.slice(0, 6).map((header) => (
+                            <td key={header} className="px-3 py-2 max-w-48 truncate">{String(row[header] ?? '') || '—'}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </TableShell>
+
               <div className="flex justify-between items-center border-t-[2px] border-[#0A0A0A]/15 pt-5">
                 <BrutalistButton variant="white" size="sm" onClick={() => setWizardStep(1)}>
                   ← BACK TO FILE
@@ -790,7 +800,12 @@ export const UploadWizardPage: React.FC = () => {
         {wizardStep === 3 && pipelineResult && (
           <div className="space-y-6">
             {/* Top Hygiene Summary Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+              <div className="bg-white border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[3px_3px_0px_#0A0A0A]">
+                <span className="font-mono text-[10px] font-black uppercase text-[#0A0A0A]/70 block">TOTAL UPLOADED ROWS</span>
+                <span className="text-2xl sm:text-3xl font-black font-mono text-[#0A0A0A]">{pipelineResult.summary.totalRowsParsed}</span>
+                <span className="font-mono text-[10px] font-bold text-[#0A0A0A]/60 block mt-1">Before validation</span>
+              </div>
               <div className="bg-[#E5F7E5] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[3px_3px_0px_#0A0A0A]">
                 <span className="font-mono text-[10px] font-black uppercase text-[#0A0A0A]/70 block">
                   VALID STORED LEADS
@@ -805,7 +820,7 @@ export const UploadWizardPage: React.FC = () => {
 
               <div className="bg-[#E4E6FB] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[3px_3px_0px_#0A0A0A]">
                 <span className="font-mono text-[10px] font-black uppercase text-[#0A0A0A]/70 block">
-                  AI ENRICHMENT TIER
+                  LATER AI ALLOWANCE
                 </span>
                 <span className="text-2xl sm:text-3xl font-black font-mono text-[#0A0A0A]">
                   {pipelineResult.summary.aiEligibleCount}
@@ -819,13 +834,21 @@ export const UploadWizardPage: React.FC = () => {
 
               <div className="bg-[#FFE3B3] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[3px_3px_0px_#0A0A0A]">
                 <span className="font-mono text-[10px] font-black uppercase text-[#0A0A0A]/70 block">
-                  DUPLICATES DETECTED
+                  POSSIBLE DUPLICATES
                 </span>
                 <span className="text-2xl sm:text-3xl font-black font-mono text-[#0A0A0A]">
                   {pipelineResult.summary.duplicateRowsCount}
                 </span>
                 <span className="font-mono text-[10px] font-bold text-amber-900 block mt-1">
-                  {skipDuplicates ? 'Will be deduplicated' : 'Kept as separate'}
+                  {skipDuplicates ? 'Exact domains skipped; names reviewed' : 'All kept as separate'}
+                </span>
+              </div>
+
+              <div className="bg-[#E4E6FB] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[3px_3px_0px_#0A0A0A]">
+                <span className="font-mono text-[10px] font-black uppercase text-[#0A0A0A]/70 block">MISSING OPTIONAL VALUES</span>
+                <span className="text-2xl sm:text-3xl font-black font-mono text-[#0A0A0A]">{pipelineResult.summary.missingOptionalValuesCount}</span>
+                <span className="font-mono text-[10px] font-bold text-[#0A0A0A]/60 block mt-1">
+                  Across {pipelineResult.summary.recordsWithMissingOptionalValues} records
                 </span>
               </div>
 
@@ -1092,19 +1115,25 @@ export const UploadWizardPage: React.FC = () => {
           <BrutalistCard bg="white" shadowSize="lg" className="p-8 sm:p-10 text-center space-y-6">
             <div className="max-w-lg mx-auto space-y-3">
               <SectionEyebrow color="bg-[#A1F000]">
-                {isProcessing ? 'CALCULATING FIT ENGINE' : 'DATASET INGESTION COMPLETED'}
+                {isProcessing ? 'SECURE DATASET INGESTION' : 'ANALYSIS JOB QUEUED'}
               </SectionEyebrow>
 
               <h3 className="text-2xl sm:text-3xl font-black text-[#0A0A0A]">
-                {isProcessing ? processingStage : 'Ingestion & Scoring Complete!'}
+                {isProcessing ? processingStage : 'Dataset Saved & Queued'}
               </h3>
 
               <p className="text-xs text-[#0A0A0A]/70 font-medium">
                 {isProcessing
-                  ? 'Executing deterministic score weighting (35% Need Urgency + 25% Capability + 20% Stakeholder + 20% Firmographic).'
-                  : `All ${pipelineResult?.validLeads.length || 0} valid leads in "${fileName}" have been ingested, scored, and persisted.`}
+                  ? 'The server is re-parsing the original file, enforcing limits, applying RLS ownership, and creating a queued analysis job.'
+                  : `All ${pipelineResult?.validLeads.length || 0} valid leads in "${fileName}" have been stored. No AI classification has run yet.`}
               </p>
             </div>
+
+            {processingError && (
+              <div className="max-w-lg mx-auto bg-[#FFB6C2] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[3px_3px_0px_#0A0A0A] text-left text-xs font-bold">
+                {processingError}
+              </div>
+            )}
 
             {/* Animated Accessible Progress Bar */}
             <div className="max-w-md mx-auto">
@@ -1134,7 +1163,7 @@ export const UploadWizardPage: React.FC = () => {
                     <span className="text-2xl font-black text-[#0A0A0A]">{pipelineResult?.validLeads.length || 0}</span>
                   </div>
                   <div className="bg-[#E4E6FB] border-[2px] border-[#0A0A0A] p-3.5 rounded-xl shadow-[2px_2px_0px_#0A0A0A]">
-                    <span className="font-black text-[#0A0A0A]/60 block text-[10px] uppercase">AI ENRICHED</span>
+                    <span className="font-black text-[#0A0A0A]/60 block text-[10px] uppercase">AI-ELIGIBLE LATER</span>
                     <span className="text-2xl font-black text-[#0A0A0A]">{pipelineResult?.summary.aiEligibleCount || 0}</span>
                   </div>
                   <div className="bg-[#FFE3B3] border-[2px] border-[#0A0A0A] p-3.5 rounded-xl shadow-[2px_2px_0px_#0A0A0A]">

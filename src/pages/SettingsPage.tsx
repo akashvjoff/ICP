@@ -48,8 +48,6 @@ export const SettingsPage: React.FC = () => {
   const [userCompany, setUserCompany] = useState(storeUser.company);
   const [userRole, setUserRole] = useState(storeUser.role);
 
-  const [modelChoice, setModelChoice] = useState('gemini-3.8-flash');
-  const [temperature, setTemperature] = useState(0.2);
   const [copiedMigration, setCopiedMigration] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
@@ -359,33 +357,13 @@ export const SettingsPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-mono">
-            <div className="space-y-1.5">
-              <label className="font-black uppercase text-[#0A0A0A] block">
-                GEMINI MODEL SELECTION
-              </label>
-              <select
-                value={modelChoice}
-                onChange={(e) => setModelChoice(e.target.value)}
-                className="w-full bg-white border-[2.5px] border-[#0A0A0A] rounded-xl px-3.5 py-2.5 text-xs font-bold shadow-[2px_2px_0px_#0A0A0A]"
-              >
-                <option value="gemini-3.8-flash">gemini-3.8-flash (Recommended High-Throughput)</option>
-                <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Deep Reasoning)</option>
-              </select>
+            <div className="bg-white border-[2.5px] border-[#0A0A0A] rounded-xl px-3.5 py-3 shadow-[2px_2px_0px_#0A0A0A]">
+              <span className="font-black uppercase text-[#0A0A0A] block">MODEL SELECTION</span>
+              <span className="font-bold text-[#0A0A0A]/70">SERVER-MANAGED · AVAILABLE FAST MODEL</span>
             </div>
-
-            <div className="space-y-1.5">
-              <label className="font-black uppercase text-[#0A0A0A] block">
-                TEMPERATURE ({temperature})
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={temperature}
-                onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                className="w-full accent-[#0A0A0A] cursor-pointer mt-3"
-              />
+            <div className="bg-white border-[2.5px] border-[#0A0A0A] rounded-xl px-3.5 py-3 shadow-[2px_2px_0px_#0A0A0A]">
+              <span className="font-black uppercase text-[#0A0A0A] block">PROVIDER CONFIGURATION</span>
+              <span className="font-bold text-[#0A0A0A]/70">GEMINI / MOCK / OLLAMA · SERVER ENVIRONMENT ONLY</span>
             </div>
           </div>
 

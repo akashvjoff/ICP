@@ -2,6 +2,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { OfferingProfile } from '../types/offering';
 import { NormalizedLead, AIClassification } from '../types/lead';
 import { FullStrategicAnalysis } from '../types/analysis';
+import { selectPreferredGeminiModel } from './companyAnalyzer';
 
 // Initialize Gemini on server-side only
 const apiKey = process.env.GEMINI_API_KEY || '';
@@ -18,8 +19,21 @@ export const ai = isGeminiConfigured
     })
   : null;
 
+let resolvedGeminiModel: string | null = null;
+
+async function getAvailableGeminiModel(): Promise<string> {
+  if (!ai) throw new Error('GEMINI_API_KEY is not configured on the server.');
+  if (resolvedGeminiModel) return resolvedGeminiModel;
+  const pager = await ai.models.list({ config: { pageSize: 100, queryBase: true } });
+  const models = [];
+  for await (const model of pager) models.push(model);
+  resolvedGeminiModel = selectPreferredGeminiModel(models, process.env.GEMINI_MODEL || undefined);
+  return resolvedGeminiModel;
+}
+
 /**
- * Classifies a single company using Gemini 3.8 Flash
+ * Legacy company classification adapter. New code should use the structured
+ * company-intelligence endpoint, which includes provenance and persistence.
  */
 export async function classifyCompanyWithAI(
   companyName: string,
@@ -54,7 +68,7 @@ Respond strictly with structured JSON matching the schema.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: await getAvailableGeminiModel(),
       contents: prompt,
       config: {
         systemInstruction: 'You are a senior B2B SaaS market analyst. Provide realistic, un-hallucinated firmographic classifications based solely on given details.',
@@ -171,7 +185,7 @@ Follow these strategic marketing rules:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: await getAvailableGeminiModel(),
       contents: prompt,
       config: {
         systemInstruction: 'You are a veteran B2B GTM strategist. Follow classical strategic marketing frameworks with precision.',
@@ -259,7 +273,7 @@ Return strictly valid JSON with the following fields:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: await getAvailableGeminiModel(),
       contents: prompt,
       config: {
         systemInstruction: 'You are an elite B2B product marketing specialist. Provide actionable, practical, non-academic suggestions grounded in real B2B buying behavior.',

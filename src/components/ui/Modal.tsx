@@ -32,7 +32,12 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 flex items-center justify-center">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 flex items-center justify-center"
+    >
       {/* Backdrop with faint checkerboard tint */}
       <div
         className="fixed inset-0 bg-[#0A0A0A]/60 backdrop-blur-xs transition-opacity"
@@ -50,7 +55,7 @@ export const Modal: React.FC<ModalProps> = ({
                   {eyebrow}
                 </span>
               )}
-              <h3 className="text-xl font-black text-[#0A0A0A] tracking-tight">
+              <h3 id="modal-title" className="text-xl font-black text-[#0A0A0A] tracking-tight">
                 {title}
               </h3>
             </div>
