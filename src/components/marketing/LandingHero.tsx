@@ -27,14 +27,14 @@ export const LandingHero: React.FC = () => {
 
         {/* Massive Hero Heading (76-96px range fluid clamp) */}
         <div className="max-w-4xl mb-8">
-          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[76px] font-black text-[#0A0A0A] tracking-tighter leading-[0.98] text-balance">
-            Find customers who <span className="bg-[#A1F000] px-2 py-0.5 rounded-lg border-[2.5px] border-[#0A0A0A] shadow-[3px_4px_0px_#0A0A0A] inline-block -rotate-1">actually need</span> what you build.
+          <h1 className="text-3xl sm:text-6xl md:text-7xl lg:text-[76px] font-black text-[#0A0A0A] tracking-tighter leading-[0.98] text-balance">
+            Figure out who your <span className="bg-[#A1F000] px-2 py-0.5 rounded-lg border-[2.5px] border-[#0A0A0A] shadow-[3px_4px_0px_#0A0A0A] inline-block -rotate-1">best customers</span> are.
           </h1>
         </div>
 
         {/* Subhead with bold clarity */}
         <p className="text-lg sm:text-xl text-[#0A0A0A]/80 max-w-2xl font-medium leading-relaxed mb-10">
-          Stop burning outbound budget on raw company headcount. icp.mode models real buyer motivation through <strong className="text-[#0A0A0A] font-black">Need Gap Analysis</strong>, <strong className="text-[#0A0A0A] font-black">5C Dynamics</strong>, and <strong className="text-[#0A0A0A] font-black">Deterministic Fit Scoring</strong>.
+          AI-powered customer intelligence, ICP discovery and go-to-market strategy.
         </p>
 
         {/* Hero Actions */}
@@ -45,7 +45,7 @@ export const LandingHero: React.FC = () => {
             href="/demo"
             icon={<ArrowRight className="w-5 h-5" />}
           >
-            START ICP DISCOVERY
+            FIND MY IDEAL CUSTOMERS
           </BrutalistLink>
 
           <BrutalistLink
@@ -54,7 +54,7 @@ export const LandingHero: React.FC = () => {
             href="/demo#accounts-heading"
             icon={<Sparkles className="w-5 h-5 text-[#8C6ADE]" />}
           >
-            LOAD 5 SAMPLE B2B LEADS
+            EXPLORE DEMO
           </BrutalistLink>
         </div>
 

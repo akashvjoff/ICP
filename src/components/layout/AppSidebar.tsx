@@ -77,7 +77,7 @@ export const AppSidebar: React.FC = () => {
           className="flex items-center gap-2 font-black text-xl tracking-tighter text-[#0A0A0A] cursor-pointer"
         >
           <span className="w-3 h-3 bg-[#A1F000] border-[1.5px] border-[#0A0A0A] inline-block shadow-[1px_1px_0px_#0A0A0A]" />
-          <span>icp<span className="text-[#A1F000]">.</span>mode</span>
+          <span>Figured<span className="text-[#A1F000]">It</span></span>
         </button>
 
         <div className="flex items-center gap-2">
@@ -118,7 +118,7 @@ export const AppSidebar: React.FC = () => {
                 className="flex items-center text-left cursor-pointer group"
               >
                 <span className="text-2xl font-black tracking-tighter text-[#0A0A0A] group-hover:text-[#8C6ADE] transition-colors">
-                  icp<span className="text-[#A1F000]">.</span>mode
+                  Figured<span className="text-[#A1F000]">It</span>
                 </span>
               </button>
 
@@ -134,7 +134,7 @@ export const AppSidebar: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 bg-[#A1F000] border-[1.5px] border-[#0A0A0A] shadow-[1px_1px_0px_#0A0A0A]" />
               <span className="font-mono text-[10px] font-black uppercase tracking-widest text-[#0A0A0A]">
-                THE CUSTOMER-FIT ENGINE
+                AI CUSTOMER INTELLIGENCE
               </span>
             </div>
           </div>

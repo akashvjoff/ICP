@@ -1305,9 +1305,9 @@ async function startServer() {
         || /^\/(uploads|companies|segments|strategy)\/[^/]+$/.test(pathname)
         || /^\/icp\/report\/[^/]+$/.test(pathname);
       const publicTitles: Record<string, string> = {
-        '/': 'Find your ideal customers | icp.mode',
-        '/demo': 'Try the public demo | icp.mode',
-        '/privacy': 'Privacy notice | icp.mode',
+        '/': 'FiguredIt — AI-Powered ICP Discovery &amp; GTM Strategy',
+        '/demo': 'Try the public demo | FiguredIt',
+        '/privacy': 'Privacy notice | FiguredIt',
       };
       const routeTitles: Record<string, string> = {
         auth: 'Sign in or create an account', onboarding: 'Set up your offering', dashboard: 'Dashboard',
@@ -1316,10 +1316,11 @@ async function startServer() {
       };
       try {
         let html = fs.readFileSync(indexPath, 'utf8');
-        const title = publicTitles[pathname] || `${knownRoute ? routeTitles[pathname.split('/')[1]] : 'Page not found'} | icp.mode`;
+        const title = publicTitles[pathname] || `${knownRoute ? routeTitles[pathname.split('/')[1]] : 'Page not found'} | FiguredIt`;
         html = html.replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
         if (publicTitles[pathname]) {
-          html = html.replace('rel="canonical" href="https://icp-mode.onrender.com/"', `rel="canonical" href="https://icp-mode.onrender.com${pathname}"`);
+          html = html.replace('rel="canonical" href="https://figuredit.in/"', `rel="canonical" href="https://figuredit.in${pathname}"`);
+          html = html.replace('property="og:url" content="https://figuredit.in/"', `property="og:url" content="https://figuredit.in${pathname}"`);
         } else {
           html = html.replace(/\s*<link rel="canonical"[^>]*>/, '');
           html = html.replace('</head>', '<meta name="robots" content="noindex" /></head>');

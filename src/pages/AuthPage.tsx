@@ -79,7 +79,7 @@ export const AuthPage: React.FC = () => {
       if (tab === 'signin') {
         const res = await signIn(email, password);
         if (res.success) {
-          addToast('Signed in successfully. Welcome to icp.mode!', 'success');
+          addToast('Signed in successfully. Welcome to FiguredIt!', 'success');
           navigate('/dashboard');
         } else {
           setLocalError(res.error || 'Failed to sign in.');
@@ -180,7 +180,7 @@ export const AuthPage: React.FC = () => {
               ACCOUNT ACCESS
             </SectionEyebrow>
             <h1 className="text-3xl font-black text-[#0A0A0A] tracking-tight">
-              {tab === 'signin' && 'Sign in to icp.mode'}
+              {tab === 'signin' && 'Sign in to FiguredIt'}
               {tab === 'signup' && 'Create an Account'}
               {tab === 'forgot' && 'Reset Password'}
             </h1>
@@ -424,7 +424,7 @@ export const AuthPage: React.FC = () => {
       </div>
 
       <div className="text-center font-mono text-xs text-[#0A0A0A]/50 mt-8">
-        icp.mode · Algorithmic Customer-Fit Engine · Supabase Auth Protected ·{' '}
+        FiguredIt · AI-powered customer intelligence · Supabase Auth Protected ·{' '}
         <a href="/privacy" className="underline hover:text-[#0A0A0A]">Privacy notice</a>
       </div>
     </div>

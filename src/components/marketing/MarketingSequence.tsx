@@ -14,7 +14,7 @@ export const MarketingSequence: React.FC = () => {
           eyebrow="CLASSICAL MARKETING SEQUENCE"
           eyebrowColor="bg-[#6AAAFB]"
           title="The 4-stage pipeline that eliminates outbound guesswork."
-          description="Surface industry taxonomies lie. icp.mode models customer decision-making using the exact sequence practiced by enterprise GTM strategists."
+          description="Surface industry taxonomies lie. FiguredIt models customer decision-making using the exact sequence practiced by enterprise GTM strategists."
         />
 
         {/* 4 Pastel Step Cards in Sequence */}
@@ -82,7 +82,7 @@ export const MarketingSequence: React.FC = () => {
               </h3>
 
               <p className="text-sm sm:text-base text-[#0A0A0A]/85 leading-relaxed font-normal">
-                Lead lists without verified historical closed-won or closed-lost conversion data <strong className="text-[#0A0A0A] font-bold">cannot mathematically prove ideal customer quality</strong>. In icp.mode, initial evaluations are explicitly governed as an <span className="bg-[#FFE3B3] px-1.5 py-0.5 rounded border border-[#0A0A0A] font-bold">ICP Hypothesis</span> until conversion velocity and retention metrics validate the cohort.
+                Lead lists without verified historical closed-won or closed-lost conversion data <strong className="text-[#0A0A0A] font-bold">cannot mathematically prove ideal customer quality</strong>. In FiguredIt, initial evaluations are explicitly governed as an <span className="bg-[#FFE3B3] px-1.5 py-0.5 rounded border border-[#0A0A0A] font-bold">ICP Hypothesis</span> until conversion velocity and retention metrics validate the cohort.
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono font-bold text-[#0A0A0A]">

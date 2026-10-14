@@ -20,16 +20,17 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <span className="text-xl font-black tracking-tighter text-[#0A0A0A]">
-              icp<span className="text-[#A1F000]">.</span>mode
+              Figured<span className="text-[#A1F000]">It</span>
             </span>
             <span className="font-mono text-xs text-[#0A0A0A]/40 font-bold">/</span>
-            <span className="font-mono text-xs font-bold text-[#0A0A0A]/70 uppercase">
-              The Customer-Fit Engine
+            <span className="font-mono text-xs font-bold text-[#0A0A0A]/70">
+              Figure out who your best customers are.
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-xs font-mono font-bold text-[#0A0A0A]">
-            <a href="/demo" className="underline hover:text-[#8C6ADE]">TRY DEMO</a>
+            <a href="https://figuredit.in" className="underline hover:text-[#8C6ADE]">figuredit.in</a>
+            <a href="/demo" className="underline hover:text-[#8C6ADE]">EXPLORE DEMO</a>
             <a href="/privacy" className="underline hover:text-[#8C6ADE]">PRIVACY</a>
             <span className="bg-white px-2 py-0.5 rounded border border-[#0A0A0A]">
               NEED GAP ANALYSIS

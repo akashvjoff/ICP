@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onToggleView}
           className="flex items-center text-left text-lg font-semibold tracking-tight text-white hover:text-sky-400 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
-          <span>icp.mode</span>
+          <span>FiguredIt</span>
         </button>
 
         {/* Zone 2: 4-5 Clean single-line text nav links */}

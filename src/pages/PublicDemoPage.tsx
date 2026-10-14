@@ -38,7 +38,7 @@ export const PublicDemoPage: React.FC = () => {
     <div className="min-h-screen max-w-full overflow-x-clip bg-[#F9F8F4] text-[#0A0A0A]">
       <header className="border-b-[3px] border-black px-6 py-5">
         <div className="mx-auto max-w-6xl flex flex-wrap items-center justify-between gap-4">
-          <a href="/" className="font-black text-2xl tracking-tighter" aria-label="icp.mode home">icp<span className="text-[#8C6ADE]">.</span>mode</a>
+          <a href="/" className="font-black text-2xl tracking-tighter" aria-label="FiguredIt home">Figured<span className="text-[#8C6ADE]">It</span></a>
           <nav className="flex flex-wrap items-center gap-4 font-mono text-xs font-bold"><a href="/" className="hover:underline">HOME</a><a href="/auth" className="hover:underline">SIGN IN</a></nav>
         </div>
       </header>

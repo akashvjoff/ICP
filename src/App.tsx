@@ -36,7 +36,9 @@ function RouteSwitch() {
       uploads: 'Lead uploads', companies: 'Companies', segments: 'Segments',
       strategy: 'Strategic analysis', icp: 'ICP report', settings: 'Settings',
     };
-    document.title = `${titles[segment] || (path === '/' ? 'Find your ideal customers' : 'Page not found')} | icp.mode`;
+    document.title = path === '/'
+      ? 'FiguredIt — AI-Powered ICP Discovery & GTM Strategy'
+      : `${titles[segment] || 'Page not found'} | FiguredIt`;
   }, [path]);
 
   // Public Root Landing

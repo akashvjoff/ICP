@@ -649,7 +649,7 @@ export function composeExecutiveICPReport(
         'Gross margins, CAC, and LTV remain unverified without accounting unit-economics records.',
         'Market size is evaluated strictly on the ingested sample; sample proportions are not confused with Total Addressable Market (TAM).',
       ],
-      statutoryNotice: 'STATUTORY GOVERNANCE: Per ICP.MODE standards, all recommendations represent an ICP Hypothesis until closed-won deal data establishes statistical validation.',
+      statutoryNotice: 'STATUTORY GOVERNANCE: Per FiguredIt standards, all recommendations represent an ICP Hypothesis until closed-won deal data establishes statistical validation.',
       brandEquityNotice: 'BRAND EQUITY MEASUREMENT: NOT AVAILABLE (Requires longitudinal consumer/market survey instrumentation).',
     },
   };
