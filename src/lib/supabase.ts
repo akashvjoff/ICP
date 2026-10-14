@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database, DbSellerProfile, DbDataset, DbLead, DbCompanyAnalysis, DbSegment, DbLeadScore, DbIcpReport, DbScoringConfig, DbAnalysisJob } from '../types/database';
+import type { DatasetSTPAnalysis } from '../types/analysis';
 
 // Environment variables (Vite build-time or server-injected runtime config fallback)
 const runtimeConfig = (typeof window !== 'undefined' && (window as unknown as { __ICP_CONFIG__?: { supabaseUrl?: string; supabaseAnonKey?: string } }).__ICP_CONFIG__) || {};
@@ -42,7 +43,10 @@ export function formatSupabaseError(error: unknown): string {
     return 'Your email address has not been confirmed yet. Please check your inbox or request a new verification link.';
   }
   if (msg.includes('Password should be at least')) {
-    return 'Password is too short. Please use at least 6 characters.';
+    return 'Password is too short. Please use at least 8 characters.';
+  }
+  if (/email address.*invalid|invalid email/i.test(msg)) {
+    return 'Enter a deliverable email address. Placeholder and testing domains may be rejected by the email provider.';
   }
   if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit')) {
     return 'Too many attempts. Please pause for a few seconds before trying again.';
@@ -264,6 +268,19 @@ export const dbService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  async getDatasetSTPAnalysis(userId: string, datasetId: string): Promise<DatasetSTPAnalysis | null> {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+      .from('dataset_stp_analyses')
+      .select('stp_analysis_json')
+      .eq('owner_user_id', userId)
+      .eq('dataset_id', datasetId)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return (data?.stp_analysis_json as unknown as DatasetSTPAnalysis) || null;
   },
 
   // ICP Report

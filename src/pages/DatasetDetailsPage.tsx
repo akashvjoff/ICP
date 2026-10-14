@@ -469,6 +469,13 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
     ? Math.min(100, Math.round((job.completed_count / job.total_count) * 100))
     : 100;
   const inFlightCount = job.status === 'running' ? Math.min(batchSize, remainingCount) : 0;
+  const recoveryGuidance = quotaWarning
+    ? 'Completed records are saved. Wait for the provider quota to reset, then choose Resume Analysis.'
+    : job.failed_count > 0
+      ? `Completed records are saved. Choose Retry ${job.failed_count} Failed to reprocess only the failed records.`
+      : job.status === 'paused'
+        ? 'Completed records are saved. Choose Resume Analysis to continue from the saved checkpoint.'
+        : 'Completed records are saved. Refresh this page or resume processing when the service is available.';
 
   return (
     <AppLayout>
@@ -538,7 +545,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
                 {errorMessage || job.last_error}
               </p>
               <p className="text-xs font-mono text-[#0A0A0A]/70">
-                All previously analyzed company records remain saved. You can resume processing at any time without losing completed work.
+                {recoveryGuidance}
               </p>
             </div>
           </div>
