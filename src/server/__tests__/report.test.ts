@@ -616,6 +616,14 @@ test('19. Action plan links to segment and evidence', () => {
     assert.ok(item.marketingMixDimension);
     assert.ok(['high', 'medium', 'low'].includes(item.evidenceConfidence));
   }
+
+  const unqualifiedPlan = generateIntegratedActionPlan(
+    TEST_SELLER,
+    stp,
+    scores.map((score) => ({ ...score, tier: 'Tier 3: Niche / Edge' as const }))
+  );
+  assert.ok(unqualifiedPlan.immediate[0].action.includes('before launching Tier 1 outbound'));
+  assert.strictEqual(unqualifiedPlan.immediate[0].evidenceConfidence, 'low');
 });
 
 test('20. Missing or partial upstream analysis handled gracefully', () => {
@@ -691,6 +699,8 @@ test('20. Missing or partial upstream analysis handled gracefully', () => {
   assert.ok(report);
   assert.strictEqual(report.summaryMetrics.totalAnalyzed, 0);
   assert.ok(report.executiveThesis.relevanceRationale);
+  assert.ok(report.executiveThesis.recommendationSummary.includes('No Tier 1 accounts qualify'));
+  assert.ok(!report.executiveThesis.relevanceRationale.includes('strong economic feasibility'));
 });
 
 test('21. Report caching works in repository', async () => {

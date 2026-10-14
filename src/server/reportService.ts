@@ -393,17 +393,25 @@ export function generateIntegratedActionPlan(
     {
       id: 'act-imm-1',
       priority: 'IMMEDIATE',
-      action: `Launch personalized Tier 1 outbound sprint targeting the ${tier1Leads.length || 'high-conviction'} verified accounts using the ${targetSeg.name} positioning hook.`,
+      action: tier1Leads.length > 0
+        ? `Launch a measured outbound test with ${tier1Leads.length} Tier 1 account${tier1Leads.length === 1 ? '' : 's'} using the ${targetSeg.name} positioning hook.`
+        : `Qualify the highest-scoring accounts in ${targetSeg.name} through evidence gathering and discovery before launching Tier 1 outbound.`,
       linkedNeedGap: targetSeg.sharedProblem,
       linkedSegmentId: targetSeg.id,
       linkedSegmentName: targetSeg.name,
       fiveCConsideration: 'Customer Buying Unit & Economic Buyer motivation',
       marketingMixDimension: 'promotion',
       suggestedRole: 'Account Executive / Outbound SDR',
-      requiredInputs: 'Verified lead contact info, customized positioning-led outreach drafts',
-      successMetric: '≥25% reply rate and ≥10% discovery meeting booking rate',
-      evidenceConfidence: 'high',
-      dependencies: ['Lead list verified with valid domains', 'Value proposition message finalized'],
+      requiredInputs: tier1Leads.length > 0
+        ? 'Verified lead contact info, customized positioning-led outreach drafts'
+        : 'Verified account pain, buyer authority, budget evidence, and offering fit',
+      successMetric: tier1Leads.length > 0
+        ? '≥25% reply rate and ≥10% discovery meeting booking rate'
+        : 'At least one account qualifies for Tier 1 with documented evidence',
+      evidenceConfidence: tier1Leads.length > 0 ? 'high' : 'low',
+      dependencies: tier1Leads.length > 0
+        ? ['Lead list verified with valid domains', 'Value proposition message finalized']
+        : ['Account evidence and qualification gaps documented'],
     },
     {
       id: 'act-imm-2',
@@ -614,15 +622,19 @@ export function composeExecutiveICPReport(
       problemAddressed: seller.primaryProblemSolved || 'Severe operational friction and manual pipeline overhead.',
       targetCohort: `${targetSeg.name} (${targetSeg.companyCount} accounts, ${targetSeg.datasetShare}% of cohort).`,
       recommendedSegmentName: targetSeg.name,
-      relevanceRationale: `The offering’s capabilities directly eliminate the acute friction documented in ${targetSeg.name}, yielding high capability overlap and strong economic feasibility.`,
+      relevanceRationale: tier1Count > 0
+        ? `The offering may address the need pattern in ${targetSeg.name}; confirm capability overlap and buyer economics in discovery before treating fit as validated.`
+        : `${targetSeg.name} is a candidate cohort, but the current account evidence does not establish high fit or economic feasibility.`,
       missingInformation: [
         'Multi-cohort longitudinal deal conversion data and statistical power verification',
         'Direct customer willingness-to-pay and unit-economics cost-to-serve metrics',
         'Documented competitor pricing proposals and contract terms',
       ],
-      recommendationSummary: hasCustomerOutcomes
-        ? `Proceed with disciplined outbound targeting supported by customer-backed sales outcomes (observed win rate: ${aggregateWinRate}% across ${totalResolvedDeals} resolved deals). Maintain hypothesis tracking until longitudinal statistical validation across multiple cohorts is achieved.`
-        : `Proceed with a focused Tier 1 outbound sprint targeting the highest-fit accounts, while treating segment conclusions as a Provisional ICP Hypothesis until customer-backed deal validation is recorded.`,
+      recommendationSummary: tier1Count === 0
+        ? `No Tier 1 accounts qualify in this dataset. Gather stronger account and buyer evidence before launching an outbound sprint; the segment remains an ICP Hypothesis.`
+        : hasCustomerOutcomes
+          ? `Run a measured Tier 1 outbound test supported by observed sales outcomes (win rate: ${aggregateWinRate}% across ${totalResolvedDeals} resolved deals). Maintain hypothesis tracking until longitudinal validation across multiple cohorts is achieved.`
+          : `Run a measured Tier 1 outbound test with the qualifying accounts, while treating segment conclusions as a Provisional ICP Hypothesis until customer-backed deal validation is recorded.`,
     },
 
     needGapSummary,
