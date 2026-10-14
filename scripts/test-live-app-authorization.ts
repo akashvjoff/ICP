@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import ExcelJS from 'exceljs';
 
 dotenv.config();
 
@@ -51,7 +52,7 @@ async function request(path: string, token?: string, method = 'GET', body?: unkn
 }
 
 async function main() {
-  let datasetId: string | undefined;
+  const datasetIds: string[] = [];
   try {
     const a = await makeUser('a', userAClient);
     const b = await makeUser('b', userBClient);
@@ -63,7 +64,8 @@ async function main() {
       status: 'uploaded',
     }).select('id').single();
     if (error || !dataset) throw error || new Error('Synthetic dataset creation failed.');
-    datasetId = dataset.id;
+    const datasetId = dataset.id;
+    datasetIds.push(datasetId);
 
     const routes = [
       `/api/strategic-analysis/dataset/${datasetId}`,
@@ -76,6 +78,10 @@ async function main() {
       const own = await request(route, a.token);
       const cross = await request(route, b.token);
       const anonymous = await request(route);
+      const expectedOwnerStatus = route.startsWith('/api/reports/') ? 404 : 200;
+      if (own.status !== expectedOwnerStatus) {
+        throw new Error(`Owner request failed at ${route}: HTTP ${own.status}`);
+      }
       if (cross.status !== 404 || cross.text.includes('Synthetic authorization check')) {
         throw new Error(`Cross-user access was not hidden at ${route}: HTTP ${cross.status}`);
       }
@@ -85,14 +91,71 @@ async function main() {
       console.log(`${route}: owner ${own.status}, other user ${cross.status}, anonymous ${anonymous.status}`);
     }
 
+    const csv = Buffer.from('Company Name,Domain,Industry\nAcme Cloud,acme-cloud.example,Software\nBeacon Ops,beacon-ops.example,Services\n');
+    const uploaded = await request('/api/uploads', a.token, 'POST', {
+      fileName: 'synthetic-acceptance.csv',
+      fileSizeBytes: csv.length,
+      fileBase64: csv.toString('base64'),
+      mapping: { companyName: 'Company Name', domain: 'Domain', industry: 'Industry' },
+      skipDuplicates: true,
+    });
+    if (uploaded.status !== 201) throw new Error(`Synthetic CSV upload failed: HTTP ${uploaded.status} ${uploaded.text}`);
+    const uploadResult = JSON.parse(uploaded.text) as { datasetId: string; leadIds: string[] };
+    datasetIds.push(uploadResult.datasetId);
+    if (uploadResult.leadIds.length !== 2) throw new Error(`Expected two uploaded leads, got ${uploadResult.leadIds.length}`);
+    console.log(`Synthetic CSV upload: HTTP 201, ${uploadResult.leadIds.length} leads`);
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Leads');
+    sheet.addRow(['Company Name', 'Domain', 'Industry']);
+    sheet.addRow(['Cedar Systems', 'cedar-systems.example', 'Software']);
+    const xlsx = Buffer.from(await workbook.xlsx.writeBuffer());
+    const uploadedXlsx = await request('/api/uploads', a.token, 'POST', {
+      fileName: 'synthetic-acceptance.xlsx',
+      fileSizeBytes: xlsx.length,
+      fileBase64: xlsx.toString('base64'),
+      mapping: { companyName: 'Company Name', domain: 'Domain', industry: 'Industry' },
+      skipDuplicates: true,
+    });
+    if (uploadedXlsx.status !== 201) throw new Error(`Synthetic XLSX upload failed: HTTP ${uploadedXlsx.status} ${uploadedXlsx.text}`);
+    const xlsxResult = JSON.parse(uploadedXlsx.text) as { datasetId: string; leadIds: string[] };
+    datasetIds.push(xlsxResult.datasetId);
+    if (xlsxResult.leadIds.length !== 1) throw new Error(`Expected one XLSX lead, got ${xlsxResult.leadIds.length}`);
+    console.log('Synthetic XLSX upload: HTTP 201, 1 lead');
+
+    const sellerProfile = {
+      id: 'synthetic-seller', companyName: 'Test Seller', productName: 'Workflow Monitor',
+      productDescription: 'Software that monitors operational workflows and alerts teams to failures.',
+      primaryProblemSolved: 'Manual monitoring of operational workflows',
+      keyCapabilities: ['Workflow monitoring', 'Failure alerts'],
+    };
+    for (const [stage, path] of [
+      ['Need Gap and 5C', `/api/strategic-analysis/dataset/${uploadResult.datasetId}/run`],
+      ['STP', `/api/stp/dataset/${uploadResult.datasetId}/run`],
+      ['scoring', `/api/scoring/dataset/${uploadResult.datasetId}/run`],
+      ['report', `/api/reports/dataset/${uploadResult.datasetId}/generate`],
+    ]) {
+      const response = await request(path, a.token, 'POST', { sellerProfile });
+      if (response.status !== 200) throw new Error(`${stage} failed: HTTP ${response.status} ${response.text.slice(0, 300)}`);
+      console.log(`${stage}: HTTP 200`);
+    }
+    const storedReport = await request(`/api/reports/dataset/${uploadResult.datasetId}`, a.token);
+    if (storedReport.status !== 200 || !JSON.parse(storedReport.text).report) {
+      throw new Error(`Stored report was not available: HTTP ${storedReport.status}`);
+    }
+    console.log('Stored report after fresh request: HTTP 200');
+
     const invalidUpload = await request('/api/uploads', a.token, 'POST', {});
     if (invalidUpload.status < 400 || invalidUpload.status >= 500) {
       throw new Error(`Invalid upload expected a client error, got HTTP ${invalidUpload.status}`);
     }
     console.log(`Invalid upload: HTTP ${invalidUpload.status}`);
+    const expiredSession = await request(`/api/scoring/dataset/${uploadResult.datasetId}`, 'expired.synthetic.token');
+    if (expiredSession.status !== 401) throw new Error(`Expired session expected HTTP 401, got ${expiredSession.status}`);
+    console.log('Expired session: HTTP 401');
   } finally {
     const cleanupErrors: string[] = [];
-    if (datasetId) {
+    for (const datasetId of datasetIds) {
       const { error } = await admin.from('datasets').delete().eq('id', datasetId);
       if (error) cleanupErrors.push(`dataset: ${error.message}`);
     }
@@ -100,9 +163,13 @@ async function main() {
       const { error } = await admin.auth.admin.deleteUser(userId);
       if (error) cleanupErrors.push(`user: ${error.message}`);
     }
+    for (const datasetId of datasetIds) {
+      const { count, error } = await admin.from('datasets').select('id', { count: 'exact', head: true }).eq('id', datasetId);
+      if (error || count !== 0) cleanupErrors.push(`dataset verification: ${error?.message || count}`);
+    }
     if (cleanupErrors.length) throw new Error(`Synthetic cleanup failed: ${cleanupErrors.join('; ')}`);
   }
-  console.log('Live app authorization acceptance passed; synthetic users and dataset removed.');
+  console.log('Live app acceptance passed; synthetic users and datasets removed.');
 }
 
 main().catch((error) => {
