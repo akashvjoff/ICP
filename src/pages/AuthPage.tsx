@@ -424,7 +424,8 @@ export const AuthPage: React.FC = () => {
       </div>
 
       <div className="text-center font-mono text-xs text-[#0A0A0A]/50 mt-8">
-        icp.mode · Algorithmic Customer-Fit Engine · Supabase Auth Protected
+        icp.mode · Algorithmic Customer-Fit Engine · Supabase Auth Protected ·{' '}
+        <a href="/privacy" className="underline hover:text-[#0A0A0A]">Privacy notice</a>
       </div>
     </div>
   );

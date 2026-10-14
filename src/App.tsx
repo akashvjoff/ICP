@@ -11,6 +11,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { UploadWizardPage } from './pages/UploadWizardPage';
@@ -33,6 +34,10 @@ function RouteSwitch() {
   // Auth & Onboarding
   if (path === '/auth') {
     return <AuthPage />;
+  }
+
+  if (path === '/privacy') {
+    return <PrivacyPage />;
   }
 
   if (path === '/onboarding') {
