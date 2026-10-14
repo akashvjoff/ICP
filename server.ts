@@ -119,6 +119,14 @@ function createUserScopedSupabase(accessToken: string): SupabaseClient {
   return createScopedSupabaseClient(supabaseUrl, supabaseAnonKey, accessToken);
 }
 
+function respondToDatasetReadError(res: Response, error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : '';
+  if (/^Dataset (?:.+ not found or not owned by user\.|not found or access denied\.)$/.test(message)) {
+    return res.status(404).json({ error: 'Dataset not found.' });
+  }
+  return res.status(500).json({ error: fallback });
+}
+
 const verifyAuth = createVerifyAuth({ serverSupabase });
 const requireAuthenticatedUser = createRequireAuthenticatedUser({
   isSupabaseConfigured,
@@ -464,6 +472,9 @@ app.get('/api/analysis-jobs/:id', requireAuthenticatedUser, async (req: Authenti
 // 4. Get or initialize job by dataset ID
 app.get('/api/analysis-jobs/by-dataset/:datasetId', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (isSupabaseConfigured) {
+      await getStrategicAnalysisRepository(req).assertOwnedDataset(req.user!.id, req.params.datasetId);
+    }
     const jobRepo = getJobRepository(req);
     let job = await jobRepo.getJobByDataset(req.user!.id, req.params.datasetId);
     const leads = await jobRepo.getDatasetLeads(req.user!.id, req.params.datasetId);
@@ -476,8 +487,8 @@ app.get('/api/analysis-jobs/by-dataset/:datasetId', requireAuthenticatedUser, as
 
     const progress = job ? calculateJobProgress(job) : { remainingCount: 0, percent: 0 };
     return res.json({ success: true, job: job || null, leads, progress });
-  } catch {
-    return res.status(500).json({ error: 'Unable to load dataset analysis state.' });
+  } catch (error) {
+    return respondToDatasetReadError(res, error, 'Unable to load dataset analysis state.');
   }
 });
 
@@ -570,8 +581,7 @@ app.get('/api/strategic-analysis/dataset/:datasetId', requireAuthenticatedUser, 
       strategicAnalysis: strategicAnalysis || null,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Failed to retrieve strategic analysis.';
-    return res.status(500).json({ error: msg });
+    return respondToDatasetReadError(res, error, 'Failed to retrieve strategic analysis.');
   }
 });
 
@@ -719,8 +729,7 @@ app.get('/api/stp/dataset/:datasetId', requireAuthenticatedUser, async (req: Aut
       stpAnalysis: stpAnalysis || null,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Failed to retrieve STP analysis.';
-    return res.status(500).json({ error: msg });
+    return respondToDatasetReadError(res, error, 'Failed to retrieve STP analysis.');
   }
 });
 
@@ -917,8 +926,7 @@ app.get('/api/scoring/dataset/:datasetId', requireAuthenticatedUser, async (req:
       modelVersion: CURRENT_SCORING_MODEL_VERSION,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Failed to retrieve lead scores.';
-    return res.status(500).json({ error: msg });
+    return respondToDatasetReadError(res, error, 'Failed to retrieve lead scores.');
   }
 });
 
@@ -1066,8 +1074,7 @@ app.get('/api/reports/dataset/:datasetId', requireAuthenticatedUser, async (req:
       needsGeneration: true,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Failed to retrieve executive report.';
-    return res.status(500).json({ error: msg });
+    return respondToDatasetReadError(res, error, 'Failed to retrieve executive report.');
   }
 });
 
