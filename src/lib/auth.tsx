@@ -12,6 +12,7 @@ interface AuthContextType {
   authError: string | null;
   clearError: () => void;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, metadata?: { full_name?: string; company_name?: string }) => Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -108,6 +109,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setSession(data.session);
       setUser(data.user);
       setIsDemoUser(false);
+      return { success: true };
+    } catch (err) {
+      const friendlyMsg = formatSupabaseError(err);
+      setAuthError(friendlyMsg);
+      return { success: false, error: friendlyMsg };
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    clearError();
+    if (!supabase) {
+      return { success: false, error: 'Google sign-in requires the live Supabase workspace.' };
+    }
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/auth` },
+      });
+      if (error) {
+        const friendlyMsg = formatSupabaseError(error);
+        setAuthError(friendlyMsg);
+        return { success: false, error: friendlyMsg };
+      }
       return { success: true };
     } catch (err) {
       const friendlyMsg = formatSupabaseError(err);
@@ -250,6 +275,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         authError,
         clearError,
         signIn,
+        signInWithGoogle,
         signUp,
         signOut,
         resetPassword,

@@ -16,6 +16,7 @@ export const AuthPage: React.FC = () => {
     user,
     session,
     signIn,
+    signInWithGoogle,
     signUp,
     resetPassword,
     resendVerification,
@@ -34,6 +35,16 @@ export const AuthPage: React.FC = () => {
   const [localError, setLocalError] = useState('');
   const [verificationPendingEmail, setVerificationPendingEmail] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const fragment = new URLSearchParams(url.hash.slice(1));
+    const oauthError = url.searchParams.get('error_description') || fragment.get('error_description');
+    if (oauthError) {
+      setLocalError(oauthError);
+      window.history.replaceState({}, '', '/auth');
+    }
+  }, []);
 
   // If already authenticated with Supabase session, redirect to dashboard
   useEffect(() => {
@@ -109,6 +120,14 @@ export const AuthPage: React.FC = () => {
     switchToDemoMode();
     addToast('Signed in with Demo Founder Credentials (Synthetix Data Cloud).', 'success');
     navigate('/dashboard');
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setLocalError('');
+    const result = await signInWithGoogle();
+    if (!result.success) setLocalError(result.error || 'Google sign-in could not start.');
+    setLoading(false);
   };
 
   const handleResendVerification = async () => {
@@ -277,6 +296,20 @@ export const AuthPage: React.FC = () => {
                   ONE-CLICK DEMO FOUNDER LOGIN
                 </BrutalistButton>
               </div>
+
+              {isConfigured && tab !== 'forgot' && (
+                <BrutalistButton
+                  type="button"
+                  variant="white"
+                  size="md"
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                  className="w-full font-black tracking-wider text-xs"
+                  icon={<span aria-hidden="true" className="text-base font-black text-[#4285F4]">G</span>}
+                >
+                  CONTINUE WITH GOOGLE
+                </BrutalistButton>
+              )}
 
               <div className="relative flex py-1 items-center">
                 <div className="flex-grow border-t-[1.5px] border-[#0A0A0A]/20"></div>

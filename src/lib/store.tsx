@@ -92,22 +92,6 @@ const INITIAL_DATASET: DatasetMeta = {
   disqualifiedCount: 1,
 };
 
-const EMPTY_STRATEGIC_ANALYSIS: FullStrategicAnalysis = {
-  offeringId: '',
-  analyzedAt: '',
-  needGaps: [],
-  fiveC: {
-    company: { internalCapabilities: '', resourceReadiness: '', strategicPriority: '' },
-    customers: { economicBuyer: '', championPersona: '', primaryObstacle: '', decisionCycleEstimate: '' },
-    competitors: { currentAlternative: '', switchingFriction: '', differentiationAdvantage: '' },
-    collaborators: { systemIntegrators: '', ecosystemPartners: '' },
-    context: { regulatoryFactors: '', economicClimate: '', technologicalShifts: '' },
-  },
-  stpSegments: [],
-  marketingMix: { productResonance: '', priceAcceptability: '', placeChannelFit: '', promotionHook: '' },
-  cohortHypothesisSummary: '',
-};
-
 const AppStoreContext = createContext<AppStoreContextType | null>(null);
 
 export const useAppStore = () => {
@@ -167,7 +151,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
       return isLiveUser ? [] : (saved ? JSON.parse(saved) : SAMPLE_LEADS);
     } catch { return isLiveUser ? [] : SAMPLE_LEADS; }
   });
-  const [analysis, setAnalysis] = useState<FullStrategicAnalysis>(isLiveUser ? EMPTY_STRATEGIC_ANALYSIS : SAMPLE_STRATEGIC_ANALYSIS);
+  const [analysis, setAnalysis] = useState<FullStrategicAnalysis>(SAMPLE_STRATEGIC_ANALYSIS);
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_SCORING_WEIGHTS);
   const [scores, setScores] = useState<LeadICPScore[]>(isLiveUser ? [] : SAMPLE_SCORES);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -187,7 +171,6 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
       setScores([]);
       setActiveDatasetId('');
       setSellerContext(EMPTY_SELLER_CONTEXT);
-      setAnalysis(EMPTY_STRATEGIC_ANALYSIS);
     }
     void (async () => {
       try {
@@ -256,40 +239,6 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
           };
         });
         setScores(mappedScores);
-        const savedStp = await dbService.getDatasetSTPAnalysis(ownerId, selected.id);
-        if (!current) return;
-        const mappedSegments: STPCluster[] = (savedStp?.segments || [])
-          .filter((segment) => !segment.isInsufficientEvidenceGroup)
-          .map((segment) => {
-            const assessment = savedStp?.targetingAssessments[segment.id];
-            const positioning = savedStp?.positioningRecommendations[segment.id];
-            const targetAttractiveness: STPCluster['targetAttractiveness'] =
-              assessment?.recommendationTier === 'Recommended Target'
-                ? 'Tier 1 Priority'
-                : assessment?.recommendationTier === 'Provisional Shortlist' || assessment?.recommendationTier === 'Secondary Priority'
-                  ? 'Tier 2 Secondary'
-                  : assessment?.recommendationTier === 'Avoid'
-                    ? 'Avoid'
-                    : 'Tier 3 Opportunistic';
-            return {
-              id: segment.id,
-              segmentName: segment.name,
-              problemDefinition: segment.sharedProblem,
-              leadCount: segment.companyCount,
-              averageNeedScore: assessment?.attractivenessScore || 0,
-              targetAttractiveness,
-              recommendedPositioningAngle: positioning?.positioningStatement || 'Positioning requires buyer validation.',
-              valueNarrative: segment.desiredOutcome,
-              matchedLeadIds: segment.primaryCompanyIds,
-            };
-          })
-          .sort((a, b) => b.averageNeedScore - a.averageNeedScore);
-        setAnalysis((previous) => ({
-          ...previous,
-          offeringId: savedStp?.sellerOfferingId || previous.offeringId,
-          analyzedAt: savedStp?.generatedAt || previous.analyzedAt,
-          stpSegments: mappedSegments,
-        }));
         setDatasets((previous) => previous.map((dataset) => dataset.id === selected.id ? {
           ...dataset,
           tier1Count: mappedScores.filter((score) => score.tier.includes('Tier 1')).length,
