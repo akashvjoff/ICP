@@ -85,6 +85,18 @@ export interface OfferingProfile {
   updatedAt: string;
 }
 
+export const EMPTY_SELLER_CONTEXT: SellerProductContext = {
+  id: 'seller-ctx-new', isComplete: false, completionScore: 0, lastSavedAt: '',
+  companyName: '', website: '', industry: '', geography: '',
+  productName: '', productDescription: '', coreFeatures: [], mainBenefit: '',
+  businessModel: 'B2B SaaS', indicativePricing: '',
+  existingCustomers: '', targetBusinessTypes: [], typicalCompanySize: '', targetGeography: [],
+  buyerRoles: [], usersVsDecisionMakers: { dailyUsers: '', decisionMakers: '', budgetHolders: '' },
+  currentCustomerProblem: '', idealCustomerOutcome: '',
+  problemIntensity: 'Moderate / Nice-to-Have', motivationToChange: '', purchaseInvolvement: '',
+  whyCustomersChoose: '', mainAlternatives: '', pointOfParity: '', pointOfDifference: '',
+};
+
 export const DEFAULT_SELLER_CONTEXT: SellerProductContext = {
   id: 'seller-ctx-default',
   isComplete: true,

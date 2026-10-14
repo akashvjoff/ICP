@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Router, useRouter } from './lib/router';
-import { AuthProvider } from './lib/auth';
+import { AuthProvider, useAuth } from './lib/auth';
 import { AppStoreProvider } from './lib/store';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
@@ -148,13 +148,21 @@ function RouteSwitch() {
   );
 }
 
+function ScopedWorkspace() {
+  const { user, isDemoUser } = useAuth();
+  const scope = user?.id || (isDemoUser ? 'demo' : 'anonymous');
+  return (
+    <AppStoreProvider key={scope}>
+      <RouteSwitch />
+    </AppStoreProvider>
+  );
+}
+
 export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppStoreProvider>
-          <RouteSwitch />
-        </AppStoreProvider>
+        <ScopedWorkspace />
       </AuthProvider>
     </Router>
   );

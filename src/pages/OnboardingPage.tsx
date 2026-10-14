@@ -41,6 +41,7 @@ export const OnboardingPage: React.FC = () => {
   const { navigate } = useRouter();
   const { sellerContext, updateSellerContext, addToast } = useAppStore();
   const { user, isConfigured } = useAuth();
+  const draftKey = `icp_mode_onboarding_draft_${user?.id || 'demo'}`;
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [formData, setFormData] = useState<SellerProductContext>(sellerContext || DEFAULT_SELLER_CONTEXT);
@@ -67,7 +68,7 @@ export const OnboardingPage: React.FC = () => {
 
     // Check local storage draft first
     try {
-      const savedDraft = localStorage.getItem('icp_mode_onboarding_draft');
+      const savedDraft = localStorage.getItem(draftKey);
       if (savedDraft) {
         const parsed = JSON.parse(savedDraft);
         setFormData(parsed);
@@ -87,7 +88,7 @@ export const OnboardingPage: React.FC = () => {
         console.warn('Could not load remote seller context:', err);
       });
     }
-  }, [user?.id, isConfigured]);
+  }, [user?.id, isConfigured, draftKey]);
 
   // Completion calculation
   const completion = calculateContextCompletion(formData);
@@ -95,7 +96,7 @@ export const OnboardingPage: React.FC = () => {
   // Incremental Local Auto-Save
   const saveDraftLocally = (updated: SellerProductContext) => {
     try {
-      localStorage.setItem('icp_mode_onboarding_draft', JSON.stringify(updated));
+      localStorage.setItem(draftKey, JSON.stringify(updated));
     } catch {}
   };
 
@@ -256,7 +257,7 @@ export const OnboardingPage: React.FC = () => {
 
     // Clear temporary local draft
     try {
-      localStorage.removeItem('icp_mode_onboarding_draft');
+      localStorage.removeItem(draftKey);
     } catch {}
 
     setSavingProgress(false);

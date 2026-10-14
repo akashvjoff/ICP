@@ -86,30 +86,31 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasLiveReport, setHasLiveReport] = useState(false);
   const [selectedMixSegmentId, setSelectedMixSegmentId] = useState<string | null>(null);
 
   // Seller profile adapter
   const sellerProfile: SellerProfileContext = useMemo(() => {
     return {
       id: offering.id,
-      companyName: sellerContext.companyName || offering.companyName || 'Synthetix Data Cloud',
-      website: sellerContext.website || offering.website || 'https://synthetix.io',
-      productName: sellerContext.productName || offering.productName || 'DataReliability Engine',
+      companyName: sellerContext.companyName || offering.companyName || 'Seller company not provided',
+      website: sellerContext.website || offering.website || '',
+      productName: sellerContext.productName || offering.productName || 'Product not provided',
       productDescription: sellerContext.productDescription || offering.valueProposition || '',
       category: offering.category || sellerContext.businessModel || 'Enterprise B2B Software',
-      valueProposition: offering.valueProposition || sellerContext.mainBenefit || 'Eliminates silent data corruption in mission-critical pipelines.',
-      primaryProblemSolved: offering.primaryProblemSolved || sellerContext.currentCustomerProblem || 'Silent schema drift causing corrupt executive dashboards',
+      valueProposition: offering.valueProposition || sellerContext.mainBenefit || 'Value proposition requires validation.',
+      primaryProblemSolved: offering.primaryProblemSolved || sellerContext.currentCustomerProblem || 'Buyer problem requires validation.',
       keyCapabilities: offering.keyCapabilities?.length
         ? offering.keyCapabilities
-        : (sellerContext.coreFeatures?.length ? sellerContext.coreFeatures : ['Automated schema drift detection', 'Bidirectional dbt and Snowflake sync']),
-      typicalACV: offering.typicalACV || sellerContext.indicativePricing || '$36,000 / year',
-      pricingModel: offering.pricingModel || 'Annual Contract Value (ACV)',
-      mainAlternatives: sellerContext.mainAlternatives || 'Manual scripts and spot checking',
-      pointOfParity: sellerContext.pointOfParity || 'Standard exception alerts and schema audit logs',
-      pointOfDifference: sellerContext.pointOfDifference || 'Proactive contract verification before downstream write-time breaks',
-      targetMarket: sellerContext.targetBusinessTypes?.join(', ') || 'FinTech, HealthTech, B2B SaaS',
-      primaryBuyer: sellerContext.buyerRoles?.[0]?.role || offering.buyerPersonas?.[0]?.title || 'VP of Data & Analytics',
-      mainCustomerProblem: sellerContext.currentCustomerProblem || 'Data pipelines fail silently when upstream schemas change without notice.',
+        : (sellerContext.coreFeatures?.length ? sellerContext.coreFeatures : []),
+      typicalACV: offering.typicalACV || sellerContext.indicativePricing || '',
+      pricingModel: offering.pricingModel || 'Pricing model not provided',
+      mainAlternatives: sellerContext.mainAlternatives || 'Alternatives require research',
+      pointOfParity: sellerContext.pointOfParity || '',
+      pointOfDifference: sellerContext.pointOfDifference || '',
+      targetMarket: sellerContext.targetBusinessTypes?.join(', ') || 'Target market requires validation',
+      primaryBuyer: sellerContext.buyerRoles?.[0]?.role || offering.buyerPersonas?.[0]?.title || 'Buyer role requires validation',
+      mainCustomerProblem: sellerContext.currentCustomerProblem || 'Buyer problem requires validation.',
     };
   }, [sellerContext, offering]);
 
@@ -183,6 +184,7 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
   // Load from backend on mount or dataset change
   const fetchBackendReport = useCallback(async () => {
     setIsLoading(true);
+    if (session?.access_token) setHasLiveReport(false);
     try {
       const token = session?.access_token || 'demo-token';
       const res = await fetch(`/api/reports/dataset/${datasetId}`, {
@@ -196,11 +198,14 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
         const data = await res.json();
         if (data.report) {
           setReport(data.report);
-          try {
-            localStorage.setItem(`icp_mode_exec_report_${datasetId}`, JSON.stringify(data.report));
-          } catch {}
+          setHasLiveReport(true);
           return;
         }
+      }
+
+      if (session?.access_token) {
+        setHasLiveReport(false);
+        return;
       }
 
       // Fallback to local computation
@@ -210,6 +215,10 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
         localStorage.setItem(`icp_mode_exec_report_${datasetId}`, JSON.stringify(fallback));
       } catch {}
     } catch {
+      if (session?.access_token) {
+        setHasLiveReport(false);
+        return;
+      }
       const fallback = computeLocalReport();
       setReport(fallback);
     } finally {
@@ -243,12 +252,15 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
         const data = await res.json();
         if (data.report) {
           setReport(data.report);
-          try {
-            localStorage.setItem(`icp_mode_exec_report_${datasetId}`, JSON.stringify(data.report));
-          } catch {}
+          setHasLiveReport(true);
           addToast('Executive ICP Report & 7Ps Marketing Mix refreshed successfully.', 'success');
           return;
         }
+      }
+
+      if (session?.access_token) {
+        addToast('Report generation failed. Please retry after checking the dataset analysis.', 'warning');
+        return;
       }
 
       // Fallback
@@ -259,6 +271,10 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
       } catch {}
       addToast('Executive report recomputed locally.', 'success');
     } catch {
+      if (session?.access_token) {
+        addToast('Report generation is unavailable. Please retry shortly.', 'warning');
+        return;
+      }
       const refreshed = computeLocalReport();
       setReport(refreshed);
       addToast('Executive report recomputed locally.', 'info');
@@ -266,6 +282,23 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
       setIsRefreshing(false);
     }
   };
+
+  if (session?.access_token && !hasLiveReport) {
+    return (
+      <AppLayout>
+        <div className="max-w-3xl mx-auto space-y-5 py-12">
+          <SectionEyebrow color="bg-[#6AAAFB]">LIVE DATASET REPORT</SectionEyebrow>
+          <h1 className="text-3xl font-black">{isLoading ? 'Loading your report…' : 'No report has been generated for this dataset yet.'}</h1>
+          <p className="font-medium">Generate the report from this dataset’s saved leads and analysis. Findings will remain an ICP Hypothesis until supported by customer outcomes.</p>
+          {!isLoading && (
+            <BrutalistButton variant="lime" onClick={handleRefreshReport} disabled={isRefreshing}>
+              {isRefreshing ? 'GENERATING REPORT…' : 'GENERATE REPORT'}
+            </BrutalistButton>
+          )}
+        </div>
+      </AppLayout>
+    );
+  }
 
   // Secure CSV Export (Formula Injection Protected)
   const handleExportCSV = () => {
@@ -580,7 +613,7 @@ Generated by icp.mode · Algorithmic Strategy Engine`;
                   CURRENT STATE (FRICTION &amp; PAIN)
                 </span>
                 <p className="text-amber-950 font-bold text-sm leading-snug">
-                  {report.needGapSummary.topNeedPatterns?.[0]?.description || report.needGapSummary.commonHypothesizedProblems?.[0] || 'Severe operational friction and manual pipeline overhead.'}
+                  {report.needGapSummary.topNeedPatterns?.[0]?.description || report.needGapSummary.commonHypothesizedProblems?.[0] || 'Buyer problem requires validation.'}
                 </p>
                 <p className="text-amber-900/80 text-[11px] font-medium pt-1">
                   Average Problem Severity: <strong>{report.summaryMetrics.averageEvidenceCoverage >= 70 ? 'Acute / High' : 'Moderate'}</strong> across evaluated leads.
@@ -592,7 +625,7 @@ Generated by icp.mode · Algorithmic Strategy Engine`;
                   DESIRED IDEAL STATE (BREAKTHROUGH)
                 </span>
                 <p className="text-emerald-950 font-black text-sm leading-snug">
-                  {sellerProfile.valueProposition || 'Automated data pipeline integrity with zero surprise executive dashboard downtime.'}
+                  {sellerProfile.valueProposition || 'Value proposition requires validation.'}
                 </p>
                 <p className="text-emerald-900/80 text-[11px] font-medium pt-1">
                   Capability Overlap: {report.needGapSummary.matchingSellerBenefits?.slice(0, 2).map((b) => b.sellerBenefit).join(', ') || 'High architectural fit'}.
@@ -813,7 +846,7 @@ Generated by icp.mode · Algorithmic Strategy Engine`;
                   OFFICIAL POSITIONING STATEMENT DRAFT
                 </span>
                 <p className="text-base sm:text-lg font-black text-[#0A0A0A] mt-2 leading-snug">
-                  "{report.stpAnalysis.positioningRecommendations[activeSegmentId]?.positioningStatement || `For modern data engineering teams experiencing silent pipeline drift, ${sellerProfile.productName} is the continuous contract verification platform that eliminates downstream corruption before executive reporting is impacted.`}"
+                  "{report.stpAnalysis.positioningRecommendations[activeSegmentId]?.positioningStatement || `Positioning for ${sellerProfile.productName} requires buyer validation.`}"
                 </p>
               </div>
 

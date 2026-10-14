@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { AppLayout } from '../components/layout/AppLayout';
@@ -12,7 +12,11 @@ import { Search, Filter, ExternalLink, Download, ArrowUpDown } from 'lucide-reac
 
 export const CompaniesPage: React.FC = () => {
   const { navigate } = useRouter();
-  const { leads, scores } = useAppStore();
+  const { leads, scores, datasets, isDemoMode, refreshLiveWorkspace } = useAppStore();
+  const hasDatasets = datasets.length > 0;
+  useEffect(() => {
+    if (!isDemoMode && hasDatasets) refreshLiveWorkspace();
+  }, [isDemoMode, hasDatasets, refreshLiveWorkspace]);
 
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<string>('all');

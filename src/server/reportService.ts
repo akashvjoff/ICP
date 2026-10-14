@@ -21,7 +21,7 @@ import type { LeadICPScore } from '../types/scoring';
 import type { SellerProfileContext } from './strategicAnalysisService';
 import type { LeadForAnalysis } from './analysisJobService';
 
-export const CURRENT_REPORT_MODEL_VERSION = 'v1.3-executive-report';
+export const CURRENT_REPORT_MODEL_VERSION = 'v1.4-executive-report';
 
 export function sanitizeCsvCell(val: unknown): string {
   if (val === null || val === undefined) return '""';
@@ -51,55 +51,49 @@ export function buildProductMix(
 ): ProductMixAnalysis {
   const sellerCaps = seller.keyCapabilities && seller.keyCapabilities.length > 0
     ? seller.keyCapabilities
-    : ['Continuous automated monitoring', 'High-fidelity workflow validation'];
+    : ['Seller capabilities require validation'];
 
   const fabMapping: FeatureAdvantageBenefit[] = sellerCaps.map((cap, idx) => ({
     feature: cap,
-    advantage: `Directly targets ${sharedNeed} without requiring manual custom scripting`,
-    customerBenefit: `Enables ${desiredOutcome} with rapid deployment and lower operational overhead`,
+    advantage: `Potential fit with ${sharedNeed}; validate in buyer discovery`,
+    customerBenefit: `Potential contribution to ${desiredOutcome}; outcome is unverified`,
     isExisting: true,
   }));
 
   // Add potential product hypothesis
   fabMapping.push({
-    feature: '[PROPOSED] Automated Remediation & Real-time Bi-directional Synchronization',
-    advantage: 'Proactively corrects upstream schema breaks rather than merely alerting',
-    customerBenefit: 'Complete self-healing reliability for mission-critical pipelines',
+    feature: `[PROPOSED] Improvement for ${sharedNeed}`,
+    advantage: 'Requires buyer validation and product feasibility review',
+    customerBenefit: `Could improve ${desiredOutcome} if validated`,
     isExisting: false,
   });
 
   return {
     coreBenefit: desiredOutcome,
     expectedProduct: [
-      seller.pointOfParity || 'Standard alerting, role-based access control, and API/webhook connectivity',
-      'Automated health check reporting and audit logging',
-      'Data encryption in transit and at rest',
+      seller.pointOfParity || 'Category expectations require buyer research',
+      'Implementation requirements require validation',
     ],
     augmentedProduct: [
-      seller.pointOfDifference || 'Proprietary bidirectional simulation and continuous contract verification',
+      seller.pointOfDifference || 'Differentiation requires customer evidence',
       ...sellerCaps.slice(0, 2),
-      'Dedicated integration specialist for accelerated deployment',
     ],
     potentialProduct: [
-      '[PROPOSED] Autonomous self-healing data pipeline failover',
-      '[PROPOSED] Multi-cloud unified contract governance dashboard',
-      '[PROPOSED] Real-time cost-to-serve telemetry and query optimization hints',
+      `[PROPOSED] Test a product improvement for ${sharedNeed}`,
+      '[PROPOSED] Validate integration needs with target buyers',
     ],
     fabMapping,
-    pointOfParity: seller.pointOfParity || 'Category baseline: automated exception alerts and schema change audit logs.',
-    pointOfDifference: seller.pointOfDifference || 'Proprietary edge: proactive contract verification before downstream pipelines break.',
+    pointOfParity: seller.pointOfParity || 'Category baseline unverified.',
+    pointOfDifference: seller.pointOfDifference || 'Differentiation unverified.',
     productGaps: [
-      'Pre-built integrations for legacy on-premise ERP/CRM systems (if required by enterprise accounts)',
-      'Automated single-click rollback for corrupted warehouse tables',
+      'Document buyer-requested integrations and missing capabilities',
     ],
     productPriorities: [
-      `Deepen compatibility with core data warehouses used by ${segmentName}`,
-      'Minimize time-to-first-alert to under 15 minutes during pilot evaluation',
-      'Provide downloadable executive compliance and reliability summaries',
+      `Validate the most important requirements for ${segmentName}`,
+      'Measure time to first value in a customer pilot',
     ],
     proposedFeatureImprovements: [
-      '[PROPOSED] Slack and Teams interactive bot for immediate incident triage',
-      '[PROPOSED] Synthetic test data generator for non-production staging environments',
+      '[PROPOSED] Prioritize improvements after buyer interviews',
     ],
   };
 }
@@ -115,9 +109,9 @@ export function buildPriceMix(
     pricingApproach: 'Value-Based Pricing',
     rationale: `Price is aligned with the quantifiable business value of resolving acute operational friction (${segmentName}), rather than cost-plus hours or simplistic commodity tiers.`,
     monetaryCosts: observedPricing ? `Indicative baseline: ${observedPricing}` : 'PRICING RECOMMENDATION: PROVISIONAL — REAL ACV UNDISCLOSED',
-    switchingCosts: 'Moderate: Requires updating downstream query dependencies and configuring warehouse service account IAM permissions.',
-    implementationCosts: 'Low to Moderate: 1 to 2 weeks for data pipeline mapping and baseline validation.',
-    costToServe: 'Scales with data pipeline complexity and daily query volume; unit economics require validation.',
+    switchingCosts: 'Unknown: document the buyer’s current process and migration work.',
+    implementationCosts: 'Unknown: measure setup effort in a pilot.',
+    costToServe: 'Unknown: validate delivery and support costs.',
     observedSellerPricing: observedPricing,
     isPricePointKnown: isPriceKnown,
     recommendedPricePoint: isPriceKnown
@@ -125,8 +119,8 @@ export function buildPriceMix(
       : 'PRICING RECOMMENDATION: PROVISIONAL — PRICE POINT: RESEARCH REQUIRED',
     recommendedPricingResearch: [
       'Conduct Van Westendorp Price Sensitivity Meter interviews with 10 target budget holders',
-      'Audit customer cost-of-inaction (downtime cost, engineering triage hours) to calculate ROI ceiling',
-      'Test two-part pricing structure (base platform fee + volume-based query contract allocation)',
+      'Ask buyers to estimate the cost of the problem using their own evidence',
+      'Test pricing structure against the stated buying process',
       'Evaluate competitor price anchoring where public proposals or procurement quotes are verified',
     ],
   };
@@ -138,18 +132,16 @@ export function buildPlaceMix(
 ): PlaceMixAnalysis {
   return {
     distributionModel: 'Hybrid Direct & Partner',
-    rationale: `Given the technical involvement and budget authorization required for ${segmentName}, inside sales paired with modern self-serve pilot environments optimizes conversion velocity while preserving enterprise trust.`,
+    rationale: `Test direct discovery with ${segmentName} before investing in partner channels.`,
     customerTouchpoints: [
-      'Interactive product tour or sandboxed demo environment on website',
-      'Technical discovery consultation with Solutions Architect',
-      '2-week hands-on proof of concept in non-production staging warehouse',
-      'Executive procurement and security review package delivery',
-      'Post-contract dedicated Slack/Teams onboarding channel',
+      'Product explanation on the seller website, if available',
+      'Buyer discovery conversation',
+      'Proof of concept with agreed success criteria, if feasible',
+      'Procurement review when required',
     ],
     implementationRequirements: [
-      'Read-only warehouse IAM credentials or secure OAuth application connector',
-      'Network whitelist configuration or VPC peering if behind enterprise firewalls',
-      'Designated lead engineer on buyer team for initial pipeline verification',
+      'Confirm delivery requirements with the seller',
+      'Identify a buyer contact for evaluation',
     ],
     channelRisks: [
       'Extended enterprise infosec reviews stalling sales cycle',
@@ -169,45 +161,43 @@ export function buildPromotionMix(
   desiredOutcome: string,
   primaryBuyer: string
 ): PromotionMixAnalysis {
-  const buyerRole = primaryBuyer || 'VP of Data & Engineering';
+  const buyerRole = primaryBuyer || 'potential buyer';
 
   return {
     decisionJourney: {
-      needRecognition: `Triggered by an acute data pipeline failure, corrupted board metrics, or impending regulatory audit. The buyer realizes manual firefighting is unsustainable.`,
-      searchForAlternatives: `Buyer evaluates in-house Python/dbt assert scripts, legacy database spot-check tools, and modern automated observability platforms.`,
-      evaluationOfOptions: `Technical team compares time-to-value, query performance overhead, security architecture, and false-positive alert frequency.`,
-      purchaseAdoption: `Procurement validates pricing against avoided downtime cost, securing sign-off from CTO/CFO.`,
-      postPurchaseEvaluation: `Customer Success monitors pipeline uptime, alert actionability, and onboarding milestone completion over first 90 days.`,
+      needRecognition: `Hypothesis: ${sharedNeed} creates a reason to consider change; verify with buyers.`,
+      searchForAlternatives: 'Ask buyers which alternatives they actually compare.',
+      evaluationOfOptions: `Ask the ${buyerRole} which criteria matter in evaluation.`,
+      purchaseAdoption: 'Confirm budget owner, approval process, and purchasing criteria.',
+      postPurchaseEvaluation: `Measure whether the buyer achieved ${desiredOutcome}.`,
     },
-    needAwarenessMessage: `Is silent pipeline drift putting your executive reporting at risk? When upstream schemas change without warning, downstream decisions suffer.`,
-    valuePropositionMessage: `${seller.valueProposition || `Eliminate data pipeline downtime and achieve ${desiredOutcome} with automated continuous contract testing.`}`,
-    proofMessage: `Engineered for enterprise reliability with zero-copy validation, SOC2 Type II controls, and non-intrusive read-only execution.`,
+    needAwarenessMessage: `Does ${sharedNeed} affect your team?`,
+    valuePropositionMessage: seller.valueProposition || `Potential path to ${desiredOutcome}; validate the outcome.`,
+    proofMessage: 'Proof is required before making performance or compliance claims.',
     recommendedChannels: {
       ownedMedia: [
-        'Interactive product sandbox tour',
-        'Technical whitepaper: "Preventing Silent Data Corruption in High-Gravity Warehouses"',
-        'Customer implementation blueprint checklist',
+        'Product explanation using verified capabilities',
+        'Buyer education addressing the stated problem',
       ],
       earnedMedia: [
-        'Open-source schema verification utilities and community technical blogs',
-        'Guest presentations at data engineering and modern data stack meetups',
+        'Relevant industry communities, subject to audience research',
       ],
       paidMedia: [
-        'Provisional: Targeted search campaigns on high-intent terms ("data contract testing", "dbt pipeline observability")',
+        `Provisional: test search terms related to ${sharedNeed}`,
       ],
       outboundDirect: [
         `Direct peer-to-peer outreach to ${buyerRole} titles at high-conviction accounts experiencing acute friction`,
       ],
       referralPartnerships: [
-        'Co-marketing with cloud data warehouse ecosystem partners and modern analytics consultancies',
+        'Potential referral partners identified through buyer interviews',
       ],
     },
     sampleDrafts: {
-      headline: `Stop Silent Pipeline Failures Before They Corrupt Your Executive Dashboards.`,
-      outreachAngle: `[SUGGESTED DRAFT] Hi {{FirstName}}, noticed {{Company}}'s modern stack with Snowflake/dbt. Most data teams we talk to lose 10+ hours a week troubleshooting undocumented schema changes that break executive reporting. We built an automated engine that verifies contracts before write-time. Worth a 15-minute technical walkthrough?`,
-      discoveryQuestion: `When an upstream service changes a database column or data type without notice today, how long does it take your team to identify the break before a stakeholder flags it?`,
-      educationalContentAngle: `Benchmark Guide: The True Cost of Data Pipeline Downtime in Scaleup Data Teams.`,
-      callToAction: `Request a 14-day staging sandbox or schedule an architecture discovery session.`,
+      headline: `Explore a better way to address ${sharedNeed}.`,
+      outreachAngle: `[SUGGESTED DRAFT] Hi {{FirstName}}, is ${sharedNeed} a priority at {{Company}}? We are learning how teams approach this problem and would value a short conversation.`,
+      discoveryQuestion: `How does your team currently handle ${sharedNeed}, and what would a better outcome look like?`,
+      educationalContentAngle: `Buyer guide: approaches to ${sharedNeed}.`,
+      callToAction: 'Schedule a discovery conversation.',
     },
   };
 }
@@ -216,33 +206,30 @@ export function buildPeopleMix(
   seller: SellerProfileContext,
   primaryBuyer: string
 ): PeopleMixAnalysis {
-  const buyer = primaryBuyer || 'VP of Data & Engineering';
+  const buyer = primaryBuyer || 'potential buyer';
 
   return {
     buyerFacingExpertise: [
-      'Deep fluency in modern data warehouse architectures (Snowflake, Databricks, BigQuery, dbt)',
-      'Ability to articulate data governance, compliance risk, and engineering ROI to C-level stakeholders',
-      'Empathy for the daily incident firefights experienced by data engineers and analytics leads',
+      `Understanding of ${seller.productName || 'the offering'} and its verified capabilities`,
+      'Ability to discuss buyer outcomes without unsupported claims',
     ],
     salesConversationSkills: [
       'Challenger sales methodology: diagnosing hidden costs of status-quo inertia',
-      'Technical qualification: identifying query volumes, pipeline topology, and budget timelines early',
-      'Active listening: mapping specific past incident horrors to product contract verification',
+      'Qualification of problem severity, budget, and timeline',
+      'Active listening about the buyer’s current process',
     ],
     buyingCommitteeEngagement: {
-      economicBuyerRole: `CTO / Chief Data Officer: Focus on executive governance, SLA compliance, and software spend justification.`,
-      championRole: `${buyer}: Focus on operational tranquility, reducing weekend on-call pages, and team velocity.`,
-      technicalEvaluatorRole: `Lead Data Engineer: Focus on security clearance, API documentation, query overhead, and CLI ease-of-use.`,
+      economicBuyerRole: 'Economic buyer: identity and purchase criteria require validation.',
+      championRole: `${buyer}: confirm interest and influence in discovery.`,
+      technicalEvaluatorRole: 'Technical evaluator: identify only if the buying process requires one.',
     },
-    onboardingSupportModel: 'Dedicated Solutions Engineer during 14-day pilot, transitioning to a named Customer Success Manager upon contract execution.',
+    onboardingSupportModel: 'Define onboarding ownership and support level after validating seller capacity.',
     trainingRequirements: [
-      'Continuous quarterly training on emerging warehouse ecosystem features and security standards',
-      'Standardized demo certification ensuring all customer-facing reps can deploy a working sandbox in 10 minutes',
+      'Train customer-facing staff on verified capabilities and limits',
     ],
     customerServiceTouchpoints: [
-      'Direct shared Slack/Teams channel for priority accounts',
-      'Sub-hour SLA for critical severity incident tickets',
-      'Quarterly executive business reviews (EBRs) tracking verified pipeline uptime',
+      'Support channel and response targets to be confirmed with the seller',
+      'Periodic review of verified buyer outcomes',
     ],
   };
 }
@@ -255,7 +242,7 @@ export function buildProcessMix(
     {
       stage: '1. Awareness & Discovery',
       customerAction: 'Interacts with technical educational content or receives targeted peer outreach.',
-      sellerDelivery: 'Shares benchmark data on pipeline downtime and offers self-guided architecture tour.',
+      sellerDelivery: `Explains the offering and asks whether ${seller.primaryProblemSolved || 'the stated problem'} is relevant.`,
       frictionPoints: ['Skepticism of vendor marketing claims', 'Time constraints of busy engineering leads'],
       valueCreationMechanism: 'Validates and quantifies the hidden cost of the customer’s existing friction.',
       metricsToMonitor: ['Meeting booking rate', 'Discovery qualification rate'],
@@ -263,26 +250,26 @@ export function buildProcessMix(
     },
     {
       stage: '2. Technical Qualification',
-      customerAction: 'Participates in 30-minute architecture review and outlines current data pipeline topology.',
-      sellerDelivery: 'Maps capabilities to specific pipeline blockers; assesses feasibility and compatibility.',
-      frictionPoints: ['Unwillingness to disclose architecture without NDA', 'Unclear budget authority'],
+      customerAction: 'Describes the current process, pain, and desired outcome.',
+      sellerDelivery: 'Maps verified capabilities to the stated need and records gaps.',
+      frictionPoints: ['Incomplete problem evidence', 'Unclear budget authority'],
       valueCreationMechanism: 'Confirms structural fit and establishes clear success criteria for pilot.',
-      metricsToMonitor: ['Technical qualification pass rate', 'Pipeline scope clarity'],
+      metricsToMonitor: ['Qualification pass rate', 'Problem clarity'],
       requiresHumanVerification: true,
     },
     {
-      stage: '3. Staging Sandbox / Pilot',
-      customerAction: 'Connects read-only credential to staging data warehouse and validates simulated breaks.',
-      sellerDelivery: 'Provides automated deployment script and assists with initial contract configuration.',
-      frictionPoints: ['IAM permission approvals delayed by internal DevOps', 'Query performance concerns'],
-      valueCreationMechanism: 'Delivers undeniable physical proof of value on the customer’s actual data models.',
-      metricsToMonitor: ['Time to first alert (<24 hrs target)', 'Pilot completion rate (≥80% target)'],
+      stage: '3. Evaluation / Pilot',
+      customerAction: 'Evaluates the offering against agreed success criteria.',
+      sellerDelivery: 'Provides a feasible evaluation path and records observed outcomes.',
+      frictionPoints: ['Evaluation effort', 'Unclear success criteria'],
+      valueCreationMechanism: 'Tests whether the offering delivers value in the buyer context.',
+      metricsToMonitor: ['Time to first value', 'Pilot completion rate'],
       requiresHumanVerification: true,
     },
     {
       stage: '4. Commercial & Security Close',
       customerAction: 'Submits vendor security questionnaire and reviews contract terms.',
-      sellerDelivery: 'Delivers pre-filled SOC2 compliance package and transparent annual contract.',
+      sellerDelivery: 'Provides verified security and commercial information.',
       frictionPoints: ['Procurement legal redlines', 'Budget freeze or reallocation'],
       valueCreationMechanism: 'Minimizes administrative friction to enable rapid production adoption.',
       metricsToMonitor: ['Sales cycle duration (days)', 'Contract close rate'],
@@ -290,11 +277,11 @@ export function buildProcessMix(
     },
     {
       stage: '5. Production Onboarding & Expansion',
-      customerAction: 'Rolls out contracts across all core executive pipelines and invites engineering team.',
-      sellerDelivery: 'Conducts team enablement workshop and configures proactive health monitoring.',
-      frictionPoints: ['Slow team adoption of new verification workflows', 'Stale alerts'],
-      valueCreationMechanism: 'Embeds the solution as permanent infrastructure, guaranteeing long-term pipeline integrity.',
-      metricsToMonitor: ['Daily active alert reviews', 'Net revenue retention (NRR)'],
+      customerAction: 'Introduces the offering to intended users.',
+      sellerDelivery: 'Supports onboarding and measures adoption.',
+      frictionPoints: ['Slow adoption', 'Unclear ownership'],
+      valueCreationMechanism: 'Measures whether expected value is realized over time.',
+      metricsToMonitor: ['Product adoption', 'Customer retention'],
       requiresHumanVerification: false,
     },
   ];
@@ -307,8 +294,8 @@ export function buildProcessMix(
     journeyStages,
     serviceStandardizationRules: [
       'Never begin a pilot without written, mutually agreed success criteria and a confirmed decision date.',
-      'Provide pre-compiled security documentation proactively during Discovery to cut infosec review lag by 50%.',
-      'Automate sandbox provisioning so the customer experiences value within 30 minutes of credential grant.',
+      'Provide verified security documentation when buyers request it.',
+      'Measure the time needed for a buyer to experience value.',
     ],
   };
 }
@@ -319,27 +306,24 @@ export function buildPhysicalEvidenceMix(
 ): PhysicalEvidenceMixAnalysis {
   const existingProof: string[] = [];
   if (seller.website) existingProof.push(`Live product website and domain presence (${seller.website})`);
-  if (seller.pointOfParity) existingProof.push(`Documented standard compliance baseline: ${seller.pointOfParity}`);
+  if (seller.pointOfParity) existingProof.push(`Seller-stated point of parity, pending verification: ${seller.pointOfParity}`);
 
   const requiredProof: string[] = [
-    'PROOF ASSET REQUIRED: SOC2 Type II compliance audit report and third-party penetration test summary',
-    'PROOF ASSET REQUIRED: Verified customer case study demonstrating ≥20% win-rate or quantifiable downtime reduction',
-    'PROOF ASSET REQUIRED: Interactive sandboxed product demo environment with pre-loaded mock anomalies',
-    'PROOF ASSET REQUIRED: Public status page showing 99.99% historical service availability',
+    'PROOF ASSET REQUIRED: Evidence for any performance or compliance claims the seller makes',
+    'PROOF ASSET REQUIRED: Verified customer outcome or pilot result',
   ];
 
   return {
     existingProofAssets: existingProof,
     proofAssetsRequired: requiredProof,
     recommendedTrustSignals: [
-      'Interactive sandbox environment permitting prospective buyers to trigger and resolve simulated anomalies',
-      'Verifiable architecture diagrams demonstrating zero-copy, read-only metadata execution',
-      'Transparent documentation portal with public API schemas and changelogs',
+      'Product demonstration based on verified functionality',
+      'Clear explanation of how the offering works',
     ],
     documentationChecklist: [
-      'Data security & privacy whitepaper detailing non-retention of sensitive customer records',
-      'Step-by-step IAM warehouse deployment guide with copy-pasteable CLI commands',
-      'Standard Master Services Agreement (MSA) and Business Associate Agreement (BAA) templates',
+      'Privacy and security documentation appropriate to the offering',
+      'Implementation guidance based on the actual product',
+      'Commercial terms reviewed by the seller',
     ],
   };
 }
@@ -416,16 +400,16 @@ export function generateIntegratedActionPlan(
     {
       id: 'act-imm-2',
       priority: 'IMMEDIATE',
-      action: 'Assemble and publish the Proof Package (read-only IAM architecture overview and pilot checklist) to eliminate security friction.',
+      action: 'Assemble verified product, security, and pilot evidence relevant to this offering.',
       linkedNeedGap: 'Security and vendor procurement hesitation',
       linkedSegmentId: targetSeg.id,
       linkedSegmentName: targetSeg.name,
       fiveCConsideration: 'Company technical credibility & regulatory context',
       marketingMixDimension: 'physical_evidence',
       suggestedRole: 'Head of Product / Security Lead',
-      requiredInputs: 'Security architecture diagrams, IAM least-privilege policy spec',
-      successMetric: 'Security questionnaire approval time reduced to <5 business days',
-      evidenceConfidence: 'high',
+      requiredInputs: 'Verified seller documentation and buyer requests',
+      successMetric: 'Buyers can review all claims with supporting evidence',
+      evidenceConfidence: 'low',
       dependencies: ['Architecture documentation verified'],
     },
     {
@@ -449,17 +433,17 @@ export function generateIntegratedActionPlan(
     {
       id: 'act-nxt-1',
       priority: 'NEXT',
-      action: 'Standardize the 14-day staging sandbox onboarding flow with pre-configured validation contracts to accelerate time-to-first-alert.',
+      action: 'Design an evaluation flow with buyer-approved success criteria.',
       linkedNeedGap: 'Delayed time-to-value during pilot evaluations',
       linkedSegmentId: targetSeg.id,
       linkedSegmentName: targetSeg.name,
       fiveCConsideration: 'Company delivery feasibility & customer engineering bandwidth',
       marketingMixDimension: 'process',
       suggestedRole: 'Solutions Engineer / Tech Lead',
-      requiredInputs: 'Automated sandbox onboarding script, sample error dataset',
-      successMetric: 'Time-to-first-alert achieved within 2 hours of credential grant',
-      evidenceConfidence: 'high',
-      dependencies: ['Staging sandbox environment operational'],
+      requiredInputs: 'Feasible pilot plan and success measures',
+      successMetric: 'Pilot outcome measured against agreed criteria',
+      evidenceConfidence: 'low',
+      dependencies: ['Seller confirms evaluation capacity'],
     },
     {
       id: 'act-nxt-2',
@@ -482,7 +466,7 @@ export function generateIntegratedActionPlan(
     {
       id: 'act-ltr-1',
       priority: 'LATER',
-      action: 'Evaluate strategic channel partnerships with systems integrators and cloud warehouse consultancies once core direct motion achieves ≥20% win-rate.',
+      action: 'Evaluate partner channels after direct buyer demand is demonstrated.',
       linkedNeedGap: 'Long-term market expansion and channel leverage',
       linkedSegmentId: targetSeg.id,
       linkedSegmentName: targetSeg.name,
@@ -490,32 +474,32 @@ export function generateIntegratedActionPlan(
       marketingMixDimension: 'place',
       suggestedRole: 'VP of Business Development',
       requiredInputs: 'Partner commission economics and technical certification program',
-      successMetric: '2 signed referral partners generating qualified inbound opportunities',
+      successMetric: 'Partner-sourced opportunities measured against direct acquisition',
       evidenceConfidence: 'low',
       dependencies: ['Direct sales motion validated with closed-won proof'],
     },
     {
       id: 'act-ltr-2',
       priority: 'LATER',
-      action: 'Prototype potential product improvements: Real-time autonomous remediation and self-healing pipeline recovery.',
+      action: `Prototype an improvement addressing ${targetSeg.sharedProblem} after buyer validation.`,
       linkedNeedGap: 'Eliminating manual remediation overhead',
       linkedSegmentId: targetSeg.id,
       linkedSegmentName: targetSeg.name,
       fiveCConsideration: 'Company engineering innovation & product defensibility',
       marketingMixDimension: 'product',
       suggestedRole: 'VP of Engineering',
-      requiredInputs: 'Customer feedback backlog, automated write-time rollback architecture',
-      successMetric: 'Working prototype demonstrating safe zero-corruption table recovery',
+      requiredInputs: 'Verified customer feedback and feasibility review',
+      successMetric: 'Prototype tested against a documented buyer need',
       evidenceConfidence: 'medium',
-      dependencies: ['Core detection engine stable in production'],
+      dependencies: ['Seller confirms product roadmap fit'],
     },
   ];
 
   const whatToValidateFirst = [
-    'Confirm that target budget holders actually perceive silent pipeline failures as a mission-critical threat rather than a tolerable annoyance.',
-    'Verify that the seller can execute pilot deployments within 14 days without exhausting technical engineering capacity.',
-    'Test whether prospective buyers will accept the proposed ACV range or if price point requires two-part usage-based structuring.',
-    'Validate that closed-won deal data reaches ≥20% win-rate before scaling outbound marketing or hiring dedicated reps.',
+    `Confirm that target buyers experience ${targetSeg.sharedProblem} and prioritize solving it.`,
+    'Verify the seller can deliver a pilot within its actual capacity.',
+    'Test price and purchasing process with budget owners.',
+    'Measure conversion from discovery to sale before scaling outbound.',
   ];
 
   return { immediate, next, later, whatToValidateFirst };
@@ -619,7 +603,7 @@ export function composeExecutiveICPReport(
     },
 
     executiveThesis: {
-      problemAddressed: seller.primaryProblemSolved || 'Severe operational friction and manual pipeline overhead.',
+      problemAddressed: seller.primaryProblemSolved || 'Buyer problem requires validation.',
       targetCohort: `${targetSeg.name} (${targetSeg.companyCount} accounts, ${targetSeg.datasetShare}% of cohort).`,
       recommendedSegmentName: targetSeg.name,
       relevanceRationale: tier1Count > 0

@@ -220,14 +220,16 @@ export const AppSidebar: React.FC = () => {
                 </span>
               </div>
               <p className="text-[11px] text-[#0A0A0A]/80 font-medium leading-tight mb-2">
-                {isDemoMode ? 'Synthetic B2B dataset loaded for test drives.' : 'Live data pipeline waiting for CSV upload.'}
+                {isDemoMode ? 'Synthetic B2B dataset loaded for test drives.' : 'Your signed-in Supabase workspace.'}
               </p>
-              <button
-                onClick={toggleDemoMode}
-                className="w-full text-center font-mono text-[10px] font-black text-[#0A0A0A] bg-white border border-[#0A0A0A] py-1 rounded hover:bg-[#A1F000] transition-colors cursor-pointer"
-              >
-                {isDemoMode ? 'SWITCH TO BLANK MODE' : 'RESTORE DEMO DATA'}
-              </button>
+              {workspaceUser.isDemoUser && (
+                <button
+                  onClick={toggleDemoMode}
+                  className="w-full text-center font-mono text-[10px] font-black text-[#0A0A0A] bg-white border border-[#0A0A0A] py-1 rounded hover:bg-[#A1F000] transition-colors cursor-pointer"
+                >
+                  {isDemoMode ? 'SWITCH TO BLANK MODE' : 'RESTORE DEMO DATA'}
+                </button>
+              )}
             </div>
 
             {/* User profile snippet */}

@@ -60,10 +60,12 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
   // Local job & lead states for live reactive UI
   const [job, setJob] = useState<AnalysisJobRecord>(() => {
     // Check localStorage checkpoint for demo/offline persistence
-    try {
-      const savedJob = localStorage.getItem(`icp_mode_job_${datasetId}`);
-      if (savedJob) return JSON.parse(savedJob);
-    } catch {}
+    if (!session?.access_token) {
+      try {
+        const savedJob = localStorage.getItem(`icp_mode_job_${datasetId}`);
+        if (savedJob) return JSON.parse(savedJob);
+      } catch {}
+    }
 
     const eligibleCount = Math.min(100, storeLeads.filter((l) => l.isAiEnriched !== false).length);
     const skippedCount = Math.max(0, storeLeads.length - eligibleCount);
@@ -71,9 +73,9 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
       id: `job-${datasetId}`,
       dataset_id: datasetId,
       owner_user_id: session?.user?.id || 'demo-user-id',
-      status: (dataset.status === 'Completed' ? 'completed' : 'queued') as JobStatus,
+      status: (session?.access_token ? 'queued' : dataset.status === 'Completed' ? 'completed' : 'queued') as JobStatus,
       total_count: eligibleCount || dataset.validRows || 5,
-      completed_count: dataset.status === 'Completed' ? (eligibleCount || dataset.validRows || 5) : 0,
+      completed_count: !session?.access_token && dataset.status === 'Completed' ? (eligibleCount || dataset.validRows || 5) : 0,
       failed_count: 0,
       skipped_count: skippedCount,
       last_error: null,
@@ -139,16 +141,20 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
             setJob(data.job);
             persistJobCheckpoint(data.job);
           }
-          if (Array.isArray(data.leads) && data.leads.length > 0) {
-            setDatasetLeads((prev) => {
-              const serverStatusMap = new Map<string, LeadAnalysisStatus>(
-                data.leads.map((l: { id: string; analysis_status?: LeadAnalysisStatus }) => [l.id, l.analysis_status || 'pending'])
-              );
-              return prev.map((l): NormalizedLead => ({
-                ...l,
-                analysisStatus: serverStatusMap.get(l.id) || l.analysisStatus || (l.isAiEnriched === false ? 'skipped' : 'pending'),
-              }));
-            });
+          if (Array.isArray(data.leads)) {
+            setDatasetLeads(data.leads.map((lead: {
+              id: string; company_name: string; normalized_domain: string | null; website: string | null;
+              industry_raw: string | null; employee_count: number | null; annual_revenue: number | null;
+              notes: string | null; geography: string | null; analysis_eligible: boolean;
+              analysis_status: LeadAnalysisStatus; created_at: string;
+            }): NormalizedLead => ({
+              id: lead.id, companyName: lead.company_name, domain: lead.normalized_domain,
+              website: lead.website, industry: lead.industry_raw || '', headcount: lead.employee_count,
+              annualRevenue: lead.annual_revenue == null ? null : String(lead.annual_revenue),
+              description: lead.notes || '', country: lead.geography || '', technologies: [],
+              isClean: true, isAiEnriched: lead.analysis_eligible,
+              analysisStatus: lead.analysis_status || 'pending', ingestedAt: lead.created_at,
+            })));
           }
         }
       } catch (err) {

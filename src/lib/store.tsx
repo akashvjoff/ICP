@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import {
   OfferingProfile,
   SellerProductContext,
   DEFAULT_SELLER_CONTEXT,
+  EMPTY_SELLER_CONTEXT,
   calculateContextCompletion,
   contextToOfferingProfile,
 } from '../types/offering';
@@ -16,6 +17,9 @@ import {
   SAMPLE_SCORES,
 } from './mockData';
 import { DEFAULT_SCORING_WEIGHTS, batchScoreLeads } from './scoring';
+import { useAuth } from './auth';
+import { dbService } from './supabase';
+import type { DbLeadScore } from '../types/database';
 
 export interface DatasetMeta {
   id: string;
@@ -71,6 +75,7 @@ interface AppStoreContextType {
   removeToast: (id: string) => void;
   clearToEmptyState: () => void;
   resetToDemoData: () => void;
+  refreshLiveWorkspace: () => void;
 }
 
 const INITIAL_DATASET: DatasetMeta = {
@@ -98,7 +103,9 @@ export const useAppStore = () => {
 };
 
 export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
+  const { user: authUser } = useAuth();
+  const isLiveUser = Boolean(authUser?.id);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(!isLiveUser);
 
   const [user, setUser] = useState({
     name: 'Alex Vance',
@@ -109,13 +116,14 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // Load initial sellerContext from localStorage or default
   const [sellerContext, setSellerContext] = useState<SellerProductContext>(() => {
+    if (isLiveUser) return EMPTY_SELLER_CONTEXT;
     try {
       const saved = localStorage.getItem('icp_mode_seller_context');
       if (saved) {
         return JSON.parse(saved);
       }
     } catch {}
-    return DEFAULT_SELLER_CONTEXT;
+    return isLiveUser ? EMPTY_SELLER_CONTEXT : DEFAULT_SELLER_CONTEXT;
   });
 
   const completion = calculateContextCompletion(sellerContext);
@@ -130,25 +138,119 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [datasets, setDatasets] = useState<DatasetMeta[]>(() => {
     try {
       const saved = localStorage.getItem('icp_mode_datasets');
-      return saved ? JSON.parse(saved) : [INITIAL_DATASET];
-    } catch { return [INITIAL_DATASET]; }
+      return isLiveUser ? [] : (saved ? JSON.parse(saved) : [INITIAL_DATASET]);
+    } catch { return isLiveUser ? [] : [INITIAL_DATASET]; }
   });
   const [activeDatasetId, setActiveDatasetId] = useState<string>(() => {
-    try { return localStorage.getItem('icp_mode_active_dataset') || 'dataset-01'; }
-    catch { return 'dataset-01'; }
+    try { return isLiveUser ? '' : (localStorage.getItem('icp_mode_active_dataset') || 'dataset-01'); }
+    catch { return isLiveUser ? '' : 'dataset-01'; }
   });
   const [leads, setLeads] = useState<NormalizedLead[]>(() => {
     try {
       const saved = localStorage.getItem('icp_mode_leads');
-      return saved ? JSON.parse(saved) : SAMPLE_LEADS;
-    } catch { return SAMPLE_LEADS; }
+      return isLiveUser ? [] : (saved ? JSON.parse(saved) : SAMPLE_LEADS);
+    } catch { return isLiveUser ? [] : SAMPLE_LEADS; }
   });
   const [analysis, setAnalysis] = useState<FullStrategicAnalysis>(SAMPLE_STRATEGIC_ANALYSIS);
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_SCORING_WEIGHTS);
-  const [scores, setScores] = useState<LeadICPScore[]>(SAMPLE_SCORES);
+  const [scores, setScores] = useState<LeadICPScore[]>(isLiveUser ? [] : SAMPLE_SCORES);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const refreshLiveWorkspace = useCallback(() => setRefreshVersion((value) => value + 1), []);
 
   const segments = analysis.stpSegments;
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    let current = true;
+    const ownerId = authUser.id;
+    setIsDemoMode(false);
+    if (refreshVersion === 0) {
+      setDatasets([]);
+      setLeads([]);
+      setScores([]);
+      setActiveDatasetId('');
+      setSellerContext(EMPTY_SELLER_CONTEXT);
+    }
+    void (async () => {
+      try {
+        const [savedContext, savedDatasets, jobs] = await Promise.all([
+          dbService.loadSellerProductContext(ownerId),
+          dbService.getDatasets(ownerId),
+          dbService.getAnalysisJobs(ownerId),
+        ]);
+        if (!current) return;
+        if (savedContext) {
+          const context = { ...EMPTY_SELLER_CONTEXT, ...savedContext } as SellerProductContext;
+          setSellerContext(context);
+          setOffering(contextToOfferingProfile(context));
+        }
+        const jobByDataset = new Map(jobs.map((job) => [job.dataset_id, job]));
+        const mappedDatasets: DatasetMeta[] = savedDatasets.map((dataset) => {
+          const job = jobByDataset.get(dataset.id);
+          const complete = job?.status === 'completed' || job?.status === 'completed_with_errors';
+          return {
+            id: dataset.id,
+            filename: dataset.original_filename,
+            fileSize: dataset.original_file_size_bytes ? `${dataset.original_file_size_bytes} B` : 'Unknown',
+            totalRows: dataset.row_count,
+            validRows: dataset.row_count,
+            uploadedAt: dataset.created_at,
+            status: complete ? 'Completed' : dataset.status === 'failed' ? 'Failed' : 'Processing',
+            processingProgress: job?.total_count ? Math.round(((job.completed_count + job.failed_count) / job.total_count) * 100) : 0,
+            tier1Count: 0, tier2Count: 0, disqualifiedCount: 0,
+          };
+        });
+        setDatasets(mappedDatasets);
+        const selected = mappedDatasets[0];
+        if (!selected) return;
+        setActiveDatasetId(selected.id);
+        const savedLeads = await dbService.getLeads(ownerId, selected.id);
+        if (!current) return;
+        const mappedLeads: NormalizedLead[] = savedLeads.map((lead) => ({
+          id: lead.id, companyName: lead.company_name, domain: lead.normalized_domain,
+          website: lead.website, industry: lead.industry_raw || '', headcount: lead.employee_count ?? null,
+          annualRevenue: lead.annual_revenue == null ? null : String(lead.annual_revenue),
+          description: lead.notes || '', country: lead.geography || '', technologies: [],
+          isClean: true, isAiEnriched: lead.analysis_eligible,
+          analysisStatus: lead.analysis_status || 'pending',
+          userCorrectedDescription: lead.user_corrected_description || null,
+          rawRow: lead.raw_row as NormalizedLead['rawRow'], ingestedAt: lead.created_at,
+        }));
+        setLeads(mappedLeads);
+        const savedScores = await dbService.getLeadScores(ownerId, mappedLeads.map((lead) => lead.id));
+        if (!current) return;
+        const leadById = new Map(mappedLeads.map((lead) => [lead.id, lead]));
+        const mappedScores: LeadICPScore[] = savedScores.map((saved: DbLeadScore) => {
+          const details = saved.scoring_breakdown as Record<string, unknown>;
+          const lead = leadById.get(saved.lead_id);
+          return {
+            leadId: saved.lead_id, companyName: lead?.companyName || String(details.companyName || ''),
+            domain: lead?.domain || null, totalScore: saved.fit_score,
+            tier: saved.fit_tier as LeadICPScore['tier'], confidence: Number(details.confidence || 0),
+            isHypothesisOnly: true, breakdown: (details.items || []) as LeadICPScore['breakdown'],
+            primaryStrengths: (details.primaryStrengths || []) as string[],
+            primaryDisqualifiers: (details.primaryDisqualifiers || []) as string[],
+            recommendedAction: (details.recommendedAction || 'Further Discovery') as LeadICPScore['recommendedAction'],
+            scoredAt: saved.created_at, evidenceCoverage: saved.coverage_score,
+            isDisqualified: saved.is_disqualified || false,
+            disqualificationReason: saved.disqualification_reason || null,
+            intentLabel: String(details.intentLabel || 'BUYING INTENT: UNKNOWN'),
+          };
+        });
+        setScores(mappedScores);
+        setDatasets((previous) => previous.map((dataset) => dataset.id === selected.id ? {
+          ...dataset,
+          tier1Count: mappedScores.filter((score) => score.tier.includes('Tier 1')).length,
+          tier2Count: mappedScores.filter((score) => score.tier.includes('Tier 2')).length,
+          disqualifiedCount: mappedScores.filter((score) => score.isDisqualified).length,
+        } : dataset));
+      } catch (error) {
+        console.error('[Workspace] Could not load the signed-in user data:', error);
+      }
+    })();
+    return () => { current = false; };
+  }, [authUser?.id, refreshVersion]);
 
   const toggleDemoMode = () => {
     setIsDemoMode((prev) => !prev);
@@ -160,9 +262,9 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const updateSellerContext = (newContext: SellerProductContext) => {
     setSellerContext(newContext);
-    try {
-      localStorage.setItem('icp_mode_seller_context', JSON.stringify(newContext));
-    } catch {}
+    if (!isLiveUser) {
+      try { localStorage.setItem('icp_mode_seller_context', JSON.stringify(newContext)); } catch {}
+    }
     const mapped = contextToOfferingProfile(newContext);
     setOffering(mapped);
     addToast('Seller Product Context saved and calibrated.', 'success');
@@ -306,6 +408,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
         removeToast,
         clearToEmptyState,
         resetToDemoData,
+        refreshLiveWorkspace,
       }}
     >
       {children}

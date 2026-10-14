@@ -298,7 +298,7 @@ export const SettingsPage: React.FC = () => {
         </BrutalistCard>
 
         {/* 3. Synthetic Dataset & Demo Mode Controls */}
-        <BrutalistCard bg="peach" shadowSize="md" className="p-6 sm:p-7 space-y-4">
+        {!authUser && <BrutalistCard bg="peach" shadowSize="md" className="p-6 sm:p-7 space-y-4">
           <div className="flex items-center justify-between border-b-[2px] border-[#0A0A0A]/20 pb-3">
             <div className="flex items-center gap-2">
               <Database className="w-5 h-5 text-[#0A0A0A]" />
@@ -340,7 +340,7 @@ export const SettingsPage: React.FC = () => {
               CLEAR TO EMPTY STATE
             </BrutalistButton>
           </div>
-        </BrutalistCard>
+        </BrutalistCard>}
 
         {/* 4. AI Inference Configuration */}
         <BrutalistCard bg="lavender" shadowSize="md" className="p-6 sm:p-7 space-y-5">

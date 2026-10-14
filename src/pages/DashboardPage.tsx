@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { AppLayout } from '../components/layout/AppLayout';
@@ -47,7 +47,13 @@ export const DashboardPage: React.FC = () => {
     missingContextFields,
     clearToEmptyState,
     resetToDemoData,
+    refreshLiveWorkspace,
   } = useAppStore();
+
+  const hasDatasets = datasets.length > 0;
+  useEffect(() => {
+    if (!isDemoMode && hasDatasets) refreshLiveWorkspace();
+  }, [isDemoMode, hasDatasets, refreshLiveWorkspace]);
 
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [coverageFilter, setCoverageFilter] = useState<string>('all');
@@ -56,21 +62,21 @@ export const DashboardPage: React.FC = () => {
   const activeDataset = datasets.find((d) => d.id === activeDatasetId) || datasets[0];
 
   const totalLeads = leads.length;
-  const classifiedCount = leads.filter((l) => l.aiClassification).length || totalLeads;
-  const candidateSegmentsCount = segments.length;
+  const classifiedCount = isDemoMode ? leads.filter((l) => l.aiClassification).length || totalLeads : leads.filter((l) => l.analysisStatus === 'completed').length;
+  const candidateSegmentsCount = isDemoMode ? segments.length : 0;
 
   // Real scores: use store scores if populated, or compute deterministic scores
   const allScoredLeads = useMemo(() => {
     if (scores.length > 0) return scores;
-    if (leads.length > 0) {
+    if (isDemoMode && leads.length > 0) {
       return batchScoreLeads(leads, offering, analysis, weights);
     }
     return [];
-  }, [scores, leads, offering, analysis, weights]);
+  }, [scores, leads, offering, analysis, weights, isDemoMode]);
 
   const highFitCount = allScoredLeads.filter((s) => s.tier.includes('Tier 1') && !s.isDisqualified).length;
 
-  const topSegment = segments[0] || null;
+  const topSegment = isDemoMode ? segments[0] || null : null;
 
   const filteredAndSortedScores = useMemo(() => {
     let result = [...allScoredLeads];
@@ -125,7 +131,7 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {totalLeads > 0 ? (
+            {isDemoMode && totalLeads > 0 ? (
               <BrutalistButton
                 variant="white"
                 size="md"
@@ -134,7 +140,7 @@ export const DashboardPage: React.FC = () => {
               >
                 TEST EMPTY STATE
               </BrutalistButton>
-            ) : (
+            ) : isDemoMode ? (
               <BrutalistButton
                 variant="white"
                 size="md"
@@ -144,7 +150,7 @@ export const DashboardPage: React.FC = () => {
               >
                 RESTORE DEMO DATA
               </BrutalistButton>
-            )}
+            ) : null}
 
             <BrutalistButton
               variant="lime"
@@ -278,7 +284,7 @@ export const DashboardPage: React.FC = () => {
                           {activeDataset?.filename || 'Primary_Lead_List.csv'}
                         </h3>
                         <p className="font-mono text-xs text-[#0A0A0A]/60 font-semibold mt-0.5">
-                          ID: {activeDataset?.id} · Size: {activeDataset?.fileSize} · Uploaded: March 2026
+                          ID: {activeDataset?.id} · Size: {activeDataset?.fileSize} · Uploaded: {activeDataset?.uploadedAt ? new Date(activeDataset.uploadedAt).toLocaleDateString() : 'Unknown'}
                         </p>
                       </div>
 
@@ -286,12 +292,12 @@ export const DashboardPage: React.FC = () => {
                       <div className="pt-2">
                         <div className="flex justify-between text-xs font-mono font-bold text-[#0A0A0A] mb-1">
                           <span>PIPELINE PROCESSING</span>
-                          <span>{activeDataset?.processingProgress || 100}% COMPLETE</span>
+                          <span>{activeDataset?.processingProgress ?? 0}% COMPLETE</span>
                         </div>
                         <div className="h-3 w-full bg-[#F9F8F4] border-[2px] border-[#0A0A0A] rounded-md overflow-hidden p-0.5">
                           <div
                             className="h-full bg-[#A1F000] rounded-xs transition-all duration-300"
-                            style={{ width: `${activeDataset?.processingProgress || 100}%` }}
+                            style={{ width: `${activeDataset?.processingProgress ?? 0}%` }}
                           />
                         </div>
                       </div>
@@ -299,15 +305,15 @@ export const DashboardPage: React.FC = () => {
                       <div className="grid grid-cols-3 gap-3 pt-2 text-center font-mono">
                         <div className="bg-[#E5F7E5] border-[1.5px] border-[#0A0A0A] p-2 rounded-lg">
                           <span className="text-[10px] text-[#0A0A0A]/60 font-bold block">TIER 1</span>
-                          <span className="text-sm font-black text-[#0A0A0A]">{activeDataset?.tier1Count || 2}</span>
+                          <span className="text-sm font-black text-[#0A0A0A]">{activeDataset?.tier1Count ?? 0}</span>
                         </div>
                         <div className="bg-[#FFE3B3] border-[1.5px] border-[#0A0A0A] p-2 rounded-lg">
                           <span className="text-[10px] text-[#0A0A0A]/60 font-bold block">TIER 2</span>
-                          <span className="text-sm font-black text-[#0A0A0A]">{activeDataset?.tier2Count || 2}</span>
+                          <span className="text-sm font-black text-[#0A0A0A]">{activeDataset?.tier2Count ?? 0}</span>
                         </div>
                         <div className="bg-[#FFB6C2] border-[1.5px] border-[#0A0A0A] p-2 rounded-lg">
                           <span className="text-[10px] text-[#0A0A0A]/60 font-bold block">OUT OF SCOPE</span>
-                          <span className="text-sm font-black text-[#0A0A0A]">{activeDataset?.disqualifiedCount || 1}</span>
+                          <span className="text-sm font-black text-[#0A0A0A]">{activeDataset?.disqualifiedCount ?? 0}</span>
                         </div>
                       </div>
                     </div>
@@ -315,7 +321,7 @@ export const DashboardPage: React.FC = () => {
 
                   <div className="border-t-[2px] border-[#0A0A0A]/15 pt-4 mt-6 flex justify-between items-center">
                     <span className="text-xs font-mono text-[#0A0A0A]/60 font-medium">
-                      All 5 accounts mathematically scored
+                      {allScoredLeads.length} of {totalLeads} accounts scored
                     </span>
                     <button
                       onClick={() => navigate(`/uploads/${activeDataset?.id || 'dataset-01'}`)}
@@ -344,7 +350,7 @@ export const DashboardPage: React.FC = () => {
                       </StickerBadge>
                     </div>
 
-                    {topSegment && (
+                    {topSegment ? (
                       <div className="space-y-3">
                         <h3 className="text-2xl font-black text-[#0A0A0A] tracking-tight">
                           {topSegment.segmentName}
@@ -362,18 +368,20 @@ export const DashboardPage: React.FC = () => {
                           </p>
                         </div>
                       </div>
+                    ) : (
+                      <p className="text-sm font-medium">No saved segment is available in this workspace yet.</p>
                     )}
                   </div>
 
                   <div className="border-t-[2px] border-[#0A0A0A]/20 pt-4 mt-6 flex justify-between items-center">
                     <span className="font-mono text-xs font-black text-[#0A0A0A]">
-                      AVG FIT: {topSegment?.averageNeedScore || 92.5} / 100
+                      {topSegment ? `AVG FIT: ${topSegment.averageNeedScore} / 100` : 'SEGMENT NOT YET GENERATED'}
                     </span>
                     <button
                       onClick={() => navigate('/segments')}
                       className="font-mono text-xs font-black text-[#0A0A0A] hover:underline flex items-center gap-1 cursor-pointer"
                     >
-                      <span>VIEW ALL SEGMENTS ({segments.length})</span>
+                      <span>VIEW ALL SEGMENTS ({candidateSegmentsCount})</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>

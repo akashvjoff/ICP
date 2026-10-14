@@ -1296,17 +1296,18 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                 </h3>
               </div>
               <div className="space-y-2 text-xs">
+                {session?.access_token && <p className="font-mono font-black text-amber-900">SELLER BUYER HYPOTHESIS · NOT VERIFIED FOR THIS ACCOUNT</p>}
                 <div>
                   <span className="font-mono text-[10px] font-bold uppercase text-[#0A0A0A]/60 block">Economic Buyer</span>
-                  <p className="font-extrabold text-[#0A0A0A] text-sm">{analysis.fiveC.customers.economicBuyer}</p>
+                  <p className="font-extrabold text-[#0A0A0A] text-sm">{session?.access_token ? sellerContext.buyerRoles.find((role) => role.isDecisionMaker)?.role || 'Unknown' : analysis.fiveC.customers.economicBuyer}</p>
                 </div>
                 <div>
                   <span className="font-mono text-[10px] font-bold uppercase text-[#0A0A0A]/60 block">Internal Champion</span>
-                  <p className="font-extrabold text-[#0A0A0A] text-sm">{analysis.fiveC.customers.championPersona}</p>
+                  <p className="font-extrabold text-[#0A0A0A] text-sm">{session?.access_token ? sellerContext.buyerRoles.find((role) => !role.isDecisionMaker)?.role || 'Unknown' : analysis.fiveC.customers.championPersona}</p>
                 </div>
                 <div>
                   <span className="font-mono text-[10px] font-bold uppercase text-[#0A0A0A]/60 block">Primary Friction Obstacle</span>
-                  <p className="text-[#0A0A0A] font-medium">{analysis.fiveC.customers.primaryObstacle}</p>
+                  <p className="text-[#0A0A0A] font-medium">{session?.access_token ? 'Account-specific buying barriers have not been verified.' : analysis.fiveC.customers.primaryObstacle}</p>
                 </div>
               </div>
             </BrutalistCard>
