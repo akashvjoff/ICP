@@ -50,6 +50,7 @@ interface AppStoreContextType {
     company: string;
     role: string;
   };
+  updateDemoProfile: (profile: { name: string; email: string; company: string; role: string }) => void;
   sellerContext: SellerProductContext;
   updateSellerContext: (context: SellerProductContext) => void;
   isContextComplete: boolean;
@@ -123,11 +124,13 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
   const isLiveUser = Boolean(authUser?.id);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(!isLiveUser);
 
-  const [user, setUser] = useState({
-    name: 'Alex Vance',
-    email: 'alex@synthetix.io',
-    company: 'Synthetix Data Cloud',
-    role: 'Founder & CEO',
+  const [user, setUser] = useState(() => {
+    const fallback = { name: 'Alex Vance', email: 'alex@synthetix.io', company: 'Synthetix Data Cloud', role: 'Founder & CEO' };
+    try {
+      const saved = JSON.parse(localStorage.getItem('icp_mode_demo_profile') || 'null');
+      if (saved && ['name', 'email', 'company', 'role'].every((key) => typeof saved[key] === 'string')) return saved as typeof fallback;
+    } catch {}
+    return fallback;
   });
 
   // Load initial sellerContext from localStorage or default
@@ -321,6 +324,12 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
     addToast('Seller Product Context saved and calibrated.', 'success');
   };
 
+  const updateDemoProfile = (profile: { name: string; email: string; company: string; role: string }) => {
+    if (isLiveUser) return;
+    setUser(profile);
+    try { localStorage.setItem('icp_mode_demo_profile', JSON.stringify(profile)); } catch {}
+  };
+
   const updateOffering = (updated: OfferingProfile) => {
     setOffering(updated);
     addToast('Offering profile saved successfully.', 'success');
@@ -434,6 +443,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
         isDemoMode,
         toggleDemoMode,
         user,
+        updateDemoProfile,
         sellerContext,
         updateSellerContext,
         isContextComplete,

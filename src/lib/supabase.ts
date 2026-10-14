@@ -61,7 +61,7 @@ export interface WorkspaceUser {
   id: string;
   email: string;
   name: string;
-  role: 'Founder' | 'GTM Consultant' | 'Sales Leader' | 'Growth Marketer';
+  role: string;
   isDemoUser: boolean;
 }
 

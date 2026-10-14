@@ -31,13 +31,13 @@ interface SidebarItem {
 export const AppSidebar: React.FC = () => {
   const { path, navigate } = useRouter();
   const { isDemoMode, toggleDemoMode, user: storeUser, datasets, activeDatasetId, addToast } = useAppStore();
-  const { workspaceUser, signOut, isDemoUser, isConfigured } = useAuth();
+  const { user: authUser, workspaceUser, signOut, isDemoUser, isConfigured } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const currentUser = {
-    name: workspaceUser?.name || storeUser.name,
-    email: workspaceUser?.email || storeUser.email,
-    company: storeUser.company,
+    name: authUser ? workspaceUser.name : storeUser.name,
+    email: authUser ? workspaceUser.email : storeUser.email,
+    company: authUser ? (authUser.user_metadata?.company_name || 'Your company') : storeUser.company,
   };
 
   const handleSignOut = async () => {

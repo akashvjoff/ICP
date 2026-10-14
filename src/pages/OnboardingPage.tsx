@@ -243,17 +243,19 @@ export const OnboardingPage: React.FC = () => {
       lastSavedAt: new Date().toISOString(),
     };
 
-    // Update global store
-    updateSellerContext(finalized);
-
     // Save to Supabase if configured
     if (user?.id && isConfigured) {
       try {
         await dbService.saveSellerProductContext(user.id, finalized);
       } catch (err) {
         console.error('Error finalizing seller profile in Supabase:', err);
+        setSavingProgress(false);
+        addToast('Your profile could not be saved. Your draft is still here; please retry.', 'warning');
+        return;
       }
     }
+
+    updateSellerContext(finalized);
 
     // Clear temporary local draft
     try {

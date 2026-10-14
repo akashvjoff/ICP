@@ -17,6 +17,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (profile: { name: string; email: string; company: string; role: string }) => Promise<{ success: boolean; error?: string; emailConfirmationPending?: boolean }>;
   switchToDemoMode: () => void;
 }
 
@@ -43,7 +44,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         id: user.id,
         email: user.email || '',
         name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Member',
-        role: 'Founder',
+        role: user.user_metadata?.gtm_role || 'Founder',
         isDemoUser: false,
       }
     : DEFAULT_DEMO_USER;
@@ -263,6 +264,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsDemoUser(true);
   };
 
+  const updateProfile = async (profile: { name: string; email: string; company: string; role: string }) => {
+    if (!supabase || !user) return { success: false, error: 'Sign in to save your account profile.' };
+
+    const name = profile.name.trim();
+    const email = profile.email.trim().toLowerCase();
+    if (!name || !email || !profile.company.trim() || !profile.role.trim()) {
+      return { success: false, error: 'Complete all profile fields before saving.' };
+    }
+
+    try {
+      const emailChanged = email !== user.email?.toLowerCase();
+      const { data, error } = await supabase.auth.updateUser({
+        ...(emailChanged ? { email } : {}),
+        data: {
+          ...user.user_metadata,
+          full_name: name,
+          company_name: profile.company.trim(),
+          gtm_role: profile.role.trim(),
+        },
+      });
+      if (error) return { success: false, error: formatSupabaseError(error) };
+      if (data.user) setUser(data.user);
+      return { success: true, emailConfirmationPending: emailChanged };
+    } catch (error) {
+      return { success: false, error: formatSupabaseError(error) };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -280,6 +309,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signOut,
         resetPassword,
         resendVerification,
+        updateProfile,
         switchToDemoMode,
       }}
     >

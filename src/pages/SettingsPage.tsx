@@ -32,6 +32,7 @@ import {
 export const SettingsPage: React.FC = () => {
   const {
     user: storeUser,
+    updateDemoProfile,
     isDemoMode,
     toggleDemoMode,
     resetToDemoData,
@@ -41,20 +42,50 @@ export const SettingsPage: React.FC = () => {
     addToast,
   } = useAppStore();
 
-  const { workspaceUser, user: authUser, isConfigured } = useAuth();
+  const { workspaceUser, user: authUser, isConfigured, updateProfile } = useAuth();
 
-  const [userName, setUserName] = useState(workspaceUser?.name || storeUser.name);
-  const [userEmail, setUserEmail] = useState(workspaceUser?.email || storeUser.email);
-  const [userCompany, setUserCompany] = useState(storeUser.company);
-  const [userRole, setUserRole] = useState(storeUser.role);
+  const [userName, setUserName] = useState(authUser ? workspaceUser.name : storeUser.name);
+  const [userEmail, setUserEmail] = useState(authUser ? workspaceUser.email : storeUser.email);
+  const [userCompany, setUserCompany] = useState(authUser ? (authUser.user_metadata?.company_name || '') : storeUser.company);
+  const [userRole, setUserRole] = useState(authUser ? (authUser.user_metadata?.gtm_role || 'Founder') : storeUser.role);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [emailConfirmationPending, setEmailConfirmationPending] = useState(false);
 
   const [copiedMigration, setCopiedMigration] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    addToast('Account profile settings updated.', 'success');
+    const profile = {
+      name: userName.trim(),
+      email: userEmail.trim().toLowerCase(),
+      company: userCompany.trim(),
+      role: userRole.trim(),
+    };
+    if (Object.values(profile).some((value) => !value)) {
+      addToast('Complete all profile fields before saving.', 'warning');
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      if (authUser) {
+        const result = await updateProfile(profile);
+        if (!result.success) {
+          addToast(result.error || 'Profile could not be saved.', 'warning');
+          return;
+        }
+        setEmailConfirmationPending(Boolean(result.emailConfirmationPending));
+        addToast(result.emailConfirmationPending
+          ? 'Profile saved. Confirm the email change using the message sent to your inbox.'
+          : 'Account profile saved.', 'success');
+      } else {
+        updateDemoProfile(profile);
+        addToast('Demo profile saved in this browser.', 'success');
+      }
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const handleTestConnection = async () => {
@@ -147,7 +178,7 @@ export const SettingsPage: React.FC = () => {
               </span>
               <div className="flex items-center gap-2 font-mono text-xs font-black text-[#0A0A0A]">
                 <Database className="w-4 h-4 text-[#8C6ADE]" />
-                9 Relational Tables + RLS
+                Workspace Tables + RLS
               </div>
             </div>
 
@@ -207,7 +238,7 @@ export const SettingsPage: React.FC = () => {
                 </div>
               </li>
               <li>
-                <strong>Auth Settings:</strong> Under <strong>Authentication &gt; Providers &gt; Email</strong>, enable Email signup. For development, toggle off &quot;Confirm email&quot; if you want immediate login without email verification.
+                <strong>Auth Settings:</strong> Under <strong>Authentication &gt; Providers &gt; Email</strong>, enable Email signup and keep email confirmation on.
               </li>
             </ol>
           </div>
@@ -273,6 +304,12 @@ export const SettingsPage: React.FC = () => {
               />
             </FormField>
 
+            {emailConfirmationPending && (
+              <p className="md:col-span-2 text-xs font-mono font-bold text-amber-900">
+                Your current email stays active until you confirm the change from your inbox.
+              </p>
+            )}
+
             <FormField label="COMPANY NAME">
               <BrutalistInput
                 type="text"
@@ -290,8 +327,8 @@ export const SettingsPage: React.FC = () => {
             </FormField>
 
             <div className="md:col-span-2 pt-2 flex justify-end">
-              <BrutalistButton type="submit" variant="lime" size="sm">
-                SAVE PROFILE
+              <BrutalistButton type="submit" variant="lime" size="sm" disabled={savingProfile}>
+                {savingProfile ? 'SAVING...' : 'SAVE PROFILE'}
               </BrutalistButton>
             </div>
           </form>
