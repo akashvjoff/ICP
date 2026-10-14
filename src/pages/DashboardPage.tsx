@@ -63,7 +63,7 @@ export const DashboardPage: React.FC = () => {
 
   const totalLeads = leads.length;
   const classifiedCount = isDemoMode ? leads.filter((l) => l.aiClassification).length || totalLeads : leads.filter((l) => l.analysisStatus === 'completed').length;
-  const candidateSegmentsCount = isDemoMode ? segments.length : 0;
+  const candidateSegmentsCount = segments.length;
 
   // Real scores: use store scores if populated, or compute deterministic scores
   const allScoredLeads = useMemo(() => {
@@ -76,7 +76,7 @@ export const DashboardPage: React.FC = () => {
 
   const highFitCount = allScoredLeads.filter((s) => s.tier.includes('Tier 1') && !s.isDisqualified).length;
 
-  const topSegment = isDemoMode ? segments[0] || null : null;
+  const topSegment = segments[0] || null;
 
   const filteredAndSortedScores = useMemo(() => {
     let result = [...allScoredLeads];

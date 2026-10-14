@@ -26,10 +26,10 @@ export const AuthPage: React.FC = () => {
   } = useAuth();
 
   const [tab, setTab] = useState<'signin' | 'signup' | 'forgot'>('signin');
-  const [email, setEmail] = useState('alex@synthetix.io');
-  const [password, setPassword] = useState('password123');
-  const [fullName, setFullName] = useState('Alex Vance');
-  const [companyName, setCompanyName] = useState('Synthetix Data Cloud');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState('');
   const [verificationPendingEmail, setVerificationPendingEmail] = useState<string | null>(null);
@@ -57,6 +57,11 @@ export const AuthPage: React.FC = () => {
       return;
     }
 
+    if (tab === 'signup' && password.length < 8) {
+      setLocalError('Use at least 8 characters for your password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -69,14 +74,15 @@ export const AuthPage: React.FC = () => {
           setLocalError(res.error || 'Failed to sign in.');
         }
       } else if (tab === 'signup') {
-        const res = await signUp(email, password, {
+        const normalizedEmail = email.trim().toLowerCase();
+        const res = await signUp(normalizedEmail, password, {
           full_name: fullName,
           company_name: companyName,
         });
 
         if (res.success) {
           if (res.requiresEmailConfirmation) {
-            setVerificationPendingEmail(email);
+            setVerificationPendingEmail(normalizedEmail);
             addToast('Account registered! Please confirm via verification email.', 'info');
           } else {
             addToast('Account created successfully! Welcome aboard.', 'success');

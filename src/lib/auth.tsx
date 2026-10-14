@@ -128,10 +128,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth`,
           data: {
             full_name: metadata?.full_name || '',
             company_name: metadata?.company_name || '',
@@ -211,7 +213,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email,
+        email: email.trim().toLowerCase(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth`,
+        },
       });
 
       if (error) {
