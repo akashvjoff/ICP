@@ -197,6 +197,10 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
       if (res.ok) {
         const data = await res.json();
         if (data.report) {
+          if (session?.access_token && data.report.analysisVersion !== CURRENT_REPORT_MODEL_VERSION) {
+            setHasLiveReport(false);
+            return;
+          }
           setReport(data.report);
           setHasLiveReport(true);
           return;
@@ -288,7 +292,7 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
       <AppLayout>
         <div className="max-w-3xl mx-auto space-y-5 py-12">
           <SectionEyebrow color="bg-[#6AAAFB]">LIVE DATASET REPORT</SectionEyebrow>
-          <h1 className="text-3xl font-black">{isLoading ? 'Loading your report…' : 'No report has been generated for this dataset yet.'}</h1>
+          <h1 className="text-3xl font-black">{isLoading ? 'Loading your report…' : 'No current report is available for this dataset.'}</h1>
           <p className="font-medium">Generate the report from this dataset’s saved leads and analysis. Findings will remain an ICP Hypothesis until supported by customer outcomes.</p>
           {!isLoading && (
             <BrutalistButton variant="lime" onClick={handleRefreshReport} disabled={isRefreshing}>
@@ -340,16 +344,15 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
       sanitizeCsv(s.primaryStrengths.join('; ')),
     ]);
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\r\n');
+    const url = URL.createObjectURL(new Blob(['\uFEFF', csvContent], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `ICP_Dossier_${report.datasetId}_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     addToast('Ranked leads exported to CSV with formula-sanitization protection.', 'success');
   };
 

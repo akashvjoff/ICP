@@ -1080,6 +1080,9 @@ app.get('/api/reports/dataset/:datasetId', requireAuthenticatedUser, async (req:
 
 app.post('/api/reports/dataset/:datasetId/generate', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!req.body?.sellerProfile || !req.body?.offering) {
+      return res.status(422).json({ error: 'Saved seller profile and offering inputs are required to generate a report.' });
+    }
     const reportRepo = getReportRepository(req);
     const jobRepo = getJobRepository(req);
     const stratRepo = getStrategicAnalysisRepository(req);
