@@ -269,8 +269,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const name = profile.name.trim();
     const email = profile.email.trim().toLowerCase();
-    if (!name || !email || !profile.company.trim() || !profile.role.trim()) {
-      return { success: false, error: 'Complete all profile fields before saving.' };
+    if (!name || !email) {
+      return { success: false, error: 'Name and email are required.' };
     }
 
     try {
@@ -285,7 +285,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         },
       });
       if (error) return { success: false, error: formatSupabaseError(error) };
-      if (data.user) setUser(data.user);
+      if (!data.user) return { success: false, error: 'Profile update returned no user. Please retry.' };
+      setUser(data.user);
       return { success: true, emailConfirmationPending: emailChanged };
     } catch (error) {
       return { success: false, error: formatSupabaseError(error) };

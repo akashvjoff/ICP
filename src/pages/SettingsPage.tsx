@@ -63,8 +63,8 @@ export const SettingsPage: React.FC = () => {
       company: userCompany.trim(),
       role: userRole.trim(),
     };
-    if (Object.values(profile).some((value) => !value)) {
-      addToast('Complete all profile fields before saving.', 'warning');
+    if (!profile.name || !profile.email) {
+      addToast('Name and email are required.', 'warning');
       return;
     }
     setSavingProfile(true);
@@ -219,7 +219,7 @@ export const SettingsPage: React.FC = () => {
           </div>
 
           {/* Manual Dashboard Instructions */}
-          <div className="space-y-3">
+          {!isConfigured && <div className="space-y-3">
             <h4 className="font-mono text-xs font-black uppercase text-[#0A0A0A]">
               SETUP & MIGRATION GUIDE:
             </h4>
@@ -241,7 +241,7 @@ export const SettingsPage: React.FC = () => {
                 <strong>Auth Settings:</strong> Under <strong>Authentication &gt; Providers &gt; Email</strong>, enable Email signup and keep email confirmation on.
               </li>
             </ol>
-          </div>
+          </div>}
 
           {/* Test & Copy Buttons */}
           <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -255,7 +255,7 @@ export const SettingsPage: React.FC = () => {
               {testingConnection ? 'TESTING CONNECTION...' : 'TEST SUPABASE CONNECTION'}
             </BrutalistButton>
 
-            <BrutalistButton
+            {!isConfigured && <BrutalistButton
               variant="white"
               size="sm"
               onClick={copyMigrationPath}
@@ -263,7 +263,7 @@ export const SettingsPage: React.FC = () => {
               className="text-xs font-bold"
             >
               COPY SCHEMA SQL PATH
-            </BrutalistButton>
+            </BrutalistButton>}
           </div>
 
           {connectionStatus && (
