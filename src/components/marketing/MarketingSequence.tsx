@@ -8,7 +8,7 @@ import { Target, Users, GitFork, Layers, AlertCircle, CheckCircle2, ShieldAlert 
 
 export const MarketingSequence: React.FC = () => {
   return (
-    <section className="py-20 border-b-[3px] border-[#0A0A0A]">
+    <section id="how-it-works" className="scroll-mt-24 py-20 border-b-[3px] border-[#0A0A0A]">
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeading
           eyebrow="CLASSICAL MARKETING SEQUENCE"

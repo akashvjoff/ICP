@@ -1,15 +1,12 @@
 import React from 'react';
-import { useRouter } from '../lib/router';
 
 export const PrivacyPage: React.FC = () => {
-  const { navigate } = useRouter();
-
   return (
     <main className="min-h-screen bg-[#F9F8F4] px-6 py-10 text-[#0A0A0A]">
       <div className="mx-auto max-w-3xl">
-        <button onClick={() => navigate('/')} className="mb-8 font-mono text-sm font-bold hover:underline">
+        <a href="/" className="mb-8 inline-block font-mono text-sm font-bold hover:underline">
           ← icp.mode
-        </button>
+        </a>
         <h1 className="mb-2 text-4xl font-black">Privacy notice</h1>
         <p className="mb-8 font-mono text-sm text-slate-600">Effective October 14, 2026</p>
 

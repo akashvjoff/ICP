@@ -5,17 +5,17 @@ import { SectionHeading } from '../ui/SectionHeading';
 import { BrutalistCard } from '../ui/BrutalistCard';
 import { StickerBadge } from '../ui/StickerBadge';
 import { StatusChip } from '../ui/StatusChip';
-import { BrutalistButton } from '../ui/BrutalistButton';
+import { BrutalistLink } from '../ui/BrutalistButton';
 import { Check, X, ShieldAlert, Zap, ArrowRight } from 'lucide-react';
 
-export const InteractiveTeaser: React.FC<{ onLaunchWorkspace: () => void }> = ({ onLaunchWorkspace }) => {
+export const InteractiveTeaser: React.FC = () => {
   const [selectedLeadId, setSelectedLeadId] = useState<string>('lead-01');
 
   const selectedLead = SAMPLE_LEADS.find(l => l.id === selectedLeadId) || SAMPLE_LEADS[0];
   const selectedScore = SAMPLE_SCORES.find(s => s.leadId === selectedLeadId) || SAMPLE_SCORES[0];
 
   return (
-    <section className="py-20">
+    <section id="test-drive" className="scroll-mt-24 py-20">
       <div className="mx-auto max-w-6xl px-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
           <SectionHeading
@@ -26,15 +26,15 @@ export const InteractiveTeaser: React.FC<{ onLaunchWorkspace: () => void }> = ({
             className="mb-0"
           />
 
-          <BrutalistButton
+          <BrutalistLink
             variant="lime"
             size="md"
-            onClick={onLaunchWorkspace}
+            href="/demo"
             icon={<ArrowRight className="w-4 h-4" />}
             className="self-start md:self-auto shrink-0"
           >
             TEST DRIVE ENGINE
-          </BrutalistButton>
+          </BrutalistLink>
         </div>
 
         {/* Lead Switcher Buttons */}

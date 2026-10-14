@@ -1,19 +1,11 @@
 import React from 'react';
 import { SectionEyebrow } from '../ui/SectionEyebrow';
-import { BrutalistButton } from '../ui/BrutalistButton';
+import { BrutalistLink } from '../ui/BrutalistButton';
 import { StickerBadge } from '../ui/StickerBadge';
 import { BrutalistCard } from '../ui/BrutalistCard';
 import { ArrowRight, Sparkles, Target, Zap, CheckCircle, ShieldCheck } from 'lucide-react';
 
-interface LandingHeroProps {
-  onEnterWorkspace: () => void;
-  onLoadSample: () => void;
-}
-
-export const LandingHero: React.FC<LandingHeroProps> = ({
-  onEnterWorkspace,
-  onLoadSample,
-}) => {
+export const LandingHero: React.FC = () => {
   return (
     <section className="relative overflow-hidden pt-12 pb-16 md:pt-20 md:pb-24 border-b-[3px] border-[#0A0A0A]">
       <div className="mx-auto max-w-6xl px-6">
@@ -47,23 +39,23 @@ export const LandingHero: React.FC<LandingHeroProps> = ({
 
         {/* Hero Actions */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-16">
-          <BrutalistButton
+          <BrutalistLink
             variant="lime"
             size="lg"
-            onClick={onEnterWorkspace}
+            href="/demo"
             icon={<ArrowRight className="w-5 h-5" />}
           >
             START ICP DISCOVERY
-          </BrutalistButton>
+          </BrutalistLink>
 
-          <BrutalistButton
+          <BrutalistLink
             variant="white"
             size="lg"
-            onClick={onLoadSample}
+            href="/demo#accounts-heading"
             icon={<Sparkles className="w-5 h-5 text-[#8C6ADE]" />}
           >
             LOAD 5 SAMPLE B2B LEADS
-          </BrutalistButton>
+          </BrutalistLink>
         </div>
 
         {/* Supporting Hero Cards Strip (Pastel yellow, lavender, mint, pink) */}

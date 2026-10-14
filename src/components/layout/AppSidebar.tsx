@@ -124,6 +124,7 @@ export const AppSidebar: React.FC = () => {
 
               <button
                 onClick={() => setMobileOpen(false)}
+                aria-label="Close navigation"
                 className="lg:hidden p-1 text-[#0A0A0A]"
               >
                 <X className="w-5 h-5" />
@@ -251,6 +252,7 @@ export const AppSidebar: React.FC = () => {
                 <button
                   onClick={() => handleNav('/onboarding')}
                   title="Edit Seller Profile"
+                  aria-label="Edit seller profile"
                   className="p-1 hover:bg-[#FFE3B3] rounded border border-transparent hover:border-[#0A0A0A] cursor-pointer"
                 >
                   <ExternalLink className="w-3.5 h-3.5 text-[#0A0A0A]" />
@@ -258,6 +260,7 @@ export const AppSidebar: React.FC = () => {
                 <button
                   onClick={handleSignOut}
                   title="Sign Out"
+                  aria-label="Sign out"
                   className="p-1 hover:bg-[#FFB6C2] rounded border border-transparent hover:border-[#0A0A0A] cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5 text-[#0A0A0A]" />

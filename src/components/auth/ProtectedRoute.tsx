@@ -47,7 +47,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
                 Authentication Required
               </h2>
               <p className="text-xs text-[#0A0A0A]/70 font-medium leading-relaxed">
-                Please sign in with your Supabase credentials or launch with the instant demo founder profile.
+                Sign in to open your workspace, or explore five sample accounts in the public demo.
               </p>
             </div>
 
@@ -61,6 +61,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
               >
                 SIGN IN TO YOUR ACCOUNT
               </BrutalistButton>
+              <a href="/demo" className="block w-full rounded-xl border-[2.5px] border-[#0A0A0A] bg-white px-5 py-2.5 text-xs font-black tracking-wider shadow-[4px_5px_0px_#0A0A0A] hover:bg-[#F9F8F4]">
+                EXPLORE PUBLIC DEMO
+              </a>
             </div>
           </BrutalistCard>
         </div>

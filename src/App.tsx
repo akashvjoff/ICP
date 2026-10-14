@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Router, useRouter } from './lib/router';
 import { AuthProvider, useAuth } from './lib/auth';
 import { AppStoreProvider } from './lib/store';
@@ -22,9 +22,22 @@ import { SegmentsPage } from './pages/SegmentsPage';
 import { StrategicAnalysisPage } from './pages/StrategicAnalysisPage';
 import { ICPReportPage } from './pages/ICPReportPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { PublicDemoPage } from './pages/PublicDemoPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 function RouteSwitch() {
   const { path } = useRouter();
+
+  useEffect(() => {
+    const segment = path.split('/')[1];
+    const titles: Record<string, string> = {
+      auth: 'Sign in or create an account', demo: 'Try the public demo',
+      privacy: 'Privacy notice', dashboard: 'Dashboard', onboarding: 'Set up your offering',
+      uploads: 'Lead uploads', companies: 'Companies', segments: 'Segments',
+      strategy: 'Strategic analysis', icp: 'ICP report', settings: 'Settings',
+    };
+    document.title = `${titles[segment] || (path === '/' ? 'Find your ideal customers' : 'Page not found')} | icp.mode`;
+  }, [path]);
 
   // Public Root Landing
   if (path === '/' || path === '') {
@@ -38,6 +51,10 @@ function RouteSwitch() {
 
   if (path === '/privacy') {
     return <PrivacyPage />;
+  }
+
+  if (path === '/demo') {
+    return <PublicDemoPage />;
   }
 
   if (path === '/onboarding') {
@@ -65,7 +82,7 @@ function RouteSwitch() {
       </ProtectedRoute>
     );
   }
-  if (path.startsWith('/uploads/')) {
+  if (/^\/uploads\/[^/]+$/.test(path)) {
     const id = path.replace('/uploads/', '');
     return (
       <ProtectedRoute>
@@ -82,7 +99,7 @@ function RouteSwitch() {
       </ProtectedRoute>
     );
   }
-  if (path.startsWith('/companies/')) {
+  if (/^\/companies\/[^/]+$/.test(path)) {
     const id = path.replace('/companies/', '');
     return (
       <ProtectedRoute>
@@ -99,7 +116,7 @@ function RouteSwitch() {
       </ProtectedRoute>
     );
   }
-  if (path.startsWith('/segments/')) {
+  if (/^\/segments\/[^/]+$/.test(path)) {
     const id = path.replace('/segments/', '');
     return (
       <ProtectedRoute>
@@ -117,7 +134,7 @@ function RouteSwitch() {
       </ProtectedRoute>
     );
   }
-  if (path.startsWith('/strategy/')) {
+  if (/^\/strategy\/[^/]+$/.test(path)) {
     const id = path.replace('/strategy/', '');
     return (
       <ProtectedRoute>
@@ -127,7 +144,7 @@ function RouteSwitch() {
   }
 
   // Protected: Printable ICP Report
-  if (path.startsWith('/icp/report')) {
+  if (path === '/icp/report' || /^\/icp\/report\/[^/]+$/.test(path)) {
     const id = path.replace('/icp/report/', '') || 'latest';
     return (
       <ProtectedRoute>
@@ -146,11 +163,7 @@ function RouteSwitch() {
   }
 
   // Fallback
-  return (
-    <ProtectedRoute>
-      <DashboardPage />
-    </ProtectedRoute>
-  );
+  return <NotFoundPage />;
 }
 
 function ScopedWorkspace() {

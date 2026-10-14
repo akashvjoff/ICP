@@ -1300,8 +1300,30 @@ async function startServer() {
     app.use(express.static(path.resolve(__dirname, 'dist')));
     app.get('*', (req: Request, res: Response) => {
       const indexPath = path.resolve(__dirname, 'dist', 'index.html');
+      const pathname = req.path;
+      const knownRoute = ['/', '/demo', '/auth', '/privacy', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings'].includes(pathname)
+        || /^\/(uploads|companies|segments|strategy)\/[^/]+$/.test(pathname)
+        || /^\/icp\/report\/[^/]+$/.test(pathname);
+      const publicTitles: Record<string, string> = {
+        '/': 'Find your ideal customers | icp.mode',
+        '/demo': 'Try the public demo | icp.mode',
+        '/privacy': 'Privacy notice | icp.mode',
+      };
+      const routeTitles: Record<string, string> = {
+        auth: 'Sign in or create an account', onboarding: 'Set up your offering', dashboard: 'Dashboard',
+        uploads: 'Lead uploads', companies: 'Companies', segments: 'Segments', strategy: 'Strategic analysis',
+        icp: 'ICP report', settings: 'Settings',
+      };
       try {
         let html = fs.readFileSync(indexPath, 'utf8');
+        const title = publicTitles[pathname] || `${knownRoute ? routeTitles[pathname.split('/')[1]] : 'Page not found'} | icp.mode`;
+        html = html.replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
+        if (publicTitles[pathname]) {
+          html = html.replace('rel="canonical" href="https://icp-mode.onrender.com/"', `rel="canonical" href="https://icp-mode.onrender.com${pathname}"`);
+        } else {
+          html = html.replace(/\s*<link rel="canonical"[^>]*>/, '');
+          html = html.replace('</head>', '<meta name="robots" content="noindex" /></head>');
+        }
         const publicConfig = {
           supabaseUrl: process.env.VITE_SUPABASE_URL || '',
           supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || '',
@@ -1309,9 +1331,9 @@ async function startServer() {
         const configScript = `<script>window.__ICP_CONFIG__ = ${JSON.stringify(publicConfig)};</script>`;
         html = html.replace('</head>', `${configScript}</head>`);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(html);
+        res.status(knownRoute ? 200 : 404).send(html);
       } catch {
-        res.sendFile(indexPath);
+        res.status(knownRoute ? 200 : 404).sendFile(indexPath);
       }
     });
   }
