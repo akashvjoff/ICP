@@ -377,6 +377,7 @@ export class OllamaCompanyAnalyzer implements CompanyAnalyzer {
           body: JSON.stringify({
             model,
             stream: false,
+            think: false,
             format,
             messages: [
               { role: 'system', content: SYSTEM_INSTRUCTION },
