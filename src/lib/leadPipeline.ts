@@ -8,6 +8,7 @@ import {
   IngestionError,
   DuplicateGroup,
   LeadValidationSummary,
+  LeadContact,
 } from '../types/lead';
 import {
   UPLOAD_CONFIG,
@@ -66,6 +67,7 @@ const OPTIONAL_MAPPING_FIELDS: Array<keyof ColumnMapping> = [
   'companyType',
   'headcount',
   'country',
+  'city',
   'product',
   'businessModel',
   'leadStage',
@@ -121,6 +123,20 @@ function parseOptionalNumber(
     return null;
   }
   return parsed;
+}
+
+export function parseEmployeeRange(value: unknown): { min: number; max: number | null; midpoint: number } | null {
+  if (!hasValue(value)) return null;
+  const parsePart = (part: string): number | null => {
+    const match = part.trim().toLowerCase().replace(/,/g, '').match(/^(\d+(?:\.\d+)?)(k)?$/);
+    return match ? Math.round(Number(match[1]) * (match[2] ? 1000 : 1)) : null;
+  };
+  const text = String(value).trim().replace(/[–—]/g, '-');
+  const range = text.match(/^(.+?)\s*-\s*(.+)$/);
+  const min = parsePart(range ? range[1] : text.replace(/\+$/, ''));
+  const max = range ? parsePart(range[2]) : text.endsWith('+') ? null : min;
+  if (min === null || (range && (max === null || max < min))) return null;
+  return { min, max, midpoint: max === null ? min : Math.round((min + max) / 2) };
 }
 
 export function validateUniqueMapping(mapping: ColumnMapping): string[] {
@@ -248,6 +264,15 @@ export function autoDetectColumns(headers: string[]): ColumnMapping {
     )) {
       mapping.country = h.raw;
     }
+    else if (!mapping.city && h.lower === 'city') mapping.city = h.raw;
+    else if (!mapping.firstName && /^(first[ _]?name|given[ _]?name)$/.test(h.lower)) mapping.firstName = h.raw;
+    else if (!mapping.lastName && /^(last[ _]?name|surname|family[ _]?name)$/.test(h.lower)) mapping.lastName = h.raw;
+    else if (!mapping.jobTitle && /^(job[ _]?title|title)$/.test(h.lower)) mapping.jobTitle = h.raw;
+    else if (!mapping.seniority && h.lower === 'seniority') mapping.seniority = h.raw;
+    else if (!mapping.emailStatus && /^(email[ _]?status)$/.test(h.lower)) mapping.emailStatus = h.raw;
+    else if (!mapping.email && /^(email|work[ _]?email)$/.test(h.lower)) mapping.email = h.raw;
+    else if (!mapping.phone && /^(phone|mobile|phone[ _]?number)$/.test(h.lower)) mapping.phone = h.raw;
+    else if (!mapping.linkedinUrl && /^(linkedin[ _]?(url|profile)|linkedin)$/.test(h.lower)) mapping.linkedinUrl = h.raw;
     // 7. Tech Stack / Technologies
     else if (!mapping.technologies && (
       h.lower.includes('tech') ||
@@ -344,7 +369,7 @@ export function autoDetectColumns(headers: string[]): ColumnMapping {
   }
 
   // Sensible fallbacks if headers weren't named identically
-  if (!mapping.companyName && headers.length > 0) {
+  if (!mapping.companyName && headers.length > 0 && !mapping.domain) {
     mapping.companyName = headers[0];
   }
   if (!mapping.domain && headers.length > 1) {
@@ -675,9 +700,9 @@ export function processLeadPipeline(
       : '';
 
     // Parse headcount
-    const headcount = mapping.headcount
-      ? parseOptionalNumber(raw[mapping.headcount], 'Employees', validationWarnings, true)
-      : null;
+    const headcountRange = mapping.headcount ? parseEmployeeRange(raw[mapping.headcount]) : null;
+    if (mapping.headcount && hasValue(raw[mapping.headcount]) && !headcountRange) validationWarnings.push(`Employees "${raw[mapping.headcount]}" is not a valid range.`);
+    const headcount = headcountRange?.midpoint ?? null;
 
     // Revenue
     const annualRevenue = mapping.annualRevenue && hasValue(raw[mapping.annualRevenue])
@@ -713,8 +738,9 @@ export function processLeadPipeline(
     const rawLeadStage = mapping.leadStage && hasValue(raw[mapping.leadStage])
       ? String(raw[mapping.leadStage]).trim().toLowerCase()
       : 'new';
-    const leadStage = ALLOWED_LEAD_STATUSES.has(rawLeadStage) ? rawLeadStage : 'new';
-    if (rawLeadStage !== leadStage) {
+    const stageAliases: Record<string, string> = { replied: 'contacted', 'meeting booked': 'opportunity', 'not interested': 'disqualified' };
+    const leadStage = ALLOWED_LEAD_STATUSES.has(rawLeadStage) ? rawLeadStage : stageAliases[rawLeadStage] || 'new';
+    if (rawLeadStage !== leadStage && !stageAliases[rawLeadStage]) {
       validationWarnings.push(`Lead status "${rawLeadStage}" is unsupported and was normalized to "new".`);
     }
 
@@ -755,6 +781,22 @@ export function processLeadPipeline(
       hasValidDomain,
       industry,
       headcount,
+      headcountMin: headcountRange?.min ?? null,
+      headcountMax: headcountRange?.max ?? null,
+      headcountRaw: mapping.headcount && hasValue(raw[mapping.headcount]) ? String(raw[mapping.headcount]).trim() : null,
+      contacts: [{
+        firstName: mapping.firstName ? String(raw[mapping.firstName] ?? '').trim() : '',
+        lastName: mapping.lastName ? String(raw[mapping.lastName] ?? '').trim() : '',
+        jobTitle: mapping.jobTitle ? String(raw[mapping.jobTitle] ?? '').trim() : '',
+        seniority: mapping.seniority ? String(raw[mapping.seniority] ?? '').trim() : '',
+        email: mapping.email ? String(raw[mapping.email] ?? '').trim() : '',
+        emailStatus: mapping.emailStatus ? String(raw[mapping.emailStatus] ?? '').trim() : '',
+        phone: mapping.phone ? String(raw[mapping.phone] ?? '').trim() : '',
+        linkedinUrl: mapping.linkedinUrl ? String(raw[mapping.linkedinUrl] ?? '').trim() : '',
+        leadStage: mapping.leadStage ? String(raw[mapping.leadStage] ?? '').trim() : '',
+        city: mapping.city ? String(raw[mapping.city] ?? '').trim() : '',
+        country: mapping.country ? String(raw[mapping.country] ?? '').trim() : '',
+      } satisfies LeadContact],
       annualRevenue,
       annualRevenueValue,
       description,
@@ -846,6 +888,34 @@ export function processLeadPipeline(
     }
   });
 
+  // One account per domain. Keep every source contact, and choose the modal firmographic value.
+  let conflictCount = 0;
+  for (const group of duplicateGroups.filter((item) => item.type === 'exact_domain')) {
+    const primary = group.leads[0];
+    const conflictsBeforeGroup = conflictCount;
+    primary.contacts = group.leads.flatMap((item) => item.contacts || []);
+    const fields = [
+      'companyName', 'industry', 'country', 'description', 'headcountRaw', 'annualRevenue',
+      'companyType', 'businessModel', 'productRaw', 'dealValue', 'currency', 'retentionMonths',
+      'customerPain', 'reasonWonLost', 'technologies',
+    ] as const;
+    for (const field of fields) {
+      const values = group.leads.map((item) => item[field]).filter((value) => value !== null && value !== undefined && value !== '');
+      const frequencies = new Map<string, number>();
+      values.forEach((value) => frequencies.set(String(value).toLowerCase(), (frequencies.get(String(value).toLowerCase()) || 0) + 1));
+      if (frequencies.size > 1) conflictCount++;
+      const winner = values.find((value) => String(value).toLowerCase() === [...frequencies].sort((a, b) => b[1] - a[1])[0]?.[0]);
+      if (winner !== undefined) (primary as unknown as Record<string, unknown>)[field] = winner;
+    }
+    const range = parseEmployeeRange(primary.headcountRaw);
+    primary.headcount = range?.midpoint ?? null;
+    primary.headcountMin = range?.min ?? null;
+    primary.headcountMax = range?.max ?? null;
+    primary.annualRevenueValue = primary.annualRevenue
+      ? parseOptionalNumber(primary.annualRevenue, 'Annual revenue', primary.validationWarnings || []) : null;
+    if (conflictCount > conflictsBeforeGroup) primary.validationWarnings?.push('Conflicting company values were resolved using the most frequent value.');
+  }
+
   // Filter out duplicates if skipDuplicates is true
   let finalLeads = validLeads;
   if (options.skipDuplicates) {
@@ -877,6 +947,7 @@ export function processLeadPipeline(
       validRowsCount: finalLeads.length,
       invalidRowsCount: invalidRows.length,
       duplicateRowsCount,
+      conflictCount,
       aiEligibleCount,
       storedOnlyCount,
       missingOptionalValuesCount,

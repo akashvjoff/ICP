@@ -197,11 +197,6 @@ export const UploadWizardPage: React.FC = () => {
   // ----------------------------------------------------------------------------
   // STEP 3: HYGIENE & REVIEW
   // ----------------------------------------------------------------------------
-  const handleToggleSkipDuplicates = () => {
-    const nextVal = !skipDuplicates;
-    setSkipDuplicates(nextVal);
-    runPipeline(rawRows, mapping, nextVal);
-  };
 
   // ----------------------------------------------------------------------------
   // STEP 4: PERSISTENCE & PROCESSING
@@ -888,8 +883,14 @@ export const UploadWizardPage: React.FC = () => {
                   {pipelineResult.summary.duplicateRowsCount}
                 </span>
                 <span className="font-mono text-[10px] font-bold text-amber-900 block mt-1">
-                  {skipDuplicates ? 'Exact domains skipped; names reviewed' : 'All kept as separate'}
+                  Exact domains merged; all contacts kept
                 </span>
+              </div>
+
+              <div className="bg-[#E5F7E5] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[3px_3px_0px_#0A0A0A]">
+                <span className="font-mono text-[10px] font-black uppercase text-[#0A0A0A]/70 block">CONFLICTING COMPANY VALUES</span>
+                <span className="text-2xl sm:text-3xl font-black font-mono text-[#0A0A0A]">{pipelineResult.summary.conflictCount}</span>
+                <span className="font-mono text-[10px] font-bold text-[#0A0A0A]/60 block mt-1">Most frequent value selected for each field</span>
               </div>
 
               <div className="bg-[#E4E6FB] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[3px_3px_0px_#0A0A0A]">
@@ -959,16 +960,7 @@ export const UploadWizardPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Duplicate Handling Toggle */}
-              <label className="flex items-center gap-2 font-mono text-xs font-bold text-[#0A0A0A] cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={skipDuplicates}
-                  onChange={handleToggleSkipDuplicates}
-                  className="w-4 h-4 accent-[#8C6ADE] rounded border-[#0A0A0A]"
-                />
-                <span>Automatically skip exact duplicates</span>
-              </label>
+              <span className="font-mono text-xs font-bold">Same-domain rows become one company with all contacts retained.</span>
             </div>
 
             {/* TAB CONTENT: VALID LEADS */}
@@ -1070,7 +1062,7 @@ export const UploadWizardPage: React.FC = () => {
                             <span className="font-black text-[#0A0A0A] block">{l.companyName}</span>
                             <span className="text-[11px] text-[#0A0A0A]/70 block">{l.domain || 'No domain'} · {l.industry}</span>
                             <span className="text-[10px] text-amber-800 font-bold block mt-1">
-                              {i === 0 ? 'Primary account (Kept)' : skipDuplicates ? 'Skipped (Duplicate)' : 'Preserved as separate'}
+                              {i === 0 ? 'Primary account' : 'Merged contact'}
                             </span>
                           </div>
                         ))}

@@ -18,6 +18,15 @@ export interface ColumnMapping {
   annualRevenue?: string;
   description?: string;
   country?: string;
+  city?: string;
+  firstName?: string;
+  lastName?: string;
+  jobTitle?: string;
+  seniority?: string;
+  email?: string;
+  emailStatus?: string;
+  phone?: string;
+  linkedinUrl?: string;
   technologies?: string;
   companyType?: string;
   businessModel?: string;
@@ -54,6 +63,20 @@ export interface AIClassification {
 
 export type EnrichmentTier = 'full' | 'limited' | 'stored_only';
 
+export interface LeadContact {
+  firstName: string;
+  lastName: string;
+  jobTitle: string;
+  seniority: string;
+  email: string;
+  emailStatus: string;
+  phone: string;
+  linkedinUrl: string;
+  leadStage: string;
+  city: string;
+  country: string;
+}
+
 export interface NormalizedLead {
   id: string;
   companyName: string;
@@ -62,6 +85,10 @@ export interface NormalizedLead {
   hasValidDomain?: boolean;
   industry: string;
   headcount: number | null;
+  headcountMin?: number | null;
+  headcountMax?: number | null;
+  headcountRaw?: string | null;
+  contacts?: LeadContact[];
   annualRevenue: string | null;
   annualRevenueValue?: number | null;
   description: string;
@@ -119,6 +146,7 @@ export interface LeadValidationSummary {
   validRowsCount: number;
   invalidRowsCount: number;
   duplicateRowsCount: number;
+  conflictCount: number;
   aiEligibleCount: number;
   storedOnlyCount: number;
   missingOptionalValuesCount: number;

@@ -184,6 +184,12 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [refreshVersion, setRefreshVersion] = useState(0);
   const refreshLiveWorkspace = useCallback(() => setRefreshVersion((value) => value + 1), []);
 
+  useEffect(() => {
+    if (!authUser?.id || !datasets.some(dataset => dataset.status === 'Processing')) return;
+    const timer = window.setInterval(refreshLiveWorkspace, 5000);
+    return () => window.clearInterval(timer);
+  }, [authUser?.id, datasets, refreshLiveWorkspace]);
+
   const segments = analysis.stpSegments;
 
   useEffect(() => {

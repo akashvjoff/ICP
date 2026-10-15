@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
-import { parseLeadFile, processLeadPipeline } from '../leadPipeline';
+import { parseLeadFile, processLeadPipeline, parseEmployeeRange } from '../leadPipeline';
 import { UPLOAD_CONFIG } from '../uploadConfig';
 
 function csvFile(contents: string, name = 'synthetic-leads.csv'): File {
@@ -13,6 +13,30 @@ test('parses a valid CSV and detects common headers', async () => {
   assert.equal(parsed.rawRows.length, 1);
   assert.equal(parsed.detectedMapping.companyName, 'Company');
   assert.equal(parsed.detectedMapping.domain, 'Website');
+});
+
+test('parses employee ranges and open-ended counts', () => {
+  assert.deepEqual(parseEmployeeRange('1-10'), { min: 1, max: 10, midpoint: 6 });
+  assert.deepEqual(parseEmployeeRange('201-500'), { min: 201, max: 500, midpoint: 351 });
+  assert.deepEqual(parseEmployeeRange('1001-5000'), { min: 1001, max: 5000, midpoint: 3001 });
+  assert.deepEqual(parseEmployeeRange('10,000+'), { min: 10000, max: null, midpoint: 10000 });
+  assert.deepEqual(parseEmployeeRange('1k-5k'), { min: 1000, max: 5000, midpoint: 3000 });
+});
+
+test('merges contact rows by domain and selects the most common company values', async () => {
+  const parsed = await parseLeadFile(csvFile('First Name,Last Name,Job Title,Seniority,Company,Website,Industry,Employees,Email,Email Status,Phone,City,Country,LinkedIn URL,Lead Stage\nAna,Lee,VP,VP,Acme,acme.test,SaaS,201-500,ana@acme.test,Verified,123,Delhi,India,https://linkedin.com/in/ana,Contacted\nBen,Ray,Director,Director,Acme,https://www.acme.test,SaaS,201-500,ben@acme.test,Verified,456,Mumbai,India,https://linkedin.com/in/ben,Replied\nCal,Kim,Manager,Manager,Acme,acme.test,Other,1-10,cal@acme.test,Verified,789,Delhi,India,https://linkedin.com/in/cal,New'));
+  assert.equal(parsed.detectedMapping.jobTitle, 'Job Title');
+  assert.equal(parsed.detectedMapping.seniority, 'Seniority');
+  assert.equal(parsed.detectedMapping.leadStage, 'Lead Stage');
+  assert.equal(parsed.detectedMapping.city, 'City');
+  assert.equal(parsed.detectedMapping.country, 'Country');
+  const result = processLeadPipeline(parsed.rawRows, parsed.detectedMapping, { skipDuplicates: true });
+  assert.equal(result.validLeads.length, 1);
+  assert.equal(result.validLeads[0].headcount, 351);
+  assert.equal(result.validLeads[0].industry, 'SaaS');
+  assert.equal(result.validLeads[0].contacts?.length, 3);
+  assert.equal(result.validLeads[0].contacts?.[1].leadStage, 'Replied');
+  assert.equal(result.summary.conflictCount, 2);
 });
 
 test('parses a valid XLSX without evaluating formula cells', async () => {

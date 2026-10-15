@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
@@ -48,6 +48,7 @@ export const OnboardingPage: React.FC = () => {
   const [resumedDraft, setResumedDraft] = useState<boolean>(false);
   const [savingProgress, setSavingProgress] = useState<boolean>(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const editedSinceLoad = useRef(false);
 
   // AI Assistance Modal State
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
@@ -80,7 +81,7 @@ export const OnboardingPage: React.FC = () => {
     // If logged in with Supabase, attempt to fetch user's saved context
     if (user?.id && isConfigured) {
       dbService.loadSellerProductContext(user.id).then((serverCtx) => {
-        if (serverCtx && Object.keys(serverCtx).length > 3) {
+        if (!loaded && !editedSinceLoad.current && serverCtx && Object.keys(serverCtx).length > 3) {
           setFormData((prev) => ({ ...prev, ...(serverCtx as Partial<SellerProductContext>) }));
           setResumedDraft(true);
         }
@@ -101,6 +102,7 @@ export const OnboardingPage: React.FC = () => {
   };
 
   const handleInputChange = (field: keyof SellerProductContext, value: unknown) => {
+    editedSinceLoad.current = true;
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
       saveDraftLocally(next);
@@ -117,6 +119,7 @@ export const OnboardingPage: React.FC = () => {
   };
 
   const handleNestedUserChange = (key: keyof SellerProductContext['usersVsDecisionMakers'], value: string) => {
+    editedSinceLoad.current = true;
     setFormData((prev) => {
       const next = {
         ...prev,
@@ -149,24 +152,39 @@ export const OnboardingPage: React.FC = () => {
 
   // Add / Remove Buyer Roles
   const handleAddBuyerRole = () => {
+    editedSinceLoad.current = true;
     const newRole: BuyerRole = {
-      id: `br-${Date.now()}`,
-      role: 'Director of Growth / Marketing Ops',
+      id: crypto.randomUUID(),
+      role: '',
       seniority: 'Director',
-      motivation: 'Reliable pipeline velocity and measurable lead conversion.',
+      motivation: '',
       isDecisionMaker: false,
     };
-    handleInputChange('buyerRoles', [...formData.buyerRoles, newRole]);
+    setFormData(prev => {
+      const next = { ...prev, buyerRoles: [...prev.buyerRoles, newRole] };
+      saveDraftLocally(next);
+      return next;
+    });
   };
 
   const handleUpdateBuyerRole = (index: number, key: keyof BuyerRole, val: unknown) => {
-    const updated = [...formData.buyerRoles];
-    updated[index] = { ...updated[index], [key]: val };
-    handleInputChange('buyerRoles', updated);
+    editedSinceLoad.current = true;
+    setFormData(prev => {
+      const buyerRoles = [...prev.buyerRoles];
+      buyerRoles[index] = { ...buyerRoles[index], [key]: val };
+      const next = { ...prev, buyerRoles };
+      saveDraftLocally(next);
+      return next;
+    });
   };
 
   const handleRemoveBuyerRole = (id: string) => {
-    handleInputChange('buyerRoles', formData.buyerRoles.filter((b) => b.id !== id));
+    editedSinceLoad.current = true;
+    setFormData(prev => {
+      const next = { ...prev, buyerRoles: prev.buyerRoles.filter(role => role.id !== id) };
+      saveDraftLocally(next);
+      return next;
+    });
   };
 
   // Step Validation
@@ -181,7 +199,7 @@ export const OnboardingPage: React.FC = () => {
       if (!formData.productDescription.trim()) errs.productDescription = 'Please provide a product description.';
       if (!formData.mainBenefit.trim()) errs.mainBenefit = 'Main benefit is required to anchor the Need Gap.';
     } else if (currentStep === 3) {
-      if (formData.buyerRoles.length === 0) {
+      if (formData.buyerRoles.length === 0 || formData.buyerRoles.some(role => !role.role.trim())) {
         errs.buyerRoles = 'Please specify at least one target buyer role.';
       }
     } else if (currentStep === 4) {

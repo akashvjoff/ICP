@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
   parseLeadBytes,
@@ -13,6 +14,7 @@ import type { ColumnMapping, NormalizedLead } from '../types/lead';
 const mappingKeys = [
   'companyName', 'domain', 'industry', 'headcount', 'annualRevenue', 'description',
   'country', 'technologies', 'companyType', 'businessModel', 'product', 'leadStage',
+  'city', 'firstName', 'lastName', 'jobTitle', 'seniority', 'email', 'emailStatus', 'phone', 'linkedinUrl',
   'dealValue', 'currency', 'retentionMonths', 'customerPain', 'reasonWonLost',
 ] as const;
 
@@ -93,7 +95,7 @@ export async function prepareUpload(input: unknown): Promise<PreparedUpload> {
     pipeline = processLeadPipeline(parsed.rawRows, mapping, {
       maxTotalRows: UPLOAD_CONFIG.MAX_ROWS_PER_DATASET,
       maxAiEnrichedDemo: UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO,
-      skipDuplicates: validated.data.skipDuplicates,
+      skipDuplicates: true,
       piiColumnsToScrub: parsed.piiColumnsDetected,
     });
   } catch (error) {
@@ -110,18 +112,22 @@ export async function prepareUpload(input: unknown): Promise<PreparedUpload> {
 export interface UploadRepository {
   createDataset(ownerUserId: string, values: Record<string, unknown>): Promise<{ id: string }>;
   insertLeads(ownerUserId: string, datasetId: string, values: Array<Record<string, unknown>>): Promise<Array<{ id: string }>>;
+  insertContacts(ownerUserId: string, datasetId: string, values: Array<Record<string, unknown>>): Promise<void>;
   createQueuedJob(ownerUserId: string, datasetId: string, totalCount: number, skippedCount?: number): Promise<{ id: string; status: string }>;
   deleteDataset(ownerUserId: string, datasetId: string): Promise<void>;
 }
 
 function toLeadInsert(lead: NormalizedLead): Record<string, unknown> {
   return {
+    id: randomUUID(),
     company_name: lead.companyName,
     normalized_domain: lead.domain,
     website: lead.website || null,
     industry_raw: lead.industry || null,
-    company_size_raw: lead.headcount === null ? null : String(lead.headcount),
+    company_size_raw: lead.headcountRaw || null,
     employee_count: lead.headcount,
+    employee_count_min: lead.headcountMin ?? null,
+    employee_count_max: lead.headcountMax ?? null,
     annual_revenue: lead.annualRevenueValue ?? null,
     company_type_raw: lead.companyType || null,
     business_model_raw: lead.businessModel || null,
@@ -166,6 +172,16 @@ export async function persistPreparedUpload(
       dataset.id,
       pipeline.validLeads.map(toLeadInsert)
     );
+    await repository.insertContacts(ownerUserId, dataset.id, inserted.flatMap((row, index) =>
+      (pipeline.validLeads[index]?.contacts || []).filter((contact) =>
+        contact.firstName || contact.lastName || contact.email || contact.phone || contact.linkedinUrl
+      ).map((contact) => ({
+        lead_id: row.id, first_name: contact.firstName, last_name: contact.lastName,
+        job_title: contact.jobTitle, seniority: contact.seniority, email: contact.email,
+        email_status: contact.emailStatus, phone: contact.phone, linkedin_url: contact.linkedinUrl,
+        lead_stage: contact.leadStage, city: contact.city, country: contact.country,
+      }))
+    ));
     const totalAiEligible = pipeline.validLeads.filter((lead) => lead.isAiEnriched).length;
     const skippedCount = pipeline.validLeads.length - totalAiEligible;
     const job = await repository.createQueuedJob(
@@ -200,9 +216,9 @@ export function createSupabaseUploadRepository(client: SupabaseClient): UploadRe
           owner_user_id: ownerUserId,
           dataset_id: datasetId,
         }));
-        const { data, error } = await client.from('leads').insert(chunk).select('id');
+        const { error } = await client.from('leads').insert(chunk);
         if (error) throw error;
-        inserted.push(...(data || []));
+        inserted.push(...values.slice(index, index + 100).map((lead) => ({ id: String(lead.id) })));
       }
       return inserted;
     },
@@ -223,6 +239,13 @@ export function createSupabaseUploadRepository(client: SupabaseClient): UploadRe
         .single();
       if (error || !data) throw error || new Error('Analysis job insert returned no row.');
       return data;
+    },
+    async insertContacts(ownerUserId, datasetId, values) {
+      for (let index = 0; index < values.length; index += 100) {
+        const chunk = values.slice(index, index + 100).map((contact) => ({ ...contact, owner_user_id: ownerUserId, dataset_id: datasetId }));
+        const { error } = await client.from('lead_contacts').insert(chunk);
+        if (error) throw error;
+      }
     },
     async deleteDataset(ownerUserId, datasetId) {
       const { error } = await client
