@@ -31,7 +31,9 @@ export const LandingPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-4 text-xs font-mono font-bold text-[#0A0A0A]">
             <a href="https://figuredit.in" className="underline hover:text-[#8C6ADE]">figuredit.in</a>
             <a href="/demo" className="underline hover:text-[#8C6ADE]">EXPLORE DEMO</a>
+            <a href="/about" className="underline hover:text-[#8C6ADE]">ABOUT & Q&A</a>
             <a href="/privacy" className="underline hover:text-[#8C6ADE]">PRIVACY</a>
+            <a href="mailto:figuredit.in@gmail.com" className="underline hover:text-[#8C6ADE]">CONTACT</a>
             <span className="bg-white px-2 py-0.5 rounded border border-[#0A0A0A]">
               NEED GAP ANALYSIS
             </span>

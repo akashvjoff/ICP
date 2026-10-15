@@ -12,6 +12,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
 import { PrivacyPage } from './pages/PrivacyPage';
+import { AboutPage } from './pages/AboutPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { UploadWizardPage } from './pages/UploadWizardPage';
@@ -32,7 +33,7 @@ function RouteSwitch() {
     const segment = path.split('/')[1];
     const titles: Record<string, string> = {
       auth: 'Sign in or create an account', demo: 'Try the public demo',
-      privacy: 'Privacy notice', dashboard: 'Dashboard', onboarding: 'Set up your offering',
+      privacy: 'Privacy notice', about: 'About and Q&A', dashboard: 'Dashboard', onboarding: 'Set up your offering',
       uploads: 'Lead uploads', companies: 'Companies', segments: 'Segments',
       strategy: 'Strategic analysis', icp: 'ICP report', settings: 'Settings',
     };
@@ -53,6 +54,10 @@ function RouteSwitch() {
 
   if (path === '/privacy') {
     return <PrivacyPage />;
+  }
+
+  if (path === '/about') {
+    return <AboutPage />;
   }
 
   if (path === '/demo') {

@@ -6,6 +6,7 @@ const links = [
   { href: '#how-it-works', label: 'HOW IT WORKS' },
   { href: '#test-drive', label: 'SAMPLE ANALYSIS' },
   { href: '/demo', label: 'PUBLIC DEMO' },
+  { href: '/about', label: 'ABOUT & Q&A' },
   { href: '/privacy', label: 'PRIVACY' },
   { href: '/auth', label: 'SIGN IN' },
 ];
@@ -20,7 +21,7 @@ export const AppNavbar: React.FC = () => {
           <span className="font-mono text-xs font-black tracking-wider uppercase">AI CUSTOMER INTELLIGENCE</span>
         </div>
         <a href="/" className="shrink-0 text-2xl sm:text-3xl font-black tracking-tighter hover:text-[#8C6ADE]" aria-label="FiguredIt home">Figured<span className="text-[#A1F000] drop-shadow-[1px_1px_0px_#0A0A0A]">It</span></a>
-        <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-4 xl:gap-5">
+        <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-3 xl:gap-4">
           {links.map(link => <a key={link.href} href={link.href} className="font-mono text-[10px] xl:text-xs font-bold tracking-wide hover:underline">{link.label}</a>)}
         </nav>
         <div className="flex items-center gap-2">
