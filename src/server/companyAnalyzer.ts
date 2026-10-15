@@ -402,7 +402,7 @@ export class OllamaCompanyAnalyzer implements CompanyAnalyzer {
 export function createCompanyAnalyzer(env: NodeJS.ProcessEnv = process.env): CompanyAnalyzer {
   const provider = (env.COMPANY_ANALYSIS_PROVIDER || 'gemini').toLowerCase();
   const timeout = Number.parseInt(env.COMPANY_ANALYSIS_TIMEOUT_MS || '60000', 10);
-  if (provider === 'mock') return new MockCompanyAnalyzer();
+  if (provider === 'mock') throw new CompanyAnalysisError('PROVIDER_CONFIGURATION', 'Sample analysis is unavailable for signed-in accounts.', 503);
   if (provider === 'ollama') return new OllamaCompanyAnalyzer(env.OLLAMA_BASE_URL, env.OLLAMA_MODEL, timeout);
   if (provider === 'gemini') return new GeminiCompanyAnalyzer(env.GEMINI_API_KEY || '', env.GEMINI_MODEL || '', timeout);
   throw new CompanyAnalysisError('PROVIDER_CONFIGURATION', `Unsupported company analysis provider "${provider}".`, 503);

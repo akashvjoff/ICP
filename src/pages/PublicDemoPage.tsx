@@ -45,9 +45,9 @@ export const PublicDemoPage: React.FC = () => {
       <main className="mx-auto max-w-6xl px-6 py-10 sm:py-16">
         <a href="/" className="inline-flex items-center gap-2 font-mono text-xs font-bold hover:underline"><ArrowLeft size={15} /> BACK HOME</a>
         <div className="mt-7 max-w-3xl">
-          <span className="rounded border-2 border-black bg-[#A1F000] px-2 py-1 font-mono text-xs font-black">PUBLIC DEMO · NO ACCOUNT NEEDED</span>
+          <span className="rounded border-2 border-black bg-[#A1F000] px-2 py-1 font-mono text-xs font-black">KEYWORD PREVIEW · NO ACCOUNT NEEDED</span>
           <h1 className="mt-5 text-4xl sm:text-6xl font-black leading-tight tracking-tight">Try your product against five sample accounts.</h1>
-          <p className="mt-4 text-base text-black/75">Choose an example or describe what you sell. Explore the evidence on each fictional account before creating a workspace.</p>
+          <p className="mt-4 text-base text-black/75">Choose an example or describe what you sell. This keyword preview matches words in fictional accounts; sign in for full analysis of your own leads.</p>
         </div>
         <section aria-labelledby="product-heading" className="mt-10 rounded-2xl border-[3px] border-black bg-white p-5 sm:p-7 shadow-[5px_6px_0px_#0A0A0A]">
           <h2 id="product-heading" className="text-xl font-black">What do you sell?</h2>
@@ -72,7 +72,7 @@ export const PublicDemoPage: React.FC = () => {
             </article>
           </div>
         </section>
-        <div className="mt-12 rounded-xl border-[3px] border-black bg-[#E4E6FB] p-6 sm:p-8"><Sparkles size={25} aria-hidden="true" /><h2 className="mt-3 text-2xl font-black">Ready to analyze your own leads?</h2><p className="mt-2 text-sm">Create an account to save your offering, upload a lead list, and run the full workflow.</p><a href="/auth" className="mt-5 inline-flex items-center gap-2 rounded-lg border-2 border-black bg-[#A1F000] px-5 py-3 font-mono text-sm font-bold hover:bg-[#92dc00]">SIGN IN OR CREATE ACCOUNT <ArrowRight size={16} /></a></div>
+        <div className="mt-12 rounded-xl border-[3px] border-black bg-[#E4E6FB] p-6 sm:p-8"><Sparkles size={25} aria-hidden="true" /><h2 className="mt-3 text-2xl font-black">Ready for the full analysis?</h2><p className="mt-2 text-sm">Sign in to save your offering, upload a lead list, and run AI-assisted analysis with an explainable score.</p><a href="/auth" className="mt-5 inline-flex items-center gap-2 rounded-lg border-2 border-black bg-[#A1F000] px-5 py-3 font-mono text-sm font-bold hover:bg-[#92dc00]">SIGN IN FOR FULL ANALYSIS <ArrowRight size={16} /></a></div>
       </main>
     </div>
   );

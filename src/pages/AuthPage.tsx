@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { pendingUploadKey } from '../lib/pendingUpload';
 import { useRouter } from '../lib/router';
 import { useAuth } from '../lib/auth';
 import { useAppStore } from '../lib/store';
@@ -56,7 +57,7 @@ export const AuthPage: React.FC = () => {
   // If already authenticated with Supabase session, redirect to dashboard
   useEffect(() => {
     if (!authLoading && session && user && !localError && !authError) {
-      navigate('/dashboard');
+      navigate(sessionStorage.getItem(pendingUploadKey) ? '/uploads/new' : '/dashboard');
     }
   }, [authLoading, session, user, localError, authError, navigate]);
 
@@ -87,7 +88,7 @@ export const AuthPage: React.FC = () => {
         const res = await signIn(email, password);
         if (res.success) {
           addToast('Signed in successfully. Welcome to FiguredIt!', 'success');
-          navigate('/dashboard');
+          navigate(sessionStorage.getItem(pendingUploadKey) ? '/uploads/new' : '/dashboard');
         } else {
           setLocalError(res.error || 'Failed to sign in.');
         }

@@ -45,7 +45,7 @@ import {
 export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ params }) => {
   const { navigate } = useRouter();
   const { leads, scores, analysis, sellerContext, offering, updateLeadDescription, addToast } = useAppStore();
-  const { session } = useAuth();
+  const { session, isDemoUser } = useAuth();
 
   const companyId = params.id;
   const lead = leads.find((l) => l.id === companyId);
@@ -155,7 +155,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                 analyzedAt: data.analyzedAt || new Date().toISOString(),
                 cached: true,
                 sourceMode: data.sourceMode || 'uploaded_only',
-                websiteEvidence: data.websiteEvidence || undefined,
+                websiteEvidence: data.websiteEvidence ? { ...data.websiteEvidence, source: 'live' } : undefined,
                 userCorrectedDescription: data.userCorrectedDescription || '',
               });
             }
@@ -165,14 +165,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
             }
           }
         } else {
-          // Demo/offline sandbox fallback
-          const localSaved = localStorage.getItem(`icp_mode_analysis_${lead!.id}`);
-          if (localSaved && isMounted) {
-            try {
-              const parsed = JSON.parse(localSaved);
-              setCompanyIntelligence(parsed);
-            } catch {}
-          }
+          // Demo descriptions remain local; analyses are regenerated so older sample claims cannot resurface.
           const localDesc = localStorage.getItem(`icp_mode_desc_${lead!.id}`);
           if (localDesc && isMounted) {
             setUserCorrectedDescription(localDesc);
@@ -191,7 +184,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
     return () => {
       isMounted = false;
     };
-  }, [lead?.id, session?.access_token]);
+  }, [lead?.id, session?.access_token, isDemoUser]);
 
   // 2. Run Company Intelligence (Gemini or Mock fallback in demo mode)
   const runCompanyIntelligence = async () => {
@@ -234,10 +227,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
         const envelope = payload as CompanyAnalysisEnvelope;
         setCompanyIntelligence(envelope);
         addToast(`Company intelligence updated for ${lead.companyName}.`, 'success');
-        try {
-          localStorage.setItem(`icp_mode_analysis_${lead.id}`, JSON.stringify(envelope));
-        } catch {}
-      } else {
+      } else if (isDemoUser) {
         // Zero-credential Demo Mode simulation using structured contract
         const payroll = /payroll|pay run|salary|wage/i.test(lead.companyName + ' ' + activeDescription);
         const demoAnalysis: CompanyIntelligence = {
@@ -247,9 +237,8 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
           business_model: { value: lead.businessModel || 'B2B Software Subscription', origin: 'inferred', confidence: 'medium' },
           product_summary: {
             value: activeDescription || 'Automated B2B cloud software platform designed for operational scaling.',
-            origin: userCorrectedDescription ? 'uploaded' : (activeDescription ? 'uploaded' : 'unknown'),
+            origin: 'inferred',
             confidence: activeDescription ? 'high' : 'low',
-            source_field: userCorrectedDescription ? 'user_corrected_description' : 'companyProductDescription',
           },
           products: {
             value: payroll ? ['Automated Pay Runs', 'Payroll Compliance Engine', 'Tax Reporting Portal'] : ['Core Software Platform', 'Integration Connectors', 'Reporting Dashboard'],
@@ -282,29 +271,20 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
           },
           company_size: {
             value: lead.headcount !== null ? String(lead.headcount) : 'unknown',
-            origin: lead.headcount !== null ? 'uploaded' : 'unknown',
+            origin: lead.headcount !== null ? 'inferred' : 'unknown',
             confidence: lead.headcount !== null ? 'high' : 'low',
-            source_field: lead.headcount !== null ? 'employee_count' : undefined,
           },
           geography: {
             value: lead.country || 'unknown',
-            origin: lead.country ? 'uploaded' : 'unknown',
+            origin: lead.country ? 'inferred' : 'unknown',
             confidence: lead.country ? 'high' : 'low',
-            source_field: lead.country ? 'country' : undefined,
           },
           evidence: [
             {
               attribute: 'product_summary',
-              summary: userCorrectedDescription ? 'Derived from verified user-corrected description.' : 'Derived from uploaded CSV product description.',
-              origin: 'uploaded',
-              source_field: userCorrectedDescription ? 'user_corrected_description' : 'companyProductDescription',
+              summary: 'Based on the sample company description, not a verified source.',
+              origin: 'inferred',
             },
-            ...(lead.domain ? [{
-              attribute: 'industry',
-              summary: `Corroborated with public website domain: ${lead.domain}`,
-              origin: 'public_webpage' as const,
-              source_url: `https://${lead.domain}`,
-            }] : []),
           ],
           data_quality: {
             completeness: 'high',
@@ -323,25 +303,19 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
           modelVersion: 'company-intelligence-v1',
           analyzedAt: new Date().toISOString(),
           cached: false,
-          sourceMode: lead.domain ? 'both' : 'uploaded_only',
+          sourceMode: 'uploaded_only',
           websiteEvidence: lead.domain ? {
-            status: 'fetched',
-            sourceUrl: `https://${lead.domain}`,
-            fetchedAt: new Date().toISOString(),
-            title: `${lead.companyName} | Official Homepage`,
-            metaDescription: `${lead.companyName} provides high-performance B2B software solutions for modern teams.`,
-            headings: ['Enterprise Solutions', 'Why Companies Choose Us', 'Schedule a Consultation'],
-            mainContent: `${lead.companyName} is a leading provider in its sector, delivering specialized software and automation services.`,
-            pagesFetched: [`https://${lead.domain}`, `https://${lead.domain}/about`],
+            source: 'sample', status: 'disabled', sourceUrl: null, fetchedAt: null,
+            title: null, metaDescription: null, headings: [], mainContent: '', pagesFetched: [],
+            reason: 'No website was fetched for this sample output.',
           } : undefined,
           userCorrectedDescription: userCorrectedDescription || '',
         };
 
         setCompanyIntelligence(demoEnvelope);
-        try {
-          localStorage.setItem(`icp_mode_analysis_${lead.id}`, JSON.stringify(demoEnvelope));
-        } catch {}
         addToast(`Demo intelligence generated for ${lead.companyName}.`, 'info');
+      } else {
+        throw new Error('Sign in again to run a live company analysis.');
       }
     } catch (error) {
       setAnalysisError(error instanceof Error ? error.message : 'Company analysis failed.');
@@ -761,6 +735,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
             <div className="bg-[#FFB6C2] border-[2px] border-[#0A0A0A] rounded-xl p-3 font-mono text-xs font-bold text-rose-950 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-rose-800 shrink-0" />
               <span>{analysisError}</span>
+              <button type="button" onClick={runCompanyIntelligence} disabled={isAnalyzingCompany} className="ml-auto underline whitespace-nowrap">RETRY</button>
             </div>
           )}
         </BrutalistCard>
@@ -777,12 +752,11 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                       Structured Company Intelligence
                     </h2>
                   </div>
+                  {companyIntelligence.provider === 'mock-local' && <span className="mt-2 inline-block rounded border-2 border-black bg-[#FFE3B3] px-2 py-1 font-mono text-xs font-black">Sample output: not a live analysis</span>}
                 </div>
 
-                <StatusChip
-                  color={companyIntelligence.analysis.data_quality.confidence === 'high' ? 'mint' : companyIntelligence.analysis.data_quality.confidence === 'medium' ? 'peach' : 'pink'}
-                >
-                  {companyIntelligence.analysis.data_quality.confidence.toUpperCase()} CONFIDENCE
+                <StatusChip color={companyIntelligence.provider === 'mock-local' ? 'peach' : companyIntelligence.analysis.data_quality.confidence === 'high' ? 'mint' : companyIntelligence.analysis.data_quality.confidence === 'medium' ? 'peach' : 'pink'}>
+                  {companyIntelligence.provider === 'mock-local' ? 'SAMPLE' : `${companyIntelligence.analysis.data_quality.confidence.toUpperCase()} CONFIDENCE`}
                 </StatusChip>
               </div>
 
@@ -907,7 +881,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs font-bold text-[#0A0A0A]/70">SOURCE MODE:</span>
                   <StatusChip color="lavender">
-                    {companyIntelligence.sourceMode.toUpperCase()}
+                    {companyIntelligence.provider === 'mock-local' ? 'SAMPLE DATA' : companyIntelligence.sourceMode.toUpperCase()}
                   </StatusChip>
                 </div>
               </div>
@@ -921,13 +895,13 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                         EXTRACTION STATUS:
                       </span>
                       <StatusChip
-                        color={companyIntelligence.websiteEvidence.status === 'fetched' ? 'mint' : 'pink'}
+                        color={companyIntelligence.websiteEvidence.source === 'sample' ? 'peach' : companyIntelligence.websiteEvidence.status === 'fetched' ? 'mint' : 'pink'}
                       >
-                        {companyIntelligence.websiteEvidence.status.toUpperCase()}
+                        {companyIntelligence.websiteEvidence.source === 'sample' ? 'SAMPLE' : companyIntelligence.websiteEvidence.status.toUpperCase()}
                       </StatusChip>
                     </div>
 
-                    {companyIntelligence.websiteEvidence.sourceUrl && (
+                    {companyIntelligence.websiteEvidence.source === 'live' && companyIntelligence.websiteEvidence.sourceUrl && (
                       <a
                         href={companyIntelligence.websiteEvidence.sourceUrl}
                         target="_blank"
@@ -940,7 +914,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                     )}
                   </div>
 
-                  {companyIntelligence.websiteEvidence.status === 'fetched' ? (
+                  {companyIntelligence.websiteEvidence.source === 'live' && companyIntelligence.websiteEvidence.status === 'fetched' ? (
                     <div className="space-y-2 text-xs">
                       {companyIntelligence.websiteEvidence.title && (
                         <div>

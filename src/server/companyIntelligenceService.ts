@@ -47,7 +47,7 @@ export async function analyzeCompanyWithCache(
   await repository.assertOwnedLead(ownerUserId, leadId);
 
   const cached = await repository.findCached(ownerUserId, inputHash);
-  if (cached) {
+  if (cached && cached.provider === analyzer.providerName) {
     const cachedEnvelope = {
       ...cached,
       cached: true,
@@ -70,7 +70,7 @@ export async function analyzeCompanyWithCache(
         ? (input.companyProductDescription || input.userCorrectedDescription ? 'both' : 'public_website')
         : 'uploaded_only',
       userCorrectedDescription: input.userCorrectedDescription || '',
-      websiteEvidence,
+      websiteEvidence: websiteEvidence && { ...websiteEvidence, source: 'live' },
     };
     await repository.saveCompleted(ownerUserId, leadId, inputHash, envelope, input);
     return envelope;
@@ -121,7 +121,9 @@ export function createSupabaseCompanyAnalysisRepository(client: SupabaseClient):
         sourceMode: data.website_source_url
           ? (parsed.data.product_summary.origin === 'uploaded' ? 'both' : 'public_website')
           : 'uploaded_only',
-        websiteEvidence: (data.website_extraction_json || undefined) as CompanyAnalysisEnvelope['websiteEvidence'],
+        websiteEvidence: data.website_extraction_json
+          ? { ...data.website_extraction_json, source: 'live' } as CompanyAnalysisEnvelope['websiteEvidence']
+          : undefined,
         userCorrectedDescription: data.user_corrected_description || '',
       };
     },

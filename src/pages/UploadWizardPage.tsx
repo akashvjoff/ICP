@@ -21,6 +21,7 @@ import {
   PipelineProcessResult,
 } from '../lib/leadPipeline';
 import { UPLOAD_CONFIG, formatBytes } from '../lib/uploadConfig';
+import { savePendingUpload, getPendingUpload, clearPendingUpload, pendingUploadKey } from '../lib/pendingUpload';
 import { RawLeadRecord, ColumnMapping } from '../types/lead';
 import { formatHeadcount } from '../lib/formatters';
 import {
@@ -74,8 +75,10 @@ export const UploadWizardPage: React.FC = () => {
   const [progressPercent, setProgressPercent] = useState(0);
   const [createdDatasetId, setCreatedDatasetId] = useState<string>('');
   const [processingError, setProcessingError] = useState<string | null>(null);
+  const [resumeReady, setResumeReady] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resumeStarted = useRef(false);
 
   const wizardSteps: StepItem[] = [
     { id: '1', num: '01', label: 'CHOOSE FILE', pastelBg: 'peach' },
@@ -99,7 +102,7 @@ export const UploadWizardPage: React.FC = () => {
   // ----------------------------------------------------------------------------
   // STEP 1: FILE SELECTION & PARSING
   // ----------------------------------------------------------------------------
-  const handleProcessSelectedFile = async (selectedFile: File) => {
+  const handleProcessSelectedFile = async (selectedFile: File, pending?: { mapping: ColumnMapping; skipDuplicates: boolean }) => {
     setFileError(null);
     try {
       const parsed: ParseResult = await parseLeadFile(selectedFile);
@@ -108,21 +111,25 @@ export const UploadWizardPage: React.FC = () => {
       setFileSizeStr(formatBytes(selectedFile.size));
       setRawHeaders(parsed.headers);
       setRawRows(parsed.rawRows);
-      setMapping(parsed.detectedMapping);
+      const activeMapping = pending?.mapping || parsed.detectedMapping;
+      const activeDedupe = pending?.skipDuplicates ?? skipDuplicates;
+      setMapping(activeMapping);
+      setSkipDuplicates(activeDedupe);
       setPiiColumnsDetected(parsed.piiColumnsDetected);
       setParseWarnings(parsed.parseErrors);
 
       // Run pipeline on raw rows with auto-detected mapping
-      const res = processLeadPipeline(parsed.rawRows, parsed.detectedMapping, {
+      const res = processLeadPipeline(parsed.rawRows, activeMapping, {
         maxTotalRows: UPLOAD_CONFIG.MAX_ROWS_PER_DATASET,
         maxAiEnrichedDemo: UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO,
-        skipDuplicates,
+        skipDuplicates: activeDedupe,
         piiColumnsToScrub: parsed.piiColumnsDetected,
       });
       setPipelineResult(res);
 
       addToast(`Parsed ${parsed.rawRows.length} rows from "${selectedFile.name}".`, 'info');
-      setWizardStep(2);
+      setWizardStep(pending ? 4 : 2);
+      if (pending) setResumeReady(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to parse file.';
       setFileError(msg);
@@ -231,7 +238,10 @@ export const UploadWizardPage: React.FC = () => {
     };
 
     try {
-      if (isSupabaseConfigured && !isDemoUser) {
+      if (isDemoUser) {
+        throw new Error('Demo only: sign in to save and analyze your file.');
+      }
+      if (isSupabaseConfigured) {
         if (!file) throw new Error('Select the original CSV or XLSX file before saving to your workspace.');
         const { data: refreshed, error: refreshError } = await supabase!.auth.refreshSession();
         if (refreshError || !refreshed.session?.access_token) {
@@ -266,7 +276,7 @@ export const UploadWizardPage: React.FC = () => {
         }
         setCreatedDatasetId(payload.datasetId);
       } else {
-        setCreatedDatasetId(newDatasetId);
+        throw new Error('Saving is unavailable right now. Please try again later.');
       }
 
       setProgressPercent(100);
@@ -274,6 +284,10 @@ export const UploadWizardPage: React.FC = () => {
 
       // Add to central workspace store
       addDataset(datasetMeta, storedLeads);
+      if (sessionStorage.getItem(pendingUploadKey)) {
+        await clearPendingUpload().catch(() => undefined);
+        sessionStorage.removeItem(pendingUploadKey);
+      }
       setIsProcessing(false);
       navigate(`/uploads/${datasetMeta.id}`);
     } catch (err: unknown) {
@@ -281,6 +295,36 @@ export const UploadWizardPage: React.FC = () => {
       const msg = err instanceof Error ? err.message : 'Processing failed.';
       setProcessingError(msg);
       addToast(msg, 'warning');
+    }
+  };
+
+  useEffect(() => {
+    if (isDemoUser || !sessionStorage.getItem(pendingUploadKey) || resumeStarted.current) return;
+    resumeStarted.current = true;
+    void getPendingUpload().then(pending => {
+      if (!pending) throw new Error('Your selected file is no longer available. Please choose it again.');
+      return handleProcessSelectedFile(pending.file, pending);
+    }).catch(error => setFileError(error instanceof Error ? error.message : 'Could not restore your file.'));
+  }, [isDemoUser]);
+
+  useEffect(() => {
+    if (resumeReady && pipelineResult && file && !isDemoUser) {
+      setResumeReady(false);
+      void executeProcessing();
+    }
+  }, [resumeReady, pipelineResult, file, isDemoUser]);
+
+  const continueToSignIn = async () => {
+    if (!file) {
+      setProcessingError('Select a file before signing in.');
+      return;
+    }
+    try {
+      await savePendingUpload({ file, mapping, skipDuplicates });
+      sessionStorage.setItem(pendingUploadKey, '1');
+      navigate('/auth');
+    } catch {
+      setProcessingError('Could not keep your file for sign-in. Please try again.');
     }
   };
 
@@ -351,7 +395,7 @@ export const UploadWizardPage: React.FC = () => {
                 ? 'Confirm company identifiers, firmographics, and CRM commercial parameters. Personal contact data will be automatically redacted.'
                 : wizardStep === 3
                 ? 'Verify domain hygiene, duplicate detection, and schema validation before writing to database.'
-                : 'Saving your accounts and preparing them for analysis.'
+                : isDemoUser ? 'Preview your validated file before signing in to save it.' : 'Saving your accounts and preparing them for analysis.'
             }
           />
         </div>
@@ -1102,11 +1146,11 @@ export const UploadWizardPage: React.FC = () => {
                 size="md"
                 onClick={() => {
                   setWizardStep(4);
-                  executeProcessing();
+                  if (!isDemoUser) void executeProcessing();
                 }}
                 icon={<ArrowRight className="w-4 h-4" />}
               >
-                CONFIRM & INGEST {pipelineResult.validLeads.length} LEADS →
+                {isDemoUser ? 'PREVIEW' : 'CONFIRM & INGEST'} {pipelineResult.validLeads.length} LEADS →
               </BrutalistButton>
             </div>
           </div>
@@ -1119,16 +1163,19 @@ export const UploadWizardPage: React.FC = () => {
           <BrutalistCard bg="white" shadowSize="lg" className="p-8 sm:p-10 text-center space-y-6">
             <div className="max-w-lg mx-auto space-y-3">
               <SectionEyebrow color="bg-[#A1F000]">
-                {isProcessing ? 'SECURE DATASET INGESTION' : 'ANALYSIS JOB QUEUED'}
+                {isDemoUser ? 'DEMO PREVIEW' : isProcessing ? 'SECURE DATASET INGESTION' : processingError ? 'UPLOAD NEEDS ATTENTION' : 'DATASET SAVED'}
               </SectionEyebrow>
 
               <h3 className="text-2xl sm:text-3xl font-black text-[#0A0A0A]">
-                {isProcessing ? processingStage : 'Dataset Saved & Queued'}
+                {isDemoUser ? 'Demo only: sign in to save and analyze your file' : isProcessing ? processingStage : processingError ? 'Your file was not saved' : 'Dataset Saved & Queued'}
               </h3>
 
               <p className="text-xs text-[#0A0A0A]/70 font-medium">
-                {isProcessing
+                {isDemoUser
+                  ? `Your ${pipelineResult?.validLeads.length || 0} valid leads in "${fileName}" are only previewed in this browser.`
+                  : isProcessing
                   ? 'Checking your file and saving valid accounts to your workspace.'
+                  : processingError ? 'Retry the upload after resolving the issue.'
                   : `All ${pipelineResult?.validLeads.length || 0} valid leads in "${fileName}" have been stored. No AI classification has run yet.`}
               </p>
             </div>
@@ -1140,7 +1187,7 @@ export const UploadWizardPage: React.FC = () => {
             )}
 
             {/* Animated Accessible Progress Bar */}
-            <div className="max-w-md mx-auto">
+            {!isDemoUser && <div className="max-w-md mx-auto">
               <div className="flex justify-between font-mono text-xs font-bold mb-1.5">
                 <span>STAGE PROGRESS</span>
                 <span>{progressPercent}%</span>
@@ -1151,10 +1198,14 @@ export const UploadWizardPage: React.FC = () => {
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
-            </div>
+            </div>}
 
             {/* Processing Skeleton or Completed Actions */}
-            {isProcessing ? (
+            {isDemoUser ? (
+              <BrutalistButton variant="lime" size="md" onClick={() => void continueToSignIn()} icon={<ArrowRight className="w-4 h-4" />}>SIGN IN TO SAVE & ANALYZE</BrutalistButton>
+            ) : processingError ? (
+              <BrutalistButton variant="lime" size="md" onClick={() => void executeProcessing()}>RETRY UPLOAD</BrutalistButton>
+            ) : isProcessing ? (
               <div className="max-w-md mx-auto pt-4">
                 <LoadingSkeleton lines={3} />
               </div>

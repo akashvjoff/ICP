@@ -332,12 +332,14 @@ app.get('/api/ai/company-intelligence/:leadId', requireAuthenticatedUser, async 
     if (analysisError && analysisError.code !== 'PGRST116') throw analysisError;
     return res.json({
       success: true,
-      analysis: stored?.analysis_json || null,
+      analysis: stored?.provider === 'mock' ? null : stored?.analysis_json || null,
       provider: stored?.provider || null,
       modelVersion: stored?.model_version || null,
       analyzedAt: stored?.analyzed_at || null,
       sourceMode: stored?.website_source_url ? 'both' : 'uploaded_only',
-      websiteEvidence: stored?.website_extraction_json || null,
+      websiteEvidence: stored?.website_extraction_json
+        ? { ...stored.website_extraction_json, source: 'live' }
+        : null,
       userCorrectedDescription: lead.user_corrected_description || '',
       error: stored?.error_message || null,
       errorCode: stored?.error_code || null,

@@ -114,6 +114,7 @@ export interface CompanyAnalysisEnvelope {
   cached: boolean;
   sourceMode: 'uploaded_only' | 'public_website' | 'both';
   websiteEvidence?: {
+    source?: 'live' | 'sample';
     status: 'fetched' | 'failed' | 'disallowed' | 'disabled';
     sourceUrl: string | null;
     fetchedAt: string | null;

@@ -4,6 +4,7 @@ import {
   CompanyAnalysisError,
   GeminiCompanyAnalyzer,
   MockCompanyAnalyzer,
+  createCompanyAnalyzer,
   sanitizeCompanyAnalysisInput,
   selectPreferredGeminiModel,
 } from '../companyAnalyzer';
@@ -154,5 +155,12 @@ test('missing Gemini key produces a visible configuration error', async () => {
   await assert.rejects(
     () => new GeminiCompanyAnalyzer('').analyze(payrollInput),
     (error) => error instanceof CompanyAnalysisError && error.code === 'MISSING_API_KEY',
+  );
+});
+
+test('signed-in analysis cannot select the sample provider', () => {
+  assert.throws(
+    () => createCompanyAnalyzer({ COMPANY_ANALYSIS_PROVIDER: 'mock' }),
+    (error) => error instanceof CompanyAnalysisError && error.code === 'PROVIDER_CONFIGURATION',
   );
 });
