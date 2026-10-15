@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
+import { deriveTierCounts, qualifiedSegmentAnalysis } from '../lib/tiers';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SectionEyebrow } from '../components/ui/SectionEyebrow';
 import { BrutalistCard } from '../components/ui/BrutalistCard';
@@ -53,6 +54,7 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
     offering,
     sellerContext,
     analysis,
+    scores,
     addToast,
   } = useAppStore();
 
@@ -147,13 +149,15 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
   }, [leadsForAnalysis, sellerProfile, datasetId]);
 
   // Active STP Analysis state
-  const [stpAnalysis, setStpAnalysis] = useState<DatasetSTPAnalysis>(() => {
+  const [storedStpAnalysis, setStpAnalysis] = useState<DatasetSTPAnalysis>(() => {
     try {
       const saved = localStorage.getItem(`icp_mode_stp_${datasetId}`);
       if (saved) return JSON.parse(saved);
     } catch {}
     return computeLocalSTP();
   });
+  const tierCounts = deriveTierCounts(scores);
+  const stpAnalysis = useMemo(() => qualifiedSegmentAnalysis(storedStpAnalysis, scores), [storedStpAnalysis, scores]);
 
   // Load from backend on mount
   const fetchBackendSTP = useCallback(async () => {
@@ -419,15 +423,15 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
 
               <BrutalistCard bg="white" shadowSize="sm" className="p-4 space-y-1">
                 <span className="font-mono text-[10px] font-black uppercase text-[#0A0A0A]/60">
-                  INSUFFICIENT EVIDENCE
+                  LOW-DATA SCORES
                 </span>
                 <div className="text-2xl font-black text-amber-700 font-mono">
-                  {stpAnalysis.insufficientEvidenceCount}
+                  {tierCounts.lowData}
                 </div>
                 <p className="text-[11px] font-medium text-[#0A0A0A]/70">
-                  {stpAnalysis.totalAnalyzed > 0
-                    ? `${Math.round((stpAnalysis.insufficientEvidenceCount / stpAnalysis.totalAnalyzed) * 100)}% quarantined accounts`
-                    : '0% quarantined'}
+                  {scores.length > 0
+                    ? `${Math.round((tierCounts.lowData / scores.length) * 100)}% of scored accounts`
+                    : 'No scores yet'}
                 </p>
               </BrutalistCard>
 

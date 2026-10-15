@@ -4,6 +4,7 @@ export type NeedGapMagnitude = 'Acute' | 'Moderate' | 'Latent' | 'Negligible';
 
 export interface NeedGapAnalysisItem {
   leadId: string;
+  analysisStatus?: 'completed' | 'hypothesis' | 'insufficient_evidence';
   companyName: string;
   identifiedNeed: string;
   gapMagnitude: NeedGapMagnitude;

@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/lib/__tests__/uploadWorkflow.test.ts src/server/__tests__/uploadPersistence.test.ts src/server/__tests__/companyIntelligence.test.ts src/server/__tests__/websiteEnrichment.test.ts src/server/__tests__/analysisJob.test.ts src/server/__tests__/strategicAnalysis.test.ts src/server/__tests__/stpService.test.ts src/server/__tests__/scoring.test.ts src/server/__tests__/report.test.ts src/server/__tests__/security.test.ts",
+    "test": "tsx --test src/lib/__tests__/uploadWorkflow.test.ts src/lib/__tests__/tiers.test.ts src/server/__tests__/uploadPersistence.test.ts src/server/__tests__/companyIntelligence.test.ts src/server/__tests__/websiteEnrichment.test.ts src/server/__tests__/analysisJob.test.ts src/server/__tests__/strategicAnalysis.test.ts src/server/__tests__/stpService.test.ts src/server/__tests__/scoring.test.ts src/server/__tests__/report.test.ts src/server/__tests__/security.test.ts",
     "test:pipeline": "tsx scripts/test-pipeline.ts",
     "test:supabase": "tsx scripts/test-live-supabase.ts",
     "test:live-app": "tsx scripts/test-live-app-authorization.ts",

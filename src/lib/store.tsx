@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { deriveTierCounts, qualifiedSegmentIds } from './tiers';
+import { shortProblemLabel } from './offeringGrounding';
 import {
   OfferingProfile,
   SellerProductContext,
@@ -16,7 +18,7 @@ import {
   SAMPLE_STRATEGIC_ANALYSIS,
   SAMPLE_SCORES,
 } from './mockData';
-import { DEFAULT_SCORING_WEIGHTS, batchScoreLeads } from './scoring';
+import { DEFAULT_SCORING_WEIGHTS, CURRENT_SCORING_MODEL_VERSION, batchScoreLeads } from './scoring';
 import { useAuth } from './auth';
 import { dbService } from './supabase';
 import type { DbLeadScore } from '../types/database';
@@ -245,7 +247,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
         const savedScores = await dbService.getLeadScores(ownerId, mappedLeads.map((lead) => lead.id));
         if (!current) return;
         const leadById = new Map(mappedLeads.map((lead) => [lead.id, lead]));
-        const mappedScores: LeadICPScore[] = savedScores.map((saved: DbLeadScore) => {
+        const mappedScores: LeadICPScore[] = savedScores.filter((saved: DbLeadScore) => saved.model_version === CURRENT_SCORING_MODEL_VERSION).map((saved: DbLeadScore) => {
           const details = saved.scoring_breakdown as Record<string, unknown>;
           const lead = leadById.get(saved.lead_id);
           return {
@@ -260,6 +262,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
             isDisqualified: saved.is_disqualified || false,
             disqualificationReason: saved.disqualification_reason || null,
             intentLabel: String(details.intentLabel || 'BUYING INTENT: UNKNOWN'),
+            modelVersion: saved.model_version,
           };
         });
         setScores(mappedScores);
@@ -280,14 +283,14 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
                     : 'Tier 3 Opportunistic';
             return {
               id: segment.id,
-              segmentName: segment.name,
+              segmentName: shortProblemLabel(segment.name),
               problemDefinition: segment.sharedProblem,
-              leadCount: segment.companyCount,
+              leadCount: qualifiedSegmentIds(segment.primaryCompanyIds, mappedScores).length,
               averageNeedScore: assessment?.attractivenessScore || 0,
               targetAttractiveness,
               recommendedPositioningAngle: positioning?.positioningStatement || 'Positioning requires buyer validation.',
               valueNarrative: segment.desiredOutcome,
-              matchedLeadIds: segment.primaryCompanyIds,
+              matchedLeadIds: qualifiedSegmentIds(segment.primaryCompanyIds, mappedScores),
             };
           })
           .sort((a, b) => b.averageNeedScore - a.averageNeedScore);
@@ -297,11 +300,12 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
           analyzedAt: savedStp?.generatedAt || previous.analyzedAt,
           stpSegments: mappedSegments,
         }));
+        const counts = deriveTierCounts(mappedScores);
         setDatasets((previous) => previous.map((dataset) => dataset.id === selected.id ? {
           ...dataset,
-          tier1Count: mappedScores.filter((score) => score.tier.includes('Tier 1')).length,
-          tier2Count: mappedScores.filter((score) => score.tier.includes('Tier 2')).length,
-          disqualifiedCount: mappedScores.filter((score) => score.isDisqualified).length,
+          tier1Count: counts.tier1,
+          tier2Count: counts.tier2,
+          disqualifiedCount: counts.disqualified,
         } : dataset));
       } catch (error) {
         console.error('[Workspace] Could not load the signed-in user data:', error);

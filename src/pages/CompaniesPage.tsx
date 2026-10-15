@@ -8,6 +8,7 @@ import { TableShell } from '../components/ui/TableShell';
 import { StatusChip } from '../components/ui/StatusChip';
 import { BrutalistButton } from '../components/ui/BrutalistButton';
 import { formatScore, formatHeadcount } from '../lib/formatters';
+import { deriveTierCounts, scoreTier } from '../lib/tiers';
 import { Search, Filter, ExternalLink, Download, ArrowUpDown } from 'lucide-react';
 
 export const CompaniesPage: React.FC = () => {
@@ -26,6 +27,7 @@ export const CompaniesPage: React.FC = () => {
     lead,
     score: scores.find((score) => score.leadId === lead.id),
   }));
+  const tierCounts = deriveTierCounts(scores);
 
   const filtered = companyRows
     .filter(({ lead, score }) => {
@@ -35,10 +37,8 @@ export const CompaniesPage: React.FC = () => {
         lead.industry.toLowerCase().includes(search.toLowerCase());
 
       if (!matchesSearch) return false;
-      if (tierFilter === 'tier1') return (score?.tier.includes('Tier 1') && !score?.isDisqualified) ?? false;
-      if (tierFilter === 'tier2') return (score?.tier.includes('Tier 2') && !score?.isDisqualified) ?? false;
-      if (tierFilter === 'tier3') return (score?.tier.includes('Tier 3') && !score?.isDisqualified) ?? false;
-      if (tierFilter === 'tier4' || tierFilter === 'disqualified') return (score?.isDisqualified || score?.tier.includes('Disqualified') || score?.tier.includes('Tier 4')) ?? false;
+      if (tierFilter === 'tier1' || tierFilter === 'tier2' || tierFilter === 'tier3') return score ? scoreTier(score) === tierFilter : false;
+      if (tierFilter === 'tier4' || tierFilter === 'disqualified') return score ? scoreTier(score) === 'disqualified' : false;
       return true;
     })
     .sort((a, b) => {
@@ -106,7 +106,7 @@ export const CompaniesPage: React.FC = () => {
                 tierFilter === 'tier1' ? 'bg-[#E5F7E5] text-[#0A0A0A] shadow-[2px_2px_0px_#0A0A0A]' : 'bg-white text-[#0A0A0A]'
               }`}
             >
-              TIER 1
+              TIER 1 ({tierCounts.tier1})
             </button>
             <button
               onClick={() => setTierFilter('tier2')}
@@ -114,7 +114,7 @@ export const CompaniesPage: React.FC = () => {
                 tierFilter === 'tier2' ? 'bg-[#FFE3B3] text-[#0A0A0A] shadow-[2px_2px_0px_#0A0A0A]' : 'bg-white text-[#0A0A0A]'
               }`}
             >
-              TIER 2
+              TIER 2 ({tierCounts.tier2})
             </button>
             <button
               onClick={() => setTierFilter('tier3')}
@@ -122,7 +122,7 @@ export const CompaniesPage: React.FC = () => {
                 tierFilter === 'tier3' ? 'bg-[#E4E6FB] text-[#0A0A0A] shadow-[2px_2px_0px_#0A0A0A]' : 'bg-white text-[#0A0A0A]'
               }`}
             >
-              TIER 3
+              TIER 3 ({tierCounts.tier3})
             </button>
             <button
               onClick={() => setTierFilter('tier4')}
@@ -130,7 +130,7 @@ export const CompaniesPage: React.FC = () => {
                 tierFilter === 'tier4' ? 'bg-[#FFB6C2] text-[#0A0A0A] shadow-[2px_2px_0px_#0A0A0A]' : 'bg-white text-[#0A0A0A]'
               }`}
             >
-              DISQUALIFIED
+              DISQUALIFIED ({tierCounts.disqualified})
             </button>
           </div>
         </div>

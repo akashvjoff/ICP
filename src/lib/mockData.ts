@@ -12,8 +12,8 @@ export const SAMPLE_OFFERING: OfferingProfile = {
   businessModel: 'B2B SaaS',
   pricingModel: 'Annual Contract Value (ACV)',
   typicalACV: '$36,000 / yr',
-  valueProposition: 'Prevents silent data corruption in mission-critical Snowflake and Databricks data pipelines, cutting downstream reporting outages by 85%.',
-  primaryProblemSolved: 'Data engineering teams spend 30% of their sprints firefighting broken transformations and schema drifts before downstream executive dashboards fail.',
+  valueProposition: 'Helps data teams catch broken transformations and schema drift before they affect downstream reporting.',
+  primaryProblemSolved: 'Data engineering teams spend time investigating broken transformations and schema drift after dashboards fail.',
   keyCapabilities: [
     'Automated schema anomaly detection across dbt models',
     'Real-time query lineage tracking to root-cause failures',

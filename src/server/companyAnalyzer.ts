@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
+import { hasUnsupportedStat } from '../lib/offeringGrounding';
 import {
   companyAnalysisInputSchema,
   companyIntelligenceSchema,
@@ -217,6 +218,7 @@ Use only supplied uploaded attributes and the optional public webpage excerpt.
 Every material claim must carry origin, confidence, and its source field or URL when available.
 Potential business needs and buying roles are hypotheses, not observed pain or intent.
 Never invent revenue, employee count, funding, technology stack, current pain, budget, buying intent, decision-maker identities, or customer lifetime value.
+Never invent numeric outcome claims in value propositions; use numbers only when supplied in the input.
 Use value "unknown", origin "unknown", and low confidence when evidence is absent.
 Return only JSON matching the supplied schema.`;
 
@@ -280,8 +282,12 @@ export class GeminiCompanyAnalyzer implements CompanyAnalyzer {
               httpOptions: { timeout: this.timeoutMs },
             },
           });
+          const analysis = enforceEvidenceGuards(parseStructuredAnalysis(response.text));
+          if (hasUnsupportedStat(analysis.value_proposition.value, JSON.stringify(input))) {
+            throw new CompanyAnalysisError('INVALID_STRUCTURED_OUTPUT', 'The provider returned an unsupported numeric outcome claim.', 502, true);
+          }
           this.selectedModel = model;
-          return { analysis: enforceEvidenceGuards(parseStructuredAnalysis(response.text)), modelVersion: model };
+          return { analysis, modelVersion: model };
         } catch (error) {
           const classified = classifyProviderError(error);
           lastError = classified;

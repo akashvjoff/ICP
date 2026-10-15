@@ -9,9 +9,11 @@ import type {
   NeedGapAnalysis,
   NeedGapEvidenceItem,
   NeedGapPattern,
+  NeedGapAnalysisItem,
 } from '../types/analysis';
 import type { CompanyAnalysisEnvelope } from '../types/companyIntelligence';
 import type { LeadForAnalysis } from './analysisJobService';
+import { hasOfferingOverlap } from '../lib/offeringGrounding';
 
 export interface SellerProfileContext {
   id?: string;
@@ -43,6 +45,17 @@ export interface StrategicAnalysisRepository {
   ): Promise<void>;
   getLeadNeedGap(ownerUserId: string, leadId: string): Promise<NeedGapAnalysis | null>;
   saveLeadNeedGap(ownerUserId: string, leadId: string, needGap: NeedGapAnalysis): Promise<void>;
+}
+
+export function toScoringNeedGap(gap: NeedGapAnalysis): NeedGapAnalysisItem {
+  const magnitude = gap.problemIntensity === 'Low' ? 'Latent' : gap.problemIntensity;
+  const gapScore = magnitude === 'Acute' ? 90 : magnitude === 'Moderate' ? 70 : magnitude === 'Latent' ? 50 : 20;
+  return {
+    leadId: gap.leadId, analysisStatus: gap.analysisStatus, companyName: gap.companyName || '', identifiedNeed: gap.relevantProblem,
+    gapMagnitude: magnitude, urgencyDriver: gap.motivationToChange,
+    offeringCapabilityMatch: gap.relevantProductBenefits.join(', '),
+    consequenceOfInaction: gap.avoidanceMotivation || '', gapScore,
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -168,13 +181,28 @@ export function analyzeLeadNeedGap(
   const sellerProblem = seller.primaryProblemSolved || seller.mainCustomerProblem || 'Manual operational overhead and inefficient team workflows';
   const sellerCapabilities = seller.keyCapabilities || ['Automated diagnostics', 'Workflow optimization', 'Real-time integrations'];
 
+  if (!hasOfferingOverlap(fullText, sellerProblem, sellerCapabilities)) {
+    return {
+      leadId: lead.id, companyName: lead.company_name, sellerOfferingId,
+      currentState: effectiveDescription || 'Company operations are not sufficiently described.',
+      idealState: 'No offering-related outcome established.',
+      needGap: 'No supported overlap between this account and the saved seller offering.',
+      relevantProblem: 'No evidenced offering fit', problemIntensity: 'Negligible',
+      motivationToChange: 'No offering-related trigger established.', involvement: 'Unknown',
+      outcomeAttractiveness: 'Unknown', perceivedBenefits: [], perceivedCosts: [],
+      approachMotivation: null, avoidanceMotivation: null, motivationalConflict: null,
+      relevantProductBenefits: [], suggestedBuyerRoles: [], evidence, unknowns,
+      confidence: 'low', analysisStatus: 'insufficient_evidence', analyzedAt: new Date().toISOString(),
+    };
+  }
+
   // Match capabilities and needs
   const matchedCapabilities = sellerCapabilities.filter((cap) => {
     const tokens = cap.toLowerCase().split(/\s+/).filter((t) => t.length > 4);
     return tokens.length === 0 || tokens.some((token) => fullText.includes(token));
   });
 
-  const relevantProductBenefits = matchedCapabilities.length > 0 ? matchedCapabilities : [sellerCapabilities[0] || 'Operational automation and error reduction'];
+  const relevantProductBenefits = matchedCapabilities;
 
   // Detect problem and need gap
   let relevantProblem = possibleNeeds[0] || `Friction in scaling operations while relying on fragmented manual processes`;

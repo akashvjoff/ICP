@@ -12,6 +12,7 @@ import { TableShell } from '../components/ui/TableShell';
 import { EmptyState } from '../components/ui/EmptyState';
 import { formatScore, formatHeadcount } from '../lib/formatters';
 import { batchScoreLeads } from '../lib/scoring';
+import { deriveTierCounts, qualifiedSegmentIds, scoreTier } from '../lib/tiers';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -73,19 +74,17 @@ export const DashboardPage: React.FC = () => {
     return [];
   }, [scores, leads, offering, analysis, weights, isDemoMode]);
 
-  const highFitCount = allScoredLeads.filter((s) => s.tier.includes('Tier 1') && !s.isDisqualified).length;
+  const tierCounts = deriveTierCounts(allScoredLeads);
+  const highFitCount = tierCounts.tier1;
 
-  const topSegment = segments[0] || null;
+  const topSegment = segments.find(segment => segment.targetAttractiveness !== 'Avoid' && qualifiedSegmentIds(segment.matchedLeadIds, allScoredLeads).length > 0) || null;
 
   const filteredAndSortedScores = useMemo(() => {
     let result = [...allScoredLeads];
 
     // Filter by tier
     if (tierFilter !== 'all') {
-      if (tierFilter === 'tier1') result = result.filter((s) => s.tier.includes('Tier 1') && !s.isDisqualified);
-      else if (tierFilter === 'tier2') result = result.filter((s) => s.tier.includes('Tier 2') && !s.isDisqualified);
-      else if (tierFilter === 'tier3') result = result.filter((s) => s.tier.includes('Tier 3') && !s.isDisqualified);
-      else if (tierFilter === 'disqualified') result = result.filter((s) => s.isDisqualified || s.tier.includes('Disqualified'));
+      if (tierFilter === 'tier1' || tierFilter === 'tier2' || tierFilter === 'tier3' || tierFilter === 'disqualified') result = result.filter((s) => scoreTier(s) === tierFilter);
     }
 
     // Filter by evidence coverage
@@ -295,15 +294,15 @@ export const DashboardPage: React.FC = () => {
                       <div className="grid grid-cols-3 gap-3 pt-2 text-center font-mono">
                         <div className="bg-[#E5F7E5] border-[1.5px] border-[#0A0A0A] p-2 rounded-lg">
                           <span className="text-[10px] text-[#0A0A0A]/60 font-bold block">TIER 1</span>
-                          <span className="text-sm font-black text-[#0A0A0A]">{activeDataset?.tier1Count ?? 0}</span>
+                          <span className="text-sm font-black text-[#0A0A0A]">{tierCounts.tier1}</span>
                         </div>
                         <div className="bg-[#FFE3B3] border-[1.5px] border-[#0A0A0A] p-2 rounded-lg">
                           <span className="text-[10px] text-[#0A0A0A]/60 font-bold block">TIER 2</span>
-                          <span className="text-sm font-black text-[#0A0A0A]">{activeDataset?.tier2Count ?? 0}</span>
+                          <span className="text-sm font-black text-[#0A0A0A]">{tierCounts.tier2}</span>
                         </div>
                         <div className="bg-[#FFB6C2] border-[1.5px] border-[#0A0A0A] p-2 rounded-lg">
                           <span className="text-[10px] text-[#0A0A0A]/60 font-bold block">OUT OF SCOPE</span>
-                          <span className="text-sm font-black text-[#0A0A0A]">{activeDataset?.disqualifiedCount ?? 0}</span>
+                          <span className="text-sm font-black text-[#0A0A0A]">{tierCounts.disqualified}</span>
                         </div>
                       </div>
                     </div>

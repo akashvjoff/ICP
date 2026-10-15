@@ -20,8 +20,9 @@ import type {
 import type { LeadICPScore } from '../types/scoring';
 import type { SellerProfileContext } from './strategicAnalysisService';
 import type { LeadForAnalysis } from './analysisJobService';
+import { deriveTierCounts, qualifiedSegmentAnalysis } from '../lib/tiers';
 
-export const CURRENT_REPORT_MODEL_VERSION = 'v1.4-executive-report';
+export const CURRENT_REPORT_MODEL_VERSION = 'v1.5-consistent-tiers';
 
 export function sanitizeCsvCell(val: unknown): string {
   if (val === null || val === undefined) return '""';
@@ -364,7 +365,7 @@ export function generateIntegratedActionPlan(
   later: RecommendedActionItem[];
   whatToValidateFirst: string[];
 } {
-  const targetSeg = stpAnalysis.segments[0] || {
+  const targetSeg = stpAnalysis.segments.find(segment => !segment.isInsufficientEvidenceGroup && segment.companyCount > 0) || {
     id: 'segment-primary',
     name: 'Primary Candidate Segment',
     sharedProblem: 'Operational friction',
@@ -520,7 +521,8 @@ export function composeExecutiveICPReport(
   stpAnalysis: DatasetSTPAnalysis,
   scoredLeads: LeadICPScore[]
 ): ExecutiveICPReport {
-  const targetSeg = stpAnalysis.segments[0] || {
+  const qualifiedStp = qualifiedSegmentAnalysis(stpAnalysis, scoredLeads);
+  const targetSeg = qualifiedStp.segments.find(segment => !segment.isInsufficientEvidenceGroup && segment.companyCount > 0) || {
     id: 'segment-01',
     name: 'Primary Candidate Segment',
     sharedProblem: seller.primaryProblemSolved || 'Operational friction',
@@ -531,7 +533,7 @@ export function composeExecutiveICPReport(
 
   // Compile 7Ps marketing mix for all identified segments
   const marketingMixBySegment: Record<string, Segment7PsMarketingMix> = {};
-  for (const seg of stpAnalysis.segments) {
+  for (const seg of qualifiedStp.segments) {
     marketingMixBySegment[seg.id] = generateSegment7PsMix(
       seller,
       seg.id,
@@ -543,11 +545,7 @@ export function composeExecutiveICPReport(
   }
 
   // Scoring distribution & metrics
-  const tier1Count = scoredLeads.filter((s) => s.tier === 'Tier 1: High Conviction').length;
-  const tier2Count = scoredLeads.filter((s) => s.tier === 'Tier 2: Moderate Fit').length;
-  const tier3Count = scoredLeads.filter((s) => s.tier === 'Tier 3: Niche / Edge').length;
-  const disqualifiedCount = scoredLeads.filter((s) => s.isDisqualified).length;
-  const insufficientEvidenceCount = scoredLeads.filter((s) => s.isInsufficientEvidence).length;
+  const { tier1: tier1Count, tier2: tier2Count, tier3: tier3Count, disqualified: disqualifiedCount, lowData: insufficientEvidenceCount } = deriveTierCounts(scoredLeads);
 
   const totalCoverage = scoredLeads.reduce((acc, s) => acc + (s.evidenceCoverage ?? 100), 0);
   const averageEvidenceCoverage = scoredLeads.length > 0 ? Math.round(totalCoverage / scoredLeads.length) : 100;
@@ -556,7 +554,7 @@ export function composeExecutiveICPReport(
   const totalScoreSum = scoredLeads.reduce((acc, s) => acc + s.totalScore, 0);
   const averageFitScore = scoredLeads.length > 0 ? Number((totalScoreSum / scoredLeads.length).toFixed(1)) : 0;
 
-  const actionPlan = generateIntegratedActionPlan(seller, stpAnalysis, scoredLeads);
+  const actionPlan = generateIntegratedActionPlan(seller, qualifiedStp, scoredLeads);
 
   const versionFingerprint = `${datasetId}:${stpAnalysis.versionFingerprint || 'v1'}:${scoredLeads.length}:${new Date().toISOString().slice(0, 10)}`;
 
@@ -623,7 +621,7 @@ export function composeExecutiveICPReport(
 
     needGapSummary,
     fiveCAnalysis: fiveC,
-    stpAnalysis,
+    stpAnalysis: qualifiedStp,
 
     scoringSummary: {
       topFitScore,

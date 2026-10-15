@@ -11,7 +11,7 @@ export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
   firmographicAlignmentWeight: 0.20,
 };
 
-export const CURRENT_SCORING_MODEL_VERSION = 'v1.2-deterministic';
+export const CURRENT_SCORING_MODEL_VERSION = 'v1.3-need-gap-grounded';
 
 export interface ScoringContext {
   companyIntelligence?: CompanyIntelligence | CompanyAnalysisEnvelope | null;
@@ -20,6 +20,7 @@ export interface ScoringContext {
   sellerContext?: SellerProductContext | null;
   datasetNeedGapSummary?: DatasetNeedGapSummary | null;
   strictDisqualification?: boolean;
+  requireNeedGap?: boolean;
   excludedIndustries?: string[];
   excludedGeographies?: string[];
 }
@@ -95,7 +96,12 @@ export function calculateDeterministicICPScore(
   let needEvidence = 'Standard baseline need assumption; awaiting deep qualification.';
   let needMissing: string | null = null;
 
-  if (needGap) {
+  if (needGap?.analysisStatus === 'insufficient_evidence') {
+    needRaw = 'UNKNOWN';
+    needEvidence = 'Need urgency is pending sufficient offering-related evidence.';
+    needMissing = 'Offering-related need gap evidence.';
+    missingFields.push('Need Urgency');
+  } else if (needGap) {
     needOrigin = 'AI_INFERRED';
     if (needGap.gapMagnitude === 'Acute') {
       needRaw = Math.min(100, Math.max(85, needGap.gapScore || 90));
@@ -112,6 +118,11 @@ export function calculateDeterministicICPScore(
       needEvidence = 'Negligible need: target company has no active requirement for this capability.';
       primaryDisqualifiers.push('No acute business need for offering');
     }
+  } else if (context?.requireNeedGap) {
+    needRaw = 'UNKNOWN';
+    needEvidence = 'Need urgency is pending saved need-gap analysis.';
+    needMissing = 'Run need-gap analysis before assigning urgency points.';
+    missingFields.push('Need Urgency');
   } else if (lead.customerPain && lead.customerPain.trim().length > 0) {
     needRaw = 80;
     needOrigin = 'USER_PROVIDED';
@@ -492,6 +503,7 @@ export function batchScoreLeads(
     fiveC?: DetailedFiveCAnalysis | null;
     segments?: CustomerSegment[];
     sellerContext?: SellerProductContext | null;
+    requireNeedGap?: boolean;
   }
 ): LeadICPScore[] {
   return leads.map((lead) => {
@@ -506,6 +518,7 @@ export function batchScoreLeads(
       fiveC: contextBundle?.fiveC,
       segment,
       sellerContext: contextBundle?.sellerContext,
+      requireNeedGap: contextBundle?.requireNeedGap,
     });
   });
 }

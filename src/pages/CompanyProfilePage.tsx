@@ -3,7 +3,9 @@ import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
 import type { CompanyAnalysisEnvelope, CompanyIntelligence } from '../types/companyIntelligence';
-import { analyzeLeadNeedGap, type SellerProfileContext } from '../server/strategicAnalysisService';
+import { analyzeLeadNeedGap, toScoringNeedGap, type SellerProfileContext } from '../server/strategicAnalysisService';
+import { shortProblemLabel } from '../lib/offeringGrounding';
+import type { NeedGapAnalysis } from '../types/analysis';
 import type { LeadForAnalysis } from '../server/analysisJobService';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SectionHeading } from '../components/ui/SectionHeading';
@@ -14,7 +16,7 @@ import { BrutalistTextarea } from '../components/ui/FormField';
 import { StatusChip } from '../components/ui/StatusChip';
 import { StickerBadge } from '../components/ui/StickerBadge';
 import { formatScore, formatHeadcount } from '../lib/formatters';
-import { calculateDeterministicICPScore } from '../lib/scoring';
+import { calculateDeterministicICPScore, CURRENT_SCORING_MODEL_VERSION } from '../lib/scoring';
 import {
   Building2,
   Globe,
@@ -51,6 +53,18 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
   const lead = leads.find((l) => l.id === companyId);
   const rawScore = scores.find((s) => s.leadId === companyId);
   const needGap = analysis.needGaps.find((g) => g.leadId === (lead ? lead.id : companyId));
+  const [savedNeedGap, setSavedNeedGap] = useState<NeedGapAnalysis | null>(null);
+
+  useEffect(() => {
+    if (!session?.access_token || !lead) return;
+    let active = true;
+    setSavedNeedGap(null);
+    void fetch(`/api/strategic-analysis/lead/${lead.id}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (active) setSavedNeedGap(data?.needGap || null); })
+      .catch(() => { if (active) setSavedNeedGap(null); });
+    return () => { active = false; };
+  }, [lead?.id, session?.access_token]);
 
   const [showScoreAuditDetails, setShowScoreAuditDetails] = useState<boolean>(false);
 
@@ -59,15 +73,17 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
 
   // Active Score: evaluate on-the-fly if needed using all available context
   const activeScore = useMemo(() => {
-    if (rawScore) return rawScore;
+    if (session?.access_token && !savedNeedGap) return null;
+    if (rawScore && (!session?.access_token || rawScore.modelVersion === CURRENT_SCORING_MODEL_VERSION)) return rawScore;
     if (lead) {
-      return calculateDeterministicICPScore(lead, offering, needGap, undefined, {
+      return calculateDeterministicICPScore(lead, offering, savedNeedGap ? toScoringNeedGap(savedNeedGap) : needGap, undefined, {
         companyIntelligence,
         sellerContext,
+        requireNeedGap: Boolean(session?.access_token),
       });
     }
     return null;
-  }, [rawScore, lead, offering, needGap, companyIntelligence, sellerContext]);
+  }, [rawScore, lead, offering, needGap, savedNeedGap, companyIntelligence, sellerContext, session?.access_token]);
   const [isLoadingSaved, setIsLoadingSaved] = useState<boolean>(true);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isAnalyzingCompany, setIsAnalyzingCompany] = useState<boolean>(false);
@@ -81,7 +97,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
   const [descriptionSuccessMessage, setDescriptionSuccessMessage] = useState<string | null>(null);
 
   // Compute rich Need Gap analysis based on institutional framework
-  const richNeedGap = useMemo(() => {
+  const computedNeedGap = useMemo(() => {
     if (!lead) return null;
     const sellerProf: SellerProfileContext = {
       id: offering.id,
@@ -124,6 +140,12 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
 
     return analyzeLeadNeedGap(sellerProf, leadAdapter, companyIntelligence);
   }, [lead, offering, sellerContext, userCorrectedDescription, companyIntelligence, session?.user?.id]);
+  const richNeedGap = session?.access_token
+    ? savedNeedGap
+    : computedNeedGap && needGap
+      ? { ...computedNeedGap, problemIntensity: needGap.gapMagnitude === 'Latent' ? 'Low' as const : needGap.gapMagnitude,
+          relevantProblem: needGap.identifiedNeed, needGap: needGap.identifiedNeed }
+      : computedNeedGap;
 
   // 1. Fetch saved intelligence and human corrections on mount
   useEffect(() => {
@@ -560,7 +582,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                   PENDING
                 </span>
                 <span className="font-mono text-[10px] font-bold text-[#0A0A0A]/70 block mt-1">
-                  Score queue ready
+                  {session?.access_token ? 'Score pending need-gap analysis' : 'Score queue ready'}
                 </span>
               </div>
             )}
@@ -1206,12 +1228,8 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                 </span>
                 <div className="text-base font-black text-[#0A0A0A]">
                   {richNeedGap.analysisStatus === 'insufficient_evidence'
-                    ? 'Insufficient Evidence Quarantine'
-                    : richNeedGap.relevantProblem.toLowerCase().includes('prospect') || richNeedGap.relevantProblem.toLowerCase().includes('outbound')
-                    ? 'High-Velocity Outbound Prospecting Teams'
-                    : richNeedGap.relevantProblem.toLowerCase().includes('crm') || richNeedGap.relevantProblem.toLowerCase().includes('decay')
-                    ? 'CRM Data Decay & Account Enrichment Cohort'
-                    : `${richNeedGap.relevantProblem} Cohort`}
+                    ? 'Insufficient Evidence'
+                    : shortProblemLabel(richNeedGap.relevantProblem)}
                 </div>
                 <p className="text-xs text-[#0A0A0A]/75 font-medium mt-1">
                   Clustered on shared acute business friction rather than superficial industry classification alone.

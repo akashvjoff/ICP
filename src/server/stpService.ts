@@ -13,6 +13,7 @@ import type {
 } from '../types/analysis';
 import type { SellerProfileContext } from './strategicAnalysisService';
 import type { LeadForAnalysis } from './analysisJobService';
+import { shortProblemLabel } from '../lib/offeringGrounding';
 
 export interface STPRepository {
   assertOwnedDataset(ownerUserId: string, datasetId: string): Promise<void>;
@@ -611,10 +612,7 @@ export function buildDatasetSTPAnalysis(
       .filter(Boolean);
 
     // Human-readable commercial name describing the shared problem
-    let commercialName = pattern.problemTitle;
-    if (!commercialName.toLowerCase().includes('team') && !commercialName.toLowerCase().includes('enterprise')) {
-      commercialName = `${pattern.problemTitle} Cohort`;
-    }
+    const commercialName = shortProblemLabel(pattern.problemTitle);
 
     // Firmographics extraction from underlying primary leads
     const industries = Array.from(

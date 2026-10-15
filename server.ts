@@ -50,6 +50,7 @@ import {
 } from './src/server/analysisJobService.ts';
 import {
   analyzeLeadNeedGap,
+  toScoringNeedGap,
   aggregateDatasetNeedGaps,
   synthesizeDetailedFiveC,
   createSupabaseStrategicAnalysisRepository,
@@ -116,6 +117,35 @@ function getCompanyAnalyzer() {
 
 function createUserScopedSupabase(accessToken: string): SupabaseClient {
   return createScopedSupabaseClient(supabaseUrl, supabaseAnonKey, accessToken);
+}
+
+async function getSavedSellerOffering(req: AuthenticatedRequest): Promise<{ seller: SellerProfileContext; offering: OfferingProfile }> {
+  const client = createUserScopedSupabase(req.accessToken!);
+  const { data, error } = await client.from('seller_profiles')
+    .select('id, company_name, website, product_description, main_customer_problem, primary_buyer, onboarding_data')
+    .eq('owner_user_id', req.user!.id).maybeSingle();
+  if (error) throw error;
+  const details = (data?.onboarding_data || {}) as Record<string, unknown>;
+  const problem = String(data?.main_customer_problem || details.currentCustomerProblem || '').trim();
+  const capabilities = Array.isArray(details.coreFeatures) ? details.coreFeatures.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
+  if (!data || !problem || capabilities.length === 0) throw new Error('Complete your offering problem and capabilities in your profile before analysis.');
+  const seller: SellerProfileContext = {
+    id: data.id, companyName: data.company_name, website: data.website || '',
+    productName: String(details.productName || ''), productDescription: data.product_description || '',
+    valueProposition: String(details.mainBenefit || ''), primaryProblemSolved: problem,
+    mainCustomerProblem: problem, keyCapabilities: capabilities,
+    primaryBuyer: data.primary_buyer || '',
+  };
+  const offering: OfferingProfile = {
+    id: data.id, companyName: data.company_name, website: data.website || '',
+    productName: seller.productName || data.company_name, category: String(details.industry || ''),
+    businessModel: 'B2B SaaS', pricingModel: 'Annual Contract Value (ACV)', typicalACV: '',
+    valueProposition: seller.valueProposition || '', primaryProblemSolved: problem,
+    keyCapabilities: capabilities, buyerPersonas: [],
+    icpHypothesis: { targetHeadcount: '', targetIndustries: [], targetGeographies: [], criticalTriggerEvents: [], hypothesisRationale: 'Requires customer validation.', isValidated: false },
+    createdAt: '', updatedAt: '',
+  };
+  return { seller, offering };
 }
 
 function respondToDatasetReadError(res: Response, error: unknown, fallback: string) {
@@ -282,8 +312,14 @@ app.post('/api/ai/company-intelligence', requireAuthenticatedUser, async (req: A
       ? [websiteEvidence.title, websiteEvidence.metaDescription, ...websiteEvidence.headings, websiteEvidence.mainContent]
           .filter(Boolean).join('\n').slice(0, 12_000)
       : '';
+    const { seller } = await getSavedSellerOffering(req);
     const input = {
       ...requestedInput,
+      sellerProductContext: {
+        companyName: seller.companyName, productName: seller.productName,
+        productDescription: seller.productDescription, currentCustomerProblem: seller.primaryProblemSolved,
+        coreFeatures: seller.keyCapabilities, mainBenefit: seller.valueProposition,
+      },
       companyName: String(lead.company_name),
       companyDomain: domain,
       companyProductDescription: uploadedDescription,
@@ -566,28 +602,7 @@ app.post('/api/strategic-analysis/dataset/:datasetId/run', requireAuthenticatedU
       return res.status(400).json({ error: 'No company leads found in this dataset.' });
     }
 
-    const rawSeller = req.body?.sellerProfile || {};
-    const sellerProfile: SellerProfileContext = {
-      id: rawSeller.id || 'seller-default',
-      companyName: rawSeller.companyName || 'Seller Organization',
-      website: rawSeller.website || '',
-      productName: rawSeller.productName || rawSeller.companyName || 'B2B Offering',
-      productDescription: rawSeller.productDescription || '',
-      category: rawSeller.category || 'B2B Software',
-      valueProposition: rawSeller.valueProposition || rawSeller.productDescription || '',
-      primaryProblemSolved: rawSeller.primaryProblemSolved || rawSeller.mainCustomerProblem || 'Manual operational overhead',
-      keyCapabilities: Array.isArray(rawSeller.keyCapabilities) && rawSeller.keyCapabilities.length > 0
-        ? rawSeller.keyCapabilities
-        : ['Automated workflow diagnostics', 'Continuous error containment', 'Direct API integration'],
-      typicalACV: rawSeller.typicalACV || '',
-      pricingModel: rawSeller.pricingModel || '',
-      mainAlternatives: rawSeller.mainAlternatives || '',
-      pointOfParity: rawSeller.pointOfParity || '',
-      pointOfDifference: rawSeller.pointOfDifference || '',
-      targetMarket: rawSeller.targetMarket || '',
-      primaryBuyer: rawSeller.primaryBuyer || '',
-      mainCustomerProblem: rawSeller.mainCustomerProblem || '',
-    };
+    const { seller: sellerProfile } = await getSavedSellerOffering(req);
 
     // Evaluate each lead's need gap using stored company intelligence
     const leadNeedGaps = await Promise.all(
@@ -715,28 +730,7 @@ app.post('/api/stp/dataset/:datasetId/run', requireAuthenticatedUser, async (req
       return res.status(400).json({ error: 'No company leads found in this dataset.' });
     }
 
-    const rawSeller = req.body?.sellerProfile || {};
-    const sellerProfile: SellerProfileContext = {
-      id: rawSeller.id || 'seller-default',
-      companyName: rawSeller.companyName || 'Seller Organization',
-      website: rawSeller.website || '',
-      productName: rawSeller.productName || rawSeller.companyName || 'B2B Offering',
-      productDescription: rawSeller.productDescription || '',
-      category: rawSeller.category || 'B2B Software',
-      valueProposition: rawSeller.valueProposition || rawSeller.productDescription || '',
-      primaryProblemSolved: rawSeller.primaryProblemSolved || rawSeller.mainCustomerProblem || 'Manual operational overhead',
-      keyCapabilities: Array.isArray(rawSeller.keyCapabilities) && rawSeller.keyCapabilities.length > 0
-        ? rawSeller.keyCapabilities
-        : ['Automated workflow diagnostics', 'Continuous error containment', 'Direct API integration'],
-      typicalACV: rawSeller.typicalACV || '',
-      pricingModel: rawSeller.pricingModel || '',
-      mainAlternatives: rawSeller.mainAlternatives || '',
-      pointOfParity: rawSeller.pointOfParity || '',
-      pointOfDifference: rawSeller.pointOfDifference || '',
-      targetMarket: rawSeller.targetMarket || '',
-      primaryBuyer: rawSeller.primaryBuyer || '',
-      mainCustomerProblem: rawSeller.mainCustomerProblem || '',
-    };
+    const { seller: sellerProfile } = await getSavedSellerOffering(req);
 
     // Ensure we have strategic analysis (need gap summary & 5C)
     let stratAnalysis = await stratRepo.getDatasetStrategicAnalysis(userId, datasetId);
@@ -926,7 +920,7 @@ app.post('/api/scoring/dataset/:datasetId/run', requireAuthenticatedUser, async 
       if (savedConfig) customWeights = savedConfig;
     }
 
-    const offering: OfferingProfile = req.body?.offering || SAMPLE_OFFERING;
+    const { offering } = await getSavedSellerOffering(req);
     const stratAnalysis = await stratRepo.getDatasetStrategicAnalysis(userId, datasetId);
     const stpAnalysis = await stpRepo.getDatasetSTPAnalysis(userId, datasetId);
 
@@ -960,16 +954,7 @@ app.post('/api/scoring/dataset/:datasetId/run', requireAuthenticatedUser, async 
       stratAnalysis ? {
         offeringId: stratAnalysis.sellerOfferingId,
         analyzedAt: stratAnalysis.createdAt,
-        needGaps: Object.values(stratAnalysis.companyNeedGaps || {}).map((g: any) => ({
-          leadId: g.leadId,
-          companyName: g.companyName || '',
-          identifiedNeed: g.relevantProblem || g.needGap,
-          gapMagnitude: g.problemIntensity || 'Moderate',
-          urgencyDriver: g.motivationToChange || '',
-          offeringCapabilityMatch: (g.relevantProductBenefits || []).join(', '),
-          consequenceOfInaction: '',
-          gapScore: g.problemIntensity === 'Acute' ? 90 : g.problemIntensity === 'Moderate' ? 70 : 40,
-        })),
+        needGaps: Object.values(stratAnalysis.companyNeedGaps || {}).map(toScoringNeedGap),
         fiveC: stratAnalysis.fiveC as any,
         stpSegments: (stpAnalysis?.segments || []).map((s: any) => ({
           id: s.id,
@@ -995,7 +980,7 @@ app.post('/api/scoring/dataset/:datasetId/run', requireAuthenticatedUser, async 
         companyIntelligences,
         fiveC: stratAnalysis?.fiveC,
         segments: stpAnalysis?.segments,
-        sellerContext: req.body?.sellerContext,
+        requireNeedGap: true,
       }
     );
 
@@ -1045,9 +1030,6 @@ app.get('/api/reports/dataset/:datasetId', requireAuthenticatedUser, async (req:
 
 app.post('/api/reports/dataset/:datasetId/generate', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!req.body?.sellerProfile || !req.body?.offering) {
-      return res.status(422).json({ error: 'Saved seller profile and offering inputs are required to generate a report.' });
-    }
     const reportRepo = getReportRepository(req);
     const jobRepo = getJobRepository(req);
     const stratRepo = getStrategicAnalysisRepository(req);
@@ -1060,22 +1042,11 @@ app.post('/api/reports/dataset/:datasetId/generate', requireAuthenticatedUser, a
 
     // 1. Load dataset leads
     const rawLeads = await jobRepo.getDatasetLeads(userId, datasetId);
-    const leadsForAnalysis: LeadForAnalysis[] = rawLeads.length > 0 ? rawLeads : (req.body?.leads || []);
+    const leadsForAnalysis: LeadForAnalysis[] = rawLeads;
+    if (!leadsForAnalysis.length) return res.status(400).json({ error: 'No company leads found in this dataset.' });
 
     // 2. Load or construct seller context
-    const seller: SellerProfileContext = req.body?.sellerProfile || {
-      id: req.body?.offering?.id || 'seller-01',
-      companyName: req.body?.offering?.companyName || 'Seller Organization',
-      productName: req.body?.offering?.productName || 'B2B Offering',
-      valueProposition: req.body?.offering?.valueProposition || 'Automated workflow optimization and pipeline integrity.',
-      primaryProblemSolved: req.body?.offering?.primaryProblemSolved || 'Manual operational bottlenecks and data corruption.',
-      keyCapabilities: req.body?.offering?.keyCapabilities || ['Automated pipeline diagnostics', 'Continuous contract verification'],
-      typicalACV: req.body?.offering?.typicalACV || '$36,000 / year',
-      pricingModel: req.body?.offering?.pricingModel || 'Annual subscription',
-      pointOfParity: req.body?.offering?.pointOfParity || 'Standard SOC2 Type II, automated error logging, webhook alerts',
-      pointOfDifference: req.body?.offering?.pointOfDifference || 'Proactive contract verification before downstream pipelines break',
-      primaryBuyer: req.body?.offering?.primaryBuyer || 'VP of Data & Engineering',
-    };
+    const { seller, offering } = await getSavedSellerOffering(req);
 
     // 3. Load or compute Need Gap and 5C
     const stratAnalysis = await stratRepo.getDatasetStrategicAnalysis(userId, datasetId);
@@ -1091,7 +1062,8 @@ app.post('/api/reports/dataset/:datasetId/generate', requireAuthenticatedUser, a
     }
 
     // 5. Load or compute Lead ICP Scores
-    let storedScores = await scoringRepo.getLeadScores(userId, datasetId);
+    let storedScores = (await scoringRepo.getLeadScores(userId, datasetId))
+      .filter(score => score.modelVersion === CURRENT_SCORING_MODEL_VERSION);
     if (!storedScores.length && leadsForAnalysis.length > 0) {
       const normalizedLeads: NormalizedLead[] = leadsForAnalysis.map((l) => ({
         id: l.id,
@@ -1109,17 +1081,13 @@ app.post('/api/reports/dataset/:datasetId/generate', requireAuthenticatedUser, a
         userCorrectedDescription: l.user_corrected_description ?? null,
       }));
 
-      const defaultOffering: OfferingProfile = req.body?.offering || SAMPLE_OFFERING;
-      storedScores = batchScoreLeads(
-        normalizedLeads,
-        defaultOffering,
-        undefined,
-        undefined,
-        {
-          fiveC,
-          segments: stpAnalysis.segments,
-        }
-      );
+      storedScores = normalizedLeads.map(lead => {
+        const gap = stratAnalysis?.companyNeedGaps?.[lead.id] || needGaps.find(item => item.leadId === lead.id);
+        return calculateDeterministicICPScore(lead, offering, gap ? toScoringNeedGap(gap) : undefined, undefined, {
+          fiveC, segment: stpAnalysis.segments.find(segment => segment.primaryCompanyIds.includes(lead.id)),
+          requireNeedGap: true,
+        });
+      });
       await scoringRepo.saveLeadScores(userId, datasetId, storedScores);
     }
 
@@ -1155,30 +1123,15 @@ app.post('/api/reports/dataset/:datasetId/generate', requireAuthenticatedUser, a
 // Strategic Marketing Analysis Endpoint (Need Gap -> 5C -> STP -> Marketing Mix)
 app.post('/api/ai/strategic-analysis', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { offering, leads } = req.body || {};
-    if (!offering || !leads || !Array.isArray(leads)) {
-      return res.status(400).json({ error: 'offering and leads array are required.' });
+    const { leads } = req.body || {};
+    if (!leads || !Array.isArray(leads)) {
+      return res.status(400).json({ error: 'A leads array is required.' });
     }
     if (leads.length > 500) {
       return res.status(400).json({ error: 'A maximum of 500 leads can be submitted for analysis.' });
     }
 
-    const sellerContext: SellerProfileContext = {
-      id: offering.id,
-      companyName: offering.companyName || 'Seller Company',
-      productName: offering.productName,
-      category: offering.category,
-      valueProposition: offering.valueProposition,
-      primaryProblemSolved: offering.primaryProblemSolved,
-      keyCapabilities: offering.keyCapabilities || [],
-      typicalACV: offering.typicalACV,
-      pricingModel: offering.pricingModel,
-      mainAlternatives: offering.mainAlternatives,
-      pointOfParity: offering.pointOfParity,
-      pointOfDifference: offering.pointOfDifference,
-      primaryBuyer: offering.primaryBuyer,
-      mainCustomerProblem: offering.mainCustomerProblem,
-    };
+    const { seller: sellerContext, offering } = await getSavedSellerOffering(req);
 
     const leadsForAnalysis: LeadForAnalysis[] = leads.map((l: Record<string, unknown>, idx: number) => ({
       id: String(l.id || `lead-${idx}`),

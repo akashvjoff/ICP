@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppNavbar } from '../components/ui/AppNavbar';
-import { ArrowRight, Mail, Phone } from 'lucide-react';
+import { ArrowRight, Mail, Phone, MessageCircle, Instagram } from 'lucide-react';
 import { contactEmail, contactHref } from '../lib/contact';
 
 const questions = [
@@ -90,6 +90,8 @@ export const AboutPage: React.FC = () => (
           <div className="flex flex-col justify-center gap-3">
             <a className="inline-flex items-center gap-3 break-all rounded-lg border-2 border-black bg-white p-3 font-mono text-sm font-bold hover:bg-[#E4E6FB]" href={contactHref}><Mail size={18} className="shrink-0" aria-hidden="true" />{contactEmail}</a>
             <a className="inline-flex items-center gap-3 rounded-lg border-2 border-black bg-white p-3 font-mono text-sm font-bold hover:bg-[#E4E6FB]" href="tel:+918778068507"><Phone size={18} className="shrink-0" aria-hidden="true" />+91 87780 68507</a>
+            <a className="inline-flex items-center gap-3 rounded-lg border-2 border-black bg-white p-3 font-mono text-sm font-bold hover:bg-[#E4E6FB]" href="https://wa.me/8778068507" target="_blank" rel="noopener noreferrer"><MessageCircle size={18} className="shrink-0" aria-hidden="true" />WHATSAPP</a>
+            <a className="inline-flex items-center gap-3 rounded-lg border-2 border-black bg-white p-3 font-mono text-sm font-bold hover:bg-[#E4E6FB]" href="https://www.instagram.com/akash_vijaychandran" target="_blank" rel="noopener noreferrer"><Instagram size={18} className="shrink-0" aria-hidden="true" />INSTAGRAM</a>
           </div>
         </div>
       </section>

@@ -1,8 +1,30 @@
 import { GoogleGenAI, Type } from '@google/genai';
+import { z } from 'zod';
 import { OfferingProfile } from '../types/offering';
 import { NormalizedLead, AIClassification } from '../types/lead';
 import { FullStrategicAnalysis } from '../types/analysis';
 import { selectPreferredGeminiModel } from './companyAnalyzer';
+import { hasOfferingOverlap, hasUnsupportedStat } from '../lib/offeringGrounding';
+
+const strategicResponseSchema = z.object({
+  cohortHypothesisSummary: z.string(),
+  needGaps: z.array(z.object({
+    leadId: z.string(), companyName: z.string(), identifiedNeed: z.string(),
+    gapMagnitude: z.enum(['Acute', 'Moderate', 'Latent', 'Negligible']),
+    urgencyDriver: z.string(), offeringCapabilityMatch: z.string(),
+    consequenceOfInaction: z.string(), gapScore: z.number().min(0).max(100),
+  })),
+  stpSegments: z.array(z.object({
+    id: z.string(), segmentName: z.string().max(60).refine(name => !/cohort[.!?]?$/i.test(name.trim())),
+    problemDefinition: z.string(), leadCount: z.number().int().nonnegative(),
+    averageNeedScore: z.number().min(0).max(100),
+    targetAttractiveness: z.enum(['Tier 1 Priority', 'Tier 2 Secondary', 'Tier 3 Opportunistic', 'Avoid']),
+    recommendedPositioningAngle: z.string(), valueNarrative: z.string(), matchedLeadIds: z.array(z.string()),
+  })),
+  fiveC: z.object({ company: z.any(), customers: z.any(), competitors: z.any(), collaborators: z.any(), context: z.any() }),
+  marketingMix: z.object({ productResonance: z.string(), priceAcceptability: z.string(), placeChannelFit: z.string(), promotionHook: z.string() }),
+});
+
 
 // Initialize Gemini on server-side only
 const apiKey = process.env.GEMINI_API_KEY || '';
@@ -35,19 +57,7 @@ export async function classifyCompanyWithAI(
   industry?: string
 ): Promise<AIClassification> {
   if (!ai) {
-    // Graceful fallback if no Gemini API key configured
-    return {
-      detectedIndustry: industry || 'Technology',
-      businessModel: 'B2B SaaS',
-      primaryProducts: [`${companyName} Platform`],
-      targetAudience: 'Mid-Market and Enterprise Teams',
-      perceivedPainPoints: [
-        'Operational efficiency and reporting automation',
-        'Cross-functional data visibility'
-      ],
-      buyingMaturity: 'Scaling',
-      confidenceScore: 0.85
-    };
+    throw new Error('Gemini is unavailable. Company classification was not generated.');
   }
 
   const prompt = `Analyze this B2B company based on its firmographic details:
@@ -114,15 +124,7 @@ Respond strictly with structured JSON matching the schema.`;
     };
   } catch (err) {
     console.error('Gemini company classification error:', err);
-    return {
-      detectedIndustry: industry || 'Technology',
-      businessModel: 'B2B SaaS',
-      primaryProducts: [`${companyName} Platform`],
-      targetAudience: 'Business Customers',
-      perceivedPainPoints: ['Operational pipeline friction'],
-      buyingMaturity: 'Scaling',
-      confidenceScore: 0.8
-    };
+    throw new Error('Company classification failed. Please retry.');
   }
 }
 
@@ -133,19 +135,29 @@ Respond strictly with structured JSON matching the schema.`;
  * 3. STP (Segmentation, Targeting, Positioning)
  * 4. Marketing Mix (4Ps)
  */
+export function validateStrategicResponse(raw: unknown, offering: OfferingProfile) {
+  return strategicResponseSchema.superRefine((analysis, ctx) => {
+    analysis.needGaps.forEach((gap, index) => {
+      if (!hasOfferingOverlap(`${gap.identifiedNeed} ${gap.offeringCapabilityMatch}`, offering.primaryProblemSolved, offering.keyCapabilities)) {
+        ctx.addIssue({ code: 'custom', path: ['needGaps', index], message: 'Need gap does not match the saved offering.' });
+      }
+    });
+    analysis.stpSegments.forEach((segment, index) => {
+      if (!hasOfferingOverlap(`${segment.segmentName} ${segment.problemDefinition}`, offering.primaryProblemSolved, offering.keyCapabilities)) {
+        ctx.addIssue({ code: 'custom', path: ['stpSegments', index], message: 'Segment does not match the saved offering.' });
+      }
+      if (hasUnsupportedStat(`${segment.valueNarrative} ${segment.recommendedPositioningAngle}`, [offering.valueProposition, offering.primaryProblemSolved, ...offering.keyCapabilities].join(' '))) {
+        ctx.addIssue({ code: 'custom', path: ['stpSegments', index, 'valueNarrative'], message: 'Unsupported numeric outcome claim.' });
+      }
+    });
+  }).parse(raw);
+}
+
 export async function runStrategicMarketingAnalysis(
   offering: OfferingProfile,
   leads: NormalizedLead[]
 ): Promise<FullStrategicAnalysis> {
-  if (!ai) {
-    // If no API key, return grounded strategic analysis
-    const { SAMPLE_STRATEGIC_ANALYSIS } = await import('../lib/mockData.js');
-    return {
-      ...SAMPLE_STRATEGIC_ANALYSIS,
-      offeringId: offering.id,
-      analyzedAt: new Date().toISOString()
-    };
-  }
+  if (!ai) throw new Error('Gemini is unavailable. Strategic analysis was not generated.');
 
   const leadsSummary = leads.slice(0, 10).map((l, idx) => `
 Lead ${idx + 1}: ${l.companyName} (${l.domain})
@@ -175,35 +187,34 @@ Follow these strategic marketing rules:
 3. Quantify Need Gaps (Acute, Moderate, Latent, Negligible).
 4. Perform 5C Analysis (Company, Customers, Competitors, Collaborators, Context).
 5. Output STP Clusters and Marketing Mix (4Ps).`;
+  const groundedPrompt = `${prompt}
+6. Every need gap and segment must overlap with the saved seller problem or capabilities above. Exclude unrelated accounts instead of inventing fit.
+7. Segment names must be short problem labels of at most 60 characters, never sentences ending in "Cohort".
+8. Do not claim numeric improvements, savings, or ROI unless those exact figures appear in the seller input.`;
 
   try {
     const response = await ai.models.generateContent({
       model: await getAvailableGeminiModel(),
-      contents: prompt,
+      contents: groundedPrompt,
       config: {
         systemInstruction: 'You are a veteran B2B GTM strategist. Follow classical strategic marketing frameworks with precision.',
         responseMimeType: 'application/json'
       }
     });
 
-    const parsed = JSON.parse(response.text || '{}');
+    const parsed = validateStrategicResponse(JSON.parse(response.text || '{}'), offering);
     return {
       offeringId: offering.id,
       analyzedAt: new Date().toISOString(),
-      cohortHypothesisSummary: parsed.cohortHypothesisSummary || 'Analysis completed across lead cohort.',
-      needGaps: parsed.needGaps || [],
-      fiveC: parsed.fiveC || {},
-      stpSegments: parsed.stpSegments || [],
-      marketingMix: parsed.marketingMix || {}
-    } as FullStrategicAnalysis;
+      cohortHypothesisSummary: parsed.cohortHypothesisSummary,
+      needGaps: parsed.needGaps,
+      fiveC: parsed.fiveC,
+      stpSegments: parsed.stpSegments,
+      marketingMix: parsed.marketingMix,
+    };
   } catch (err) {
     console.error('Gemini strategic analysis error:', err);
-    const { SAMPLE_STRATEGIC_ANALYSIS } = await import('../lib/mockData.js');
-    return {
-      ...SAMPLE_STRATEGIC_ANALYSIS,
-      offeringId: offering.id,
-      analyzedAt: new Date().toISOString()
-    };
+    throw new Error('Strategic analysis failed validation or the AI provider was unavailable. Please retry.');
   }
 }
 
@@ -229,11 +240,11 @@ export async function suggestSellerOnboardingContext(partial: Record<string, unk
         'Role-based security dashboards with automated anomaly alerting',
         'Custom executive reporting and compliance audit logs',
       ],
-      mainBenefit: 'Reduces operational failure rates by up to 80% while saving cross-functional engineering teams 15+ hours per week.',
+      mainBenefit: 'Could help teams reduce manual work and respond to operational issues sooner; validate the outcome with customers.',
       currentCustomerProblem: existingProblem || 'Teams spend excessive manual hours firefighting unexpected operational incidents, causing stakeholder escalations and missed delivery targets.',
       idealCustomerOutcome: 'Continuous predictability and automated error containment with instant root-cause clarity.',
       motivationToChange: 'A high-visibility incident that disrupted business operations or failed an executive audit.',
-      whyCustomersChoose: 'Rapid time-to-value (deploys in under 30 minutes) without complex infrastructure changes.',
+      whyCustomersChoose: 'Potentially simpler setup and clearer visibility; confirm these advantages with customers.',
       mainAlternatives: 'Manual spreadsheets, ad-hoc internal scripts, or legacy heavyweight enterprise suites.',
       pointOfParity: 'Standard SOC2 compliance, role-based access control, and webhook alerts.',
       pointOfDifference: 'Zero-configuration anomaly prediction engine that flags issues before they cause downstream disruption.',
@@ -255,11 +266,11 @@ Generate realistic, high-impact marketing suggestions for their onboarding profi
 Return strictly valid JSON with the following fields:
 - productDescription: string (concise, clear, non-jargon B2B description)
 - coreFeatures: array of 4 concise strings (specific capabilities)
-- mainBenefit: string (quantifiable business outcome)
+- mainBenefit: string (potential customer outcome; never invent a percentage, time saving, ROI, or other numeric result)
 - currentCustomerProblem: string (frustrating situation making customers search for a solution)
 - idealCustomerOutcome: string (ideal breakthrough state customers want to reach)
 - motivationToChange: string (acute event triggering action now)
-- whyCustomersChoose: string (why customers pick this product over doing nothing)
+- whyCustomersChoose: string (why customers might pick this product over doing nothing; do not invent deployment times or guarantees)
 - mainAlternatives: string (what they currently use: spreadsheets, competitors, in-house)
 - pointOfParity: string (table-stakes features matched with the market)
 - pointOfDifference: string (decisive unfair advantage or proprietary edge)`;
@@ -275,6 +286,13 @@ Return strictly valid JSON with the following fields:
     });
 
     const parsed = JSON.parse(response.text || '{}');
+    const suppliedText = Object.values(partial).filter((value): value is string => typeof value === 'string').join(' ');
+    if (hasUnsupportedStat(String(parsed.mainBenefit || ''), suppliedText)) {
+      parsed.mainBenefit = `Could help address ${existingProblem || 'the described customer problem'}; quantify the impact with customer evidence.`;
+    }
+    if (hasUnsupportedStat(String(parsed.whyCustomersChoose || ''), suppliedText)) {
+      parsed.whyCustomersChoose = 'Potential benefits require validation with customers.';
+    }
     return parsed;
   } catch (err) {
     console.error('Gemini onboarding suggestion error:', err);
@@ -286,11 +304,11 @@ Return strictly valid JSON with the following fields:
         'Granular role-based permissions and audit logs',
         'Self-healing automation playbooks',
       ],
-      mainBenefit: 'Cuts operational incident downtime by 75% and eliminates repetitive manual triage.',
+      mainBenefit: 'Could reduce manual triage and help teams respond to incidents sooner; quantify the impact with customers.',
       currentCustomerProblem: 'Teams struggle with silent failures and fragmented point solutions, resulting in delayed response times and stakeholder churn.',
       idealCustomerOutcome: 'Unified proactive visibility with automated resolution and zero downtime surprises.',
       motivationToChange: 'A critical outage or leadership mandate to eliminate manual overhead.',
-      whyCustomersChoose: 'Installs in under 30 minutes with zero code modifications required.',
+      whyCustomersChoose: 'May simplify setup and incident response; confirm this with customers.',
       mainAlternatives: 'Homegrown scripts, spreadsheets, or heavyweight legacy monitoring tools.',
       pointOfParity: 'Standard alert notifications and enterprise authentication.',
       pointOfDifference: 'Predictive root-cause isolation that identifies failures before customer impact.',
