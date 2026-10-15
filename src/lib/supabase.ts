@@ -21,7 +21,8 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        detectSessionInUrl: false,
+        flowType: 'pkce',
       },
     })
   : null;
@@ -78,6 +79,18 @@ export const DEFAULT_DEMO_USER: WorkspaceUser = {
 // ------------------------------------------------------------------------------
 export const dbService = {
   // Seller Profile
+  async ensureSellerProfile(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }): Promise<void> {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const email = user.email || '';
+    const name = String(user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Member');
+    const company = String(user.user_metadata?.company_name || 'My Company');
+    const { error } = await supabase.from('seller_profiles').upsert({
+      owner_user_id: user.id,
+      company_name: company,
+      onboarding_data: { contactName: name, contactEmail: email },
+    }, { onConflict: 'owner_user_id', ignoreDuplicates: true });
+    if (error) throw error;
+  },
   async getSellerProfile(userId: string): Promise<DbSellerProfile | null> {
     if (!supabase) return null;
     const { data, error } = await supabase

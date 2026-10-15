@@ -126,6 +126,10 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const [user, setUser] = useState(() => {
     const fallback = { name: 'Alex Vance', email: 'alex@synthetix.io', company: 'Synthetix Data Cloud', role: 'Founder & CEO' };
+    if (isLiveUser) return {
+      name: String(authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'Member'),
+      email: authUser?.email || '', company: String(authUser?.user_metadata?.company_name || ''), role: 'Founder',
+    };
     try {
       const saved = JSON.parse(localStorage.getItem('icp_mode_demo_profile') || 'null');
       if (saved && ['name', 'email', 'company', 'role'].every((key) => typeof saved[key] === 'string')) return saved as typeof fallback;
@@ -307,6 +311,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [authUser?.id, refreshVersion]);
 
   const toggleDemoMode = () => {
+    if (isLiveUser) return;
     setIsDemoMode((prev) => !prev);
     addToast(
       !isDemoMode ? 'Demo mode enabled. Synthetic dataset restored.' : 'Live mode enabled. External pipeline awaiting inputs.',
@@ -345,13 +350,13 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
   const addDataset = (newDataset: DatasetMeta, newLeads: NormalizedLead[]) => {
     setDatasets((prev) => {
       const next = [newDataset, ...prev.filter((dataset) => dataset.id !== newDataset.id)];
-      try { localStorage.setItem('icp_mode_datasets', JSON.stringify(next)); } catch {}
+      if (!isLiveUser) try { localStorage.setItem('icp_mode_datasets', JSON.stringify(next)); } catch {}
       return next;
     });
     setActiveDatasetId(newDataset.id);
     setLeads(newLeads);
     setScores([]);
-    try {
+    if (!isLiveUser) try {
       localStorage.setItem('icp_mode_active_dataset', newDataset.id);
       localStorage.setItem('icp_mode_leads', JSON.stringify(newLeads));
     } catch {}
@@ -365,7 +370,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
           ? { ...lead, description, userCorrectedDescription: description }
           : lead
       );
-      try {
+      if (!isLiveUser) try {
         localStorage.setItem('icp_mode_leads', JSON.stringify(next));
       } catch {}
       return next;
@@ -379,7 +384,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
           ? { ...d, processingProgress: progress, status }
           : d
       );
-      try {
+      if (!isLiveUser) try {
         localStorage.setItem('icp_mode_datasets', JSON.stringify(next));
       } catch {}
       return next;
@@ -392,7 +397,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
         const newStatus = updatedStatuses[lead.id];
         return newStatus !== undefined ? { ...lead, analysisStatus: newStatus } : lead;
       });
-      try {
+      if (!isLiveUser) try {
         localStorage.setItem('icp_mode_leads', JSON.stringify(next));
       } catch {}
       return next;
@@ -425,6 +430,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const resetToDemoData = () => {
+    if (isLiveUser) return;
     setSellerContext(DEFAULT_SELLER_CONTEXT);
     setOffering(SAMPLE_OFFERING);
     setDatasets([INITIAL_DATASET]);

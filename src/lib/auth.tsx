@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Session, AuthError } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured, formatSupabaseError, DEFAULT_DEMO_USER, WorkspaceUser } from './supabase';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase, isSupabaseConfigured, formatSupabaseError, DEFAULT_DEMO_USER, WorkspaceUser, dbService } from './supabase';
 
 interface AuthContextType {
   user: User | null;
@@ -18,7 +18,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
   updateProfile: (profile: { name: string; email: string; company: string; role: string }) => Promise<{ success: boolean; error?: string; emailConfirmationPending?: boolean }>;
-  switchToDemoMode: () => void;
+  switchToDemoMode: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -37,6 +37,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isDemoUser, setIsDemoUser] = useState<boolean>(!isSupabaseConfigured);
+  const demoModeRef = useRef(!isSupabaseConfigured);
 
   // Derive workspace user profile
   const workspaceUser: WorkspaceUser = user
@@ -55,32 +56,60 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    // 1. Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.warn('Initial Supabase session fetch warning:', error.message);
+    let active = true;
+    let latest = 0;
+    const acceptSession = async (nextSession: Session | null) => {
+      const request = ++latest;
+      try {
+        if (nextSession?.user) await dbService.ensureSellerProfile(nextSession.user);
+        if (!active || request !== latest) return;
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+        setIsDemoUser(nextSession?.user ? false : demoModeRef.current);
+        if (nextSession?.user) {
+          demoModeRef.current = false;
+          setAuthError(null);
+        }
+      } catch (error) {
+        if (!active || request !== latest) return;
+        setSession(null);
+        setUser(null);
+        setAuthError(`Your account connected, but the workspace could not be opened: ${formatSupabaseError(error)}`);
+      } finally {
+        if (active && request === latest) setLoading(false);
       }
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setIsDemoUser(false);
-      }
-      setLoading(false);
-    });
+    };
 
-    // 2. Subscribe to auth changes
+    // Run database work outside the Supabase auth callback.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-      if (newSession?.user) {
-        setIsDemoUser(false);
-      }
-      setLoading(false);
+      if (event === 'INITIAL_SESSION') return;
+      setTimeout(() => { if (active) void acceptSession(newSession); }, 0);
     });
 
+    void (async () => {
+      const params = new URLSearchParams(window.location.search);
+      if (window.location.pathname === '/auth' && params.has('code')) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(params.get('code')!);
+        window.history.replaceState({}, '', '/auth');
+        if (error) {
+          if (active) {
+            setAuthError(formatSupabaseError(error));
+            setLoading(false);
+          }
+          return;
+        }
+        await acceptSession(data.session);
+      } else {
+        const { data, error } = await supabase.auth.getSession();
+        if (error && active) setAuthError(formatSupabaseError(error));
+        await acceptSession(data.session);
+      }
+    })();
+
     return () => {
+      active = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -106,6 +135,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setAuthError(friendlyMsg);
         return { success: false, error: friendlyMsg };
       }
+
+      if (data.user) await dbService.ensureSellerProfile(data.user);
 
       setSession(data.session);
       setUser(data.user);
@@ -175,6 +206,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const requiresConfirmation = !data.session;
       if (data.session) {
+        if (data.user) await dbService.ensureSellerProfile(data.user);
         setSession(data.session);
         setUser(data.user);
         setIsDemoUser(false);
@@ -194,15 +226,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signOut = async () => {
     clearError();
     if (supabase) {
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.error('Supabase sign out error:', err);
-      }
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) throw error;
     }
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('icp_mode_')) localStorage.removeItem(key);
+    }
+    demoModeRef.current = false;
     setSession(null);
     setUser(null);
-    setIsDemoUser(true);
+    setIsDemoUser(false);
   };
 
   const resetPassword = async (email: string) => {
@@ -259,8 +292,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const switchToDemoMode = () => {
+  const switchToDemoMode = async () => {
     clearError();
+    if (session || user) await signOut();
+    demoModeRef.current = true;
     setIsDemoUser(true);
   };
 

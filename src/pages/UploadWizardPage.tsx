@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore, DatasetMeta } from '../lib/store';
 import { useAuth } from '../lib/auth';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SectionHeading } from '../components/ui/SectionHeading';
 import { SectionEyebrow } from '../components/ui/SectionEyebrow';
@@ -44,7 +44,7 @@ import {
 export const UploadWizardPage: React.FC = () => {
   const { navigate } = useRouter();
   const { addDataset, addToast, isContextComplete, missingContextFields } = useAppStore();
-  const { session } = useAuth();
+  const { isDemoUser } = useAuth();
 
   // Wizard Navigation
   const [wizardStep, setWizardStep] = useState<number>(1);
@@ -210,7 +210,6 @@ export const UploadWizardPage: React.FC = () => {
     const finalLeads = pipelineResult.validLeads;
     let storedLeads = finalLeads;
     const newDatasetId = `dataset-${Date.now().toString().slice(-6)}`;
-    setCreatedDatasetId(newDatasetId);
 
     // Compute tier distributions
     const tier1Count = 0;
@@ -232,9 +231,12 @@ export const UploadWizardPage: React.FC = () => {
     };
 
     try {
-      if (isSupabaseConfigured) {
+      if (isSupabaseConfigured && !isDemoUser) {
         if (!file) throw new Error('Select the original CSV or XLSX file before saving to Supabase.');
-        if (!session?.access_token) throw new Error('Your session expired. Sign in again before saving this dataset.');
+        const { data: refreshed, error: refreshError } = await supabase!.auth.refreshSession();
+        if (refreshError || !refreshed.session?.access_token) {
+          throw new Error('Your session could not be refreshed. Sign in again before saving this dataset.');
+        }
 
         setProgressPercent(45);
         setProcessingStage('Persisting the validated dataset and leads to your Supabase workspace...');
@@ -243,7 +245,7 @@ export const UploadWizardPage: React.FC = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${refreshed.session.access_token}`,
           },
           body: JSON.stringify({
             fileName: file.name,
@@ -255,6 +257,7 @@ export const UploadWizardPage: React.FC = () => {
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || 'Supabase upload failed.');
+        if (typeof payload.datasetId !== 'string' || !payload.datasetId) throw new Error('The dataset was not confirmed as saved. Please retry.');
         datasetMeta.id = payload.datasetId;
         datasetMeta.validRows = payload.summary?.validRowsCount ?? finalLeads.length;
         datasetMeta.totalRows = payload.summary?.totalRowsParsed ?? rawRows.length;
@@ -262,6 +265,8 @@ export const UploadWizardPage: React.FC = () => {
           storedLeads = finalLeads.map((lead, index) => ({ ...lead, id: payload.leadIds[index] }));
         }
         setCreatedDatasetId(payload.datasetId);
+      } else {
+        setCreatedDatasetId(newDatasetId);
       }
 
       setProgressPercent(100);
@@ -270,7 +275,6 @@ export const UploadWizardPage: React.FC = () => {
       // Add to central workspace store
       addDataset(datasetMeta, storedLeads);
       setIsProcessing(false);
-      addToast(`Dataset "${fileName}" stored and queued (${finalLeads.length} leads).`, 'success');
       navigate(`/uploads/${datasetMeta.id}`);
     } catch (err: unknown) {
       setIsProcessing(false);

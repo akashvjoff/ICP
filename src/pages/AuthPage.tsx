@@ -22,6 +22,7 @@ export const AuthPage: React.FC = () => {
     resendVerification,
     switchToDemoMode,
     isConfigured,
+    loading: authLoading,
     authError,
     clearError,
   } = useAuth();
@@ -32,14 +33,20 @@ export const AuthPage: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [localError, setLocalError] = useState('');
+  const [localError, setLocalError] = useState(() => {
+    const url = new URL(window.location.href);
+    const fragment = new URLSearchParams(url.hash.slice(1));
+    return url.searchParams.get('error_description') || fragment.get('error_description') ||
+      url.searchParams.get('error') || fragment.get('error') || '';
+  });
   const [verificationPendingEmail, setVerificationPendingEmail] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
     const url = new URL(window.location.href);
     const fragment = new URLSearchParams(url.hash.slice(1));
-    const oauthError = url.searchParams.get('error_description') || fragment.get('error_description');
+    const oauthError = url.searchParams.get('error_description') || fragment.get('error_description') ||
+      url.searchParams.get('error') || fragment.get('error');
     if (oauthError) {
       setLocalError(oauthError);
       window.history.replaceState({}, '', '/auth');
@@ -48,10 +55,10 @@ export const AuthPage: React.FC = () => {
 
   // If already authenticated with Supabase session, redirect to dashboard
   useEffect(() => {
-    if (session && user) {
+    if (!authLoading && session && user && !localError && !authError) {
       navigate('/dashboard');
     }
-  }, [session, user, navigate]);
+  }, [authLoading, session, user, localError, authError, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,10 +123,14 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  const handleDemoSignIn = () => {
-    switchToDemoMode();
-    addToast('Signed in with Demo Founder Credentials (Synthetix Data Cloud).', 'success');
-    navigate('/dashboard');
+  const handleDemoSignIn = async () => {
+    try {
+      await switchToDemoMode();
+      addToast('Signed in with Demo Founder Credentials (Synthetix Data Cloud).', 'success');
+      navigate('/dashboard');
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : 'Could not start demo mode.');
+    }
   };
 
   const handleGoogleSignIn = async () => {

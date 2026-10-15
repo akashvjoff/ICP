@@ -41,9 +41,12 @@ export const AppSidebar: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    addToast('Signed out of workspace.', 'info');
-    navigate('/auth');
+    try {
+      await signOut();
+      navigate('/auth');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'Could not sign out. Please retry.', 'warning');
+    }
   };
 
   const selectedDatasetId = activeDatasetId || datasets[0]?.id;
