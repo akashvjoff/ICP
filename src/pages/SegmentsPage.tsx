@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
+import { freshAccessToken } from '../lib/supabase';
 import { deriveTierCounts, qualifiedSegmentAnalysis } from '../lib/tiers';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SectionEyebrow } from '../components/ui/SectionEyebrow';
@@ -204,7 +205,7 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
   const handleRerunSTP = async () => {
     setIsRefreshing(true);
     try {
-      const token = session?.access_token || 'demo-token';
+      const token = session?.access_token ? await freshAccessToken() : 'demo-token';
       const res = await fetch(`/api/stp/dataset/${datasetId}/run`, {
         method: 'POST',
         headers: {

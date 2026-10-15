@@ -27,6 +27,20 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
     })
   : null;
 
+export async function freshAccessToken(): Promise<string> {
+  if (!supabase) throw new Error('Sign in before saving changes.');
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session) throw new Error('Your session expired. Sign in again before saving changes.');
+  if (data.session.expires_at && data.session.expires_at <= Math.floor(Date.now() / 1000) + 60) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error || !refreshed.data.session?.access_token) {
+      throw new Error('Your session could not be refreshed. Sign in again before saving changes.');
+    }
+    return refreshed.data.session.access_token;
+  }
+  return data.session.access_token;
+}
+
 /**
  * Format raw Auth or Postgres errors into clear, friendly neo-brutalist error messages.
  */
@@ -81,6 +95,7 @@ export const dbService = {
   // Seller Profile
   async ensureSellerProfile(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }): Promise<void> {
     if (!supabase) throw new Error('Supabase is not configured.');
+    await freshAccessToken();
     const email = user.email || '';
     const name = String(user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Member');
     const company = String(user.user_metadata?.company_name || 'My Company');
@@ -105,6 +120,7 @@ export const dbService = {
 
   async upsertSellerProfile(userId: string, profile: Partial<DbSellerProfile>): Promise<DbSellerProfile | null> {
     if (!supabase) return null;
+    await freshAccessToken();
     const payload = {
       ...profile,
       owner_user_id: userId,
@@ -122,6 +138,7 @@ export const dbService = {
 
   async saveSellerProductContext(userId: string, ctx: any): Promise<void> {
     if (!supabase) return;
+    await freshAccessToken();
     const payload = {
       owner_user_id: userId,
       company_name: String(ctx.companyName || 'My Company'),
@@ -188,6 +205,7 @@ export const dbService = {
 
   async createDataset(userId: string, dataset: Omit<DbDataset, 'id' | 'created_at' | 'owner_user_id'>): Promise<DbDataset | null> {
     if (!supabase) return null;
+    await freshAccessToken();
     const { data, error } = await supabase
       .from('datasets')
       .insert({
@@ -203,6 +221,7 @@ export const dbService = {
 
   async deleteDataset(userId: string, datasetId: string): Promise<void> {
     if (!supabase) return;
+    await freshAccessToken();
     const { error } = await supabase
       .from('datasets')
       .delete()
@@ -228,6 +247,7 @@ export const dbService = {
 
   async createLeadsBatch(userId: string, datasetId: string, leads: Array<Omit<DbLead, 'id' | 'created_at' | 'owner_user_id' | 'dataset_id'>>): Promise<DbLead[]> {
     if (!supabase) return [];
+    await freshAccessToken();
     const payload = leads.map(l => ({
       ...l,
       owner_user_id: userId,
@@ -258,6 +278,7 @@ export const dbService = {
 
   async upsertLeadScoresBatch(userId: string, scores: Array<Omit<DbLeadScore, 'id' | 'created_at' | 'owner_user_id'>>): Promise<void> {
     if (!supabase || scores.length === 0) return;
+    await freshAccessToken();
     const payload = scores.map(s => ({
       ...s,
       owner_user_id: userId,
@@ -313,6 +334,7 @@ export const dbService = {
   // Analysis Jobs
   async createAnalysisJob(userId: string, datasetId: string, totalCount: number): Promise<DbAnalysisJob | null> {
     if (!supabase) return null;
+    await freshAccessToken();
     const { data, error } = await supabase
       .from('analysis_jobs')
       .insert({
@@ -333,6 +355,7 @@ export const dbService = {
 
   async updateAnalysisJob(userId: string, jobId: string, updates: Partial<DbAnalysisJob>): Promise<void> {
     if (!supabase) return;
+    await freshAccessToken();
     const { error } = await supabase
       .from('analysis_jobs')
       .update({
@@ -364,6 +387,7 @@ export const dbService = {
 
   async updateDataset(userId: string, datasetId: string, updates: Partial<DbDataset>): Promise<void> {
     if (!supabase) return;
+    await freshAccessToken();
     const { error } = await supabase
       .from('datasets')
       .update(updates)

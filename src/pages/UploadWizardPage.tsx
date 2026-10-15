@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore, DatasetMeta } from '../lib/store';
 import { useAuth } from '../lib/auth';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { freshAccessToken, isSupabaseConfigured } from '../lib/supabase';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SectionHeading } from '../components/ui/SectionHeading';
 import { SectionEyebrow } from '../components/ui/SectionEyebrow';
@@ -211,6 +211,7 @@ export const UploadWizardPage: React.FC = () => {
 
     setIsProcessing(true);
     setProcessingError(null);
+    setCreatedDatasetId('');
     setProgressPercent(10);
     setProcessingStage('Revalidating the original file at the secure upload boundary...');
 
@@ -243,19 +244,15 @@ export const UploadWizardPage: React.FC = () => {
       }
       if (isSupabaseConfigured) {
         if (!file) throw new Error('Select the original CSV or XLSX file before saving to your workspace.');
-        const { data: refreshed, error: refreshError } = await supabase!.auth.refreshSession();
-        if (refreshError || !refreshed.session?.access_token) {
-          throw new Error('Your session could not be refreshed. Sign in again before saving this dataset.');
-        }
-
         setProgressPercent(45);
         setProcessingStage('Saving the validated dataset and leads to your workspace...');
         const fileBase64 = await fileToBase64(file);
+        const token = await freshAccessToken();
         const response = await fetch('/api/uploads', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${refreshed.session.access_token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             fileName: file.name,
@@ -1163,11 +1160,11 @@ export const UploadWizardPage: React.FC = () => {
           <BrutalistCard bg="white" shadowSize="lg" className="p-8 sm:p-10 text-center space-y-6">
             <div className="max-w-lg mx-auto space-y-3">
               <SectionEyebrow color="bg-[#A1F000]">
-                {isDemoUser ? 'DEMO PREVIEW' : isProcessing ? 'SECURE DATASET INGESTION' : processingError ? 'UPLOAD NEEDS ATTENTION' : 'DATASET SAVED'}
+                {isDemoUser ? 'DEMO PREVIEW' : isProcessing ? 'SECURE DATASET INGESTION' : processingError ? 'UPLOAD NEEDS ATTENTION' : createdDatasetId ? 'DATASET SAVED' : 'READY TO SAVE'}
               </SectionEyebrow>
 
               <h3 className="text-2xl sm:text-3xl font-black text-[#0A0A0A]">
-                {isDemoUser ? 'Demo only: sign in to save and analyze your file' : isProcessing ? processingStage : processingError ? 'Your file was not saved' : 'Dataset Saved & Queued'}
+                {isDemoUser ? 'Demo only: sign in to save and analyze your file' : isProcessing ? processingStage : processingError ? 'Your file was not saved' : createdDatasetId ? 'Dataset Saved & Queued' : 'Ready to save your dataset'}
               </h3>
 
               <p className="text-xs text-[#0A0A0A]/70 font-medium">
@@ -1176,7 +1173,7 @@ export const UploadWizardPage: React.FC = () => {
                   : isProcessing
                   ? 'Checking your file and saving valid accounts to your workspace.'
                   : processingError ? 'Retry the upload after resolving the issue.'
-                  : `All ${pipelineResult?.validLeads.length || 0} valid leads in "${fileName}" have been stored. No AI classification has run yet.`}
+                  : createdDatasetId ? `All ${pipelineResult?.validLeads.length || 0} valid leads in "${fileName}" have been stored. No AI classification has run yet.` : 'Confirm the upload to save your valid leads.'}
               </p>
             </div>
 
@@ -1205,7 +1202,7 @@ export const UploadWizardPage: React.FC = () => {
               <BrutalistButton variant="lime" size="md" onClick={() => void continueToSignIn()} icon={<ArrowRight className="w-4 h-4" />}>SIGN IN TO SAVE & ANALYZE</BrutalistButton>
             ) : processingError ? (
               <BrutalistButton variant="lime" size="md" onClick={() => void executeProcessing()}>RETRY UPLOAD</BrutalistButton>
-            ) : isProcessing ? (
+            ) : isProcessing || !createdDatasetId ? (
               <div className="max-w-md mx-auto pt-4">
                 <LoadingSkeleton lines={3} />
               </div>

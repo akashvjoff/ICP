@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
+import { freshAccessToken } from '../lib/supabase';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SectionEyebrow } from '../components/ui/SectionEyebrow';
 import { BrutalistCard } from '../components/ui/BrutalistCard';
@@ -180,7 +181,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
     isBatchInFlightRef.current = true;
 
     try {
-      const token = session?.access_token || 'demo-token';
+      const token = session?.access_token ? await freshAccessToken() : 'demo-token';
       const response = await fetch(`/api/analysis-jobs/${job.id}/process-batch`, {
         method: 'POST',
         headers: {
@@ -299,7 +300,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
     setIsLoading(true);
 
     try {
-      const token = session?.access_token || 'demo-token';
+      const token = session?.access_token ? await freshAccessToken() : 'demo-token';
       const response = await fetch(`/api/analysis-jobs/${job.id}/start`, {
         method: 'POST',
         headers: {
@@ -335,7 +336,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
     isLoopActiveRef.current = false;
     setIsLoading(true);
     try {
-      const token = session?.access_token || 'demo-token';
+      const token = session?.access_token ? await freshAccessToken() : 'demo-token';
       const response = await fetch(`/api/analysis-jobs/${job.id}/pause`, {
         method: 'POST',
         headers: {
@@ -363,7 +364,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
     setQuotaWarning(false);
     setIsLoading(true);
     try {
-      const token = session?.access_token || 'demo-token';
+      const token = session?.access_token ? await freshAccessToken() : 'demo-token';
       const response = await fetch(`/api/analysis-jobs/${job.id}/resume`, {
         method: 'POST',
         headers: {
@@ -399,7 +400,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
     setQuotaWarning(false);
     setIsLoading(true);
     try {
-      const token = session?.access_token || 'demo-token';
+      const token = session?.access_token ? await freshAccessToken() : 'demo-token';
       const response = await fetch(`/api/analysis-jobs/${job.id}/retry-failed`, {
         method: 'POST',
         headers: {
@@ -440,7 +441,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
     isLoopActiveRef.current = false;
     setIsLoading(true);
     try {
-      const token = session?.access_token || 'demo-token';
+      const token = session?.access_token ? await freshAccessToken() : 'demo-token';
       const response = await fetch(`/api/analysis-jobs/${job.id}/cancel`, {
         method: 'POST',
         headers: {

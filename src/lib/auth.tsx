@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured, formatSupabaseError, DEFAULT_DEMO_USER, WorkspaceUser, dbService } from './supabase';
+import { supabase, isSupabaseConfigured, formatSupabaseError, freshAccessToken, DEFAULT_DEMO_USER, WorkspaceUser, dbService } from './supabase';
 
 interface AuthContextType {
   user: User | null;
@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     ? {
         id: user.id,
         email: user.email || '',
-        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Member',
+        name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Member',
         role: user.user_metadata?.gtm_role || 'Founder',
         isDemoUser: false,
       }
@@ -309,6 +309,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
+      await freshAccessToken();
       const emailChanged = email !== user.email?.toLowerCase();
       const { data, error } = await supabase.auth.updateUser({
         ...(emailChanged ? { email } : {}),

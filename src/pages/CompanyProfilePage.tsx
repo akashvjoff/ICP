@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
+import { freshAccessToken } from '../lib/supabase';
 import type { CompanyAnalysisEnvelope, CompanyIntelligence } from '../types/companyIntelligence';
 import { analyzeLeadNeedGap, toScoringNeedGap, type SellerProfileContext } from '../server/strategicAnalysisService';
 import { shortProblemLabel } from '../lib/offeringGrounding';
@@ -218,11 +219,12 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
 
     try {
       if (session?.access_token) {
+        const token = await freshAccessToken();
         const response = await fetch('/api/ai/company-intelligence', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             leadId: lead.id,
@@ -367,11 +369,12 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
 
     try {
       if (session?.access_token) {
+        const token = await freshAccessToken();
         const response = await fetch(`/api/ai/company-intelligence/${lead.id}/description`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ description: trimmed }),
         });

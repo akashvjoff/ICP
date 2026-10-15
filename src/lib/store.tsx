@@ -122,16 +122,17 @@ export const useAppStore = () => {
 };
 
 export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user: authUser } = useAuth();
+  const { user: authUser, isDemoUser } = useAuth();
   const isLiveUser = Boolean(authUser?.id);
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(!isLiveUser);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(isDemoUser);
 
   const [user, setUser] = useState(() => {
     const fallback = { name: 'Alex Vance', email: 'alex@synthetix.io', company: 'Synthetix Data Cloud', role: 'Founder & CEO' };
     if (isLiveUser) return {
-      name: String(authUser?.user_metadata?.full_name || authUser?.email?.split('@')[0] || 'Member'),
+      name: String(authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || authUser?.email?.split('@')[0] || 'Member'),
       email: authUser?.email || '', company: String(authUser?.user_metadata?.company_name || ''), role: 'Founder',
     };
+    if (!isDemoUser) return { name: '', email: '', company: '', role: '' };
     try {
       const saved = JSON.parse(localStorage.getItem('icp_mode_demo_profile') || 'null');
       if (saved && ['name', 'email', 'company', 'role'].every((key) => typeof saved[key] === 'string')) return saved as typeof fallback;
@@ -141,14 +142,14 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // Load initial sellerContext from localStorage or default
   const [sellerContext, setSellerContext] = useState<SellerProductContext>(() => {
-    if (isLiveUser) return EMPTY_SELLER_CONTEXT;
+    if (!isDemoUser) return EMPTY_SELLER_CONTEXT;
     try {
       const saved = localStorage.getItem('icp_mode_seller_context');
       if (saved) {
         return JSON.parse(saved);
       }
     } catch {}
-    return isLiveUser ? EMPTY_SELLER_CONTEXT : DEFAULT_SELLER_CONTEXT;
+    return DEFAULT_SELLER_CONTEXT;
   });
 
   const completion = calculateContextCompletion(sellerContext);
@@ -163,22 +164,22 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [datasets, setDatasets] = useState<DatasetMeta[]>(() => {
     try {
       const saved = localStorage.getItem('icp_mode_datasets');
-      return isLiveUser ? [] : (saved ? JSON.parse(saved) : [INITIAL_DATASET]);
-    } catch { return isLiveUser ? [] : [INITIAL_DATASET]; }
+      return isDemoUser ? (saved ? JSON.parse(saved) : [INITIAL_DATASET]) : [];
+    } catch { return isDemoUser ? [INITIAL_DATASET] : []; }
   });
   const [activeDatasetId, setActiveDatasetId] = useState<string>(() => {
-    try { return isLiveUser ? '' : (localStorage.getItem('icp_mode_active_dataset') || 'dataset-01'); }
-    catch { return isLiveUser ? '' : 'dataset-01'; }
+    try { return isDemoUser ? (localStorage.getItem('icp_mode_active_dataset') || 'dataset-01') : ''; }
+    catch { return isDemoUser ? 'dataset-01' : ''; }
   });
   const [leads, setLeads] = useState<NormalizedLead[]>(() => {
     try {
       const saved = localStorage.getItem('icp_mode_leads');
-      return isLiveUser ? [] : (saved ? JSON.parse(saved) : SAMPLE_LEADS);
-    } catch { return isLiveUser ? [] : SAMPLE_LEADS; }
+      return isDemoUser ? (saved ? JSON.parse(saved) : SAMPLE_LEADS) : [];
+    } catch { return isDemoUser ? SAMPLE_LEADS : []; }
   });
-  const [analysis, setAnalysis] = useState<FullStrategicAnalysis>(isLiveUser ? EMPTY_STRATEGIC_ANALYSIS : SAMPLE_STRATEGIC_ANALYSIS);
+  const [analysis, setAnalysis] = useState<FullStrategicAnalysis>(isDemoUser ? SAMPLE_STRATEGIC_ANALYSIS : EMPTY_STRATEGIC_ANALYSIS);
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_SCORING_WEIGHTS);
-  const [scores, setScores] = useState<LeadICPScore[]>(isLiveUser ? [] : SAMPLE_SCORES);
+  const [scores, setScores] = useState<LeadICPScore[]>(isDemoUser ? SAMPLE_SCORES : []);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const refreshLiveWorkspace = useCallback(() => setRefreshVersion((value) => value + 1), []);

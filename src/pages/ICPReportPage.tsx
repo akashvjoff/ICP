@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
+import { freshAccessToken } from '../lib/supabase';
 import { deriveTierCounts, scoreTier } from '../lib/tiers';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SectionHeading } from '../components/ui/SectionHeading';
@@ -240,7 +241,7 @@ export const ICPReportPage: React.FC<ICPReportPageProps> = ({ params }) => {
   const handleRefreshReport = async () => {
     setIsRefreshing(true);
     try {
-      const token = session?.access_token || 'demo-token';
+      const token = session?.access_token ? await freshAccessToken() : 'demo-token';
       const res = await fetch(`/api/reports/dataset/${datasetId}/generate`, {
         method: 'POST',
         headers: {

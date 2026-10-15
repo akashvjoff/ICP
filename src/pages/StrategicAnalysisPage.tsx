@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
+import { freshAccessToken } from '../lib/supabase';
 import { AppLayout } from '../components/layout/AppLayout';
 import { SectionHeading } from '../components/ui/SectionHeading';
 import { SectionEyebrow } from '../components/ui/SectionEyebrow';
@@ -166,11 +167,12 @@ export const StrategicAnalysisPage: React.FC<{ params?: { id?: string } }> = ({ 
     setIsRefreshing(true);
     try {
       if (session?.access_token && isSupabaseConfigured) {
+        const token = await freshAccessToken();
         const response = await fetch(`/api/strategic-analysis/dataset/${datasetId}/run`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ sellerProfile }),
         });
