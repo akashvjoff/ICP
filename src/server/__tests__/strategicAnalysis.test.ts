@@ -129,6 +129,7 @@ test('2. Missing information remains strictly unknown rather than fabricated', (
 
   assert.equal(needGap.analysisStatus, 'insufficient_evidence');
   assert.equal(needGap.problemIntensity, 'Negligible');
+  assert.equal(needGap.relevantProblem, 'Assumed from your offering');
   assert.ok(
     needGap.unknowns.some((u) => u.toLowerCase().includes('willingness to pay')),
     'Willingness to pay must remain unknown'

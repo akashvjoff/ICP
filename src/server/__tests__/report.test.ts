@@ -371,6 +371,24 @@ test('6. Segment counts match stored data without duplicate counting', () => {
   assert.strictEqual(report.summaryMetrics.totalAnalyzed, 20);
 });
 
+test('report counts 20 analyzed companies and 33 pending from a 53-company upload', () => {
+  const leads = Array.from({ length: 53 }, (_, index) => createTestLeadForAnalysis({
+    id: `company-${index}`, analysis_status: index < 20 ? 'completed' : 'pending',
+  }));
+  const analyzedLeads = leads.slice(0, 20);
+  const needGaps = analyzedLeads.map(lead => analyzeLeadNeedGap(TEST_SELLER, lead));
+  const summary = aggregateDatasetNeedGaps('ds-partial', needGaps, TEST_SELLER);
+  const fiveC = synthesizeDetailedFiveC(TEST_SELLER, needGaps, analyzedLeads);
+  const gapsMap = Object.fromEntries(needGaps.map(gap => [gap.leadId, gap]));
+  const stp = buildDatasetSTPAnalysis(TEST_SELLER, 'ds-partial', summary, fiveC, analyzedLeads, gapsMap);
+  const staleScores = batchScoreLeads(leads.map(lead => createTestNormalizedLead({ id: lead.id })), TEST_OFFERING);
+  const report = composeExecutiveICPReport(TEST_SELLER, 'ds-partial', 'partial.csv', 'user-01', 53,
+    summary, fiveC, stp, staleScores, leads);
+  assert.equal(report.summaryMetrics.totalAnalyzed, 20);
+  assert.equal(report.summaryMetrics.pendingCount, 33);
+  assert.equal(report.scoredLeads.length, 20);
+});
+
 test('7. Targeting conclusions reflect STP', () => {
   const leads = create20LeadSyntheticCohort();
   const needGaps = leads.map((l) => analyzeLeadNeedGap(TEST_SELLER, l));

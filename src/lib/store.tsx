@@ -244,6 +244,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
           id: lead.id, companyName: lead.company_name, domain: lead.normalized_domain,
           website: lead.website, industry: lead.industry_raw || '', headcount: lead.employee_count ?? null,
           annualRevenue: lead.annual_revenue == null ? null : String(lead.annual_revenue),
+          businessModel: lead.business_model_raw || undefined,
           description: lead.notes || '', country: lead.geography || '', technologies: [],
           isClean: true, isAiEnriched: lead.analysis_eligible,
           analysisStatus: lead.analysis_status || 'pending',
@@ -307,7 +308,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
           analyzedAt: savedStp?.generatedAt || previous.analyzedAt,
           stpSegments: mappedSegments,
         }));
-        const counts = deriveTierCounts(mappedScores);
+        const counts = deriveTierCounts(mappedScores, mappedLeads);
         setDatasets((previous) => previous.map((dataset) => dataset.id === selected.id ? {
           ...dataset,
           tier1Count: counts.tier1,

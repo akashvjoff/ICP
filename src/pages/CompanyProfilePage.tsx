@@ -258,7 +258,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
           company_type: { value: payroll ? 'B2B SaaS Startup' : (lead.companyType || 'Enterprise Software'), origin: 'inferred', confidence: 'medium' },
           industry: { value: payroll ? 'HR Technology' : (lead.industry || 'Business Software'), origin: 'inferred', confidence: 'high' },
           sub_industry: { value: payroll ? 'Payroll & Compliance SaaS' : 'Operations Management Software', origin: 'inferred', confidence: 'medium' },
-          business_model: { value: lead.businessModel || 'B2B Software Subscription', origin: 'inferred', confidence: 'medium' },
+          business_model: { value: lead.businessModel || 'Unknown', origin: 'inferred', confidence: lead.businessModel ? 'medium' : 'low' },
           product_summary: {
             value: activeDescription || 'Automated B2B cloud software platform designed for operational scaling.',
             origin: 'inferred',
@@ -609,7 +609,9 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
           <div className="bg-[#F9F8F4] border-[2px] border-[#0A0A0A] p-3.5 rounded-xl shadow-[2px_2px_0px_#0A0A0A]">
             <span className="text-[#0A0A0A]/60 font-bold block mb-0.5">BUSINESS MODEL</span>
             <span className="font-black text-[#0A0A0A] text-sm block truncate">
-              {lead.businessModel || lead.aiClassification?.businessModel || 'B2B SaaS'}
+              {companyIntelligence?.analysis.business_model.value && companyIntelligence.analysis.business_model.value !== 'unknown'
+                ? companyIntelligence.analysis.business_model.value
+                : lead.businessModel || 'Unknown'}
             </span>
           </div>
         </div>
@@ -1048,7 +1050,9 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
 
               <div className="flex items-center gap-2">
                 <StatusChip color={richNeedGap.problemIntensity === 'Acute' ? 'lime' : richNeedGap.problemIntensity === 'Moderate' ? 'peach' : 'white'}>
-                  {richNeedGap.problemIntensity.toUpperCase()} NEED GAP
+                  {richNeedGap.relevantProblem === 'Assumed from your offering'
+                    ? 'ASSUMED FROM YOUR OFFERING'
+                    : `${richNeedGap.problemIntensity.toUpperCase()} NEED GAP`}
                 </StatusChip>
                 <StatusChip color={richNeedGap.confidence === 'high' ? 'mint' : richNeedGap.confidence === 'medium' ? 'peach' : 'pink'}>
                   {richNeedGap.confidence.toUpperCase()} CONFIDENCE

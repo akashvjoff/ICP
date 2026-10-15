@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import { databaseLeadStage } from './leadOutcomes';
 import type { Cell } from 'exceljs';
 import { z } from 'zod';
 import {
@@ -80,16 +81,6 @@ const OPTIONAL_MAPPING_FIELDS: Array<keyof ColumnMapping> = [
   'description',
   'technologies',
 ];
-
-const ALLOWED_LEAD_STATUSES = new Set([
-  'new',
-  'qualified',
-  'disqualified',
-  'contacted',
-  'opportunity',
-  'won',
-  'lost',
-]);
 
 function hasValue(value: unknown): boolean {
   return value !== null && value !== undefined && String(value).trim() !== '';
@@ -738,9 +729,8 @@ export function processLeadPipeline(
     const rawLeadStage = mapping.leadStage && hasValue(raw[mapping.leadStage])
       ? String(raw[mapping.leadStage]).trim().toLowerCase()
       : 'new';
-    const stageAliases: Record<string, string> = { replied: 'contacted', 'meeting booked': 'opportunity', 'not interested': 'disqualified' };
-    const leadStage = ALLOWED_LEAD_STATUSES.has(rawLeadStage) ? rawLeadStage : stageAliases[rawLeadStage] || 'new';
-    if (rawLeadStage !== leadStage && !stageAliases[rawLeadStage]) {
+    const leadStage = databaseLeadStage(rawLeadStage);
+    if (rawLeadStage !== leadStage && !['replied', 'meeting booked', 'not interested', 'closed won', 'closed lost'].includes(rawLeadStage)) {
       validationWarnings.push(`Lead status "${rawLeadStage}" is unsupported and was normalized to "new".`);
     }
 
@@ -894,6 +884,14 @@ export function processLeadPipeline(
     const primary = group.leads[0];
     const conflictsBeforeGroup = conflictCount;
     primary.contacts = group.leads.flatMap((item) => item.contacts || []);
+    const stages = primary.contacts.map(contact => contact.leadStage).filter(Boolean);
+    if (stages.length) {
+      const frequencies = new Map<string, number>();
+      stages.forEach(stage => frequencies.set(stage.toLowerCase(), (frequencies.get(stage.toLowerCase()) || 0) + 1));
+      const chosen = stages.find(stage => stage.toLowerCase() === [...frequencies].sort((a, b) => b[1] - a[1])[0][0])!;
+      primary.leadStage = databaseLeadStage(chosen);
+      primary.rawRow = { ...primary.rawRow, leadStage: chosen };
+    }
     const fields = [
       'companyName', 'industry', 'country', 'description', 'headcountRaw', 'annualRevenue',
       'companyType', 'businessModel', 'productRaw', 'dealValue', 'currency', 'retentionMonths',

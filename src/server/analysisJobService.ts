@@ -67,6 +67,7 @@ export interface LeadForAnalysis {
   analysis_eligible: boolean;
   analysis_status: LeadAnalysisStatus;
   raw_row?: Record<string, unknown>;
+  lead_status?: string | null;
 }
 
 export interface ProcessBatchResult {
@@ -677,7 +678,7 @@ export function createSupabaseAnalysisJobRepository(client: SupabaseClient, serv
     async getDatasetLeads(ownerUserId, datasetId) {
       const { data, error } = await client
         .from('leads')
-        .select('id, dataset_id, owner_user_id, company_name, normalized_domain, website, industry_raw, employee_count, company_size_raw, geography, company_type_raw, business_model_raw, product_raw, notes, user_corrected_description, analysis_eligible, analysis_status')
+        .select('id, dataset_id, owner_user_id, company_name, normalized_domain, website, industry_raw, employee_count, company_size_raw, geography, company_type_raw, business_model_raw, product_raw, notes, user_corrected_description, analysis_eligible, analysis_status, raw_row, lead_status')
         .eq('dataset_id', datasetId)
         .eq('owner_user_id', ownerUserId)
         .order('created_at', { ascending: true });
@@ -700,6 +701,8 @@ export function createSupabaseAnalysisJobRepository(client: SupabaseClient, serv
         user_corrected_description: lead.user_corrected_description,
         analysis_eligible: Boolean(lead.analysis_eligible),
         analysis_status: (lead.analysis_status as LeadAnalysisStatus) || 'pending',
+        raw_row: lead.raw_row || {},
+        lead_status: lead.lead_status || null,
       }));
     },
 

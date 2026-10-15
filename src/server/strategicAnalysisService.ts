@@ -85,13 +85,7 @@ export function analyzeLeadNeedGap(
   const targetCustomers = storedIntel?.target_customers?.value || [];
 
   // Determine if there is sufficient evidence
-  const hasDescriptiveContent = Boolean(
-    effectiveDescription ||
-    (intelSummary && intelSummary !== 'unknown') ||
-    possibleNeeds.length > 0 ||
-    primaryProducts.length > 0 ||
-    (lead.website && intelligence?.websiteEvidence?.status === 'fetched')
-  );
+  const hasCompanyEvidence = Boolean(effectiveDescription || intelligence?.websiteEvidence?.status === 'fetched');
 
   const evidence: NeedGapEvidenceItem[] = [];
   const unknowns: string[] = [];
@@ -144,9 +138,10 @@ export function analyzeLeadNeedGap(
   }
 
   // 3. Case A: Insufficient evidence
-  if (!hasDescriptiveContent) {
+  if (!hasCompanyEvidence) {
     unknowns.push('Specific operational bottlenecks');
     unknowns.push('Current workflow technology architecture');
+    evidence.push({ attribute: 'offering_assumption', summary: 'Assumed from your offering; no prospect-specific need evidence.', origin: 'inferred', sourceField: 'seller_profiles' });
 
     return {
       leadId: lead.id,
@@ -154,8 +149,8 @@ export function analyzeLeadNeedGap(
       sellerOfferingId,
       currentState: 'Current operational baseline unknown due to lack of descriptive or website data.',
       idealState: 'Unknown ideal state.',
-      needGap: 'Insufficient evidence to determine business friction without company description or verified operational data.',
-      relevantProblem: 'Unsubstantiated operational friction (Insufficient Evidence)',
+      needGap: 'Assumed from your offering; prospect-specific need has not been established.',
+      relevantProblem: 'Assumed from your offering',
       problemIntensity: 'Negligible',
       motivationToChange: 'Unknown change trigger',
       involvement: 'Unknown',

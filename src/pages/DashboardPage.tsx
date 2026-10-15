@@ -12,7 +12,7 @@ import { TableShell } from '../components/ui/TableShell';
 import { EmptyState } from '../components/ui/EmptyState';
 import { formatScore, formatHeadcount } from '../lib/formatters';
 import { batchScoreLeads } from '../lib/scoring';
-import { deriveTierCounts, qualifiedSegmentIds, scoreTier } from '../lib/tiers';
+import { analyzedScores, deriveTierCounts, qualifiedSegmentIds, scoreTier } from '../lib/tiers';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -74,13 +74,14 @@ export const DashboardPage: React.FC = () => {
     return [];
   }, [scores, leads, offering, analysis, weights, isDemoMode]);
 
-  const tierCounts = deriveTierCounts(allScoredLeads);
+  const tierCounts = deriveTierCounts(allScoredLeads, isDemoMode ? undefined : leads);
+  const visibleScores = analyzedScores(allScoredLeads, isDemoMode ? undefined : leads);
   const highFitCount = tierCounts.tier1;
 
-  const topSegment = segments.find(segment => segment.targetAttractiveness !== 'Avoid' && qualifiedSegmentIds(segment.matchedLeadIds, allScoredLeads).length > 0) || null;
+  const topSegment = segments.find(segment => segment.targetAttractiveness !== 'Avoid' && qualifiedSegmentIds(segment.matchedLeadIds, visibleScores).length > 0) || null;
 
   const filteredAndSortedScores = useMemo(() => {
-    let result = [...allScoredLeads];
+    let result = [...visibleScores];
 
     // Filter by tier
     if (tierFilter !== 'all') {
@@ -107,7 +108,7 @@ export const DashboardPage: React.FC = () => {
     });
 
     return result;
-  }, [allScoredLeads, tierFilter, coverageFilter, sortBy, leads]);
+  }, [visibleScores, tierFilter, coverageFilter, sortBy, leads]);
 
   return (
     <AppLayout>
@@ -310,7 +311,7 @@ export const DashboardPage: React.FC = () => {
 
                   <div className="border-t-[2px] border-[#0A0A0A]/15 pt-4 mt-6 flex justify-between items-center">
                     <span className="text-xs font-mono text-[#0A0A0A]/60 font-medium">
-                      {allScoredLeads.length} of {totalLeads} accounts scored
+                      {tierCounts.analyzed} analyzed · {tierCounts.pending} pending of {totalLeads} accounts
                     </span>
                     <button
                       onClick={() => navigate(`/uploads/${activeDataset?.id || 'dataset-01'}`)}

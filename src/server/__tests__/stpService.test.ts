@@ -314,9 +314,17 @@ test('10. Win rate uses correct resolved-outcomes denominator and returns null w
   const outboundLeads = leads.filter((l) => l.id.startsWith('lead-outbound'));
   const outcomes = analyzeSegmentOutcomes(outboundLeads);
 
-  // 1 won out of 2 resolved = 50%
-  assert.equal(outcomes.observedWinRate, 50);
-  assert.equal(outcomes.winRateFormatted, '1/2 (50%)');
+  assert.equal(outcomes.observedWinRate, null);
+  assert.equal(outcomes.winRateFormatted, 'Awaiting 10 outcomes (2 recorded)');
+
+  const resolvedLeads: LeadForAnalysis[] = Array.from({ length: 10 }, (_, index) => ({
+    id: `resolved-${index}`, dataset_id: 'd', owner_user_id: 'u', company_name: `Company ${index}`,
+    analysis_eligible: true, analysis_status: 'completed',
+    raw_row: { leadStage: index < 6 ? 'Meeting Booked' : 'Not Interested' },
+  }));
+  const resolved = analyzeSegmentOutcomes(resolvedLeads);
+  assert.equal(resolved.observedWinRate, 60);
+  assert.equal(resolved.winRateFormatted, '6/10 (60%)');
 
   // Leads with only open status:
   const openLeads: LeadForAnalysis[] = [

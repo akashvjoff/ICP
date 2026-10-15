@@ -8,7 +8,7 @@ import { TableShell } from '../components/ui/TableShell';
 import { StatusChip } from '../components/ui/StatusChip';
 import { BrutalistButton } from '../components/ui/BrutalistButton';
 import { formatScore, formatHeadcount } from '../lib/formatters';
-import { deriveTierCounts, scoreTier } from '../lib/tiers';
+import { analyzedScores, deriveTierCounts, scoreTier } from '../lib/tiers';
 import { Search, Filter, ExternalLink, Download, ArrowUpDown } from 'lucide-react';
 
 export const CompaniesPage: React.FC = () => {
@@ -23,11 +23,12 @@ export const CompaniesPage: React.FC = () => {
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'scoreDesc' | 'scoreAsc' | 'name'>('scoreDesc');
 
+  const visibleScores = analyzedScores(scores, isDemoMode ? undefined : leads);
   const companyRows = leads.map((lead) => ({
     lead,
-    score: scores.find((score) => score.leadId === lead.id),
+    score: visibleScores.find((score) => score.leadId === lead.id),
   }));
-  const tierCounts = deriveTierCounts(scores);
+  const tierCounts = deriveTierCounts(scores, isDemoMode ? undefined : leads);
 
   const filtered = companyRows
     .filter(({ lead, score }) => {

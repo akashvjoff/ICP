@@ -630,7 +630,7 @@ app.post('/api/strategic-analysis/dataset/:datasetId/run', requireAuthenticatedU
 
     await stratRepo.assertOwnedDataset(userId, datasetId);
 
-    const leads = await jobRepo.getDatasetLeads(userId, datasetId);
+    const leads = (await jobRepo.getDatasetLeads(userId, datasetId)).filter(lead => lead.analysis_status === 'completed');
     if (!leads.length) {
       return res.status(400).json({ error: 'No company leads found in this dataset.' });
     }
@@ -758,7 +758,7 @@ app.post('/api/stp/dataset/:datasetId/run', requireAuthenticatedUser, async (req
 
     await stpRepo.assertOwnedDataset(userId, datasetId);
 
-    const leads = await jobRepo.getDatasetLeads(userId, datasetId);
+    const leads = (await jobRepo.getDatasetLeads(userId, datasetId)).filter(lead => lead.analysis_status === 'completed');
     if (!leads.length) {
       return res.status(400).json({ error: 'No company leads found in this dataset.' });
     }
@@ -935,7 +935,7 @@ app.post('/api/scoring/dataset/:datasetId/run', requireAuthenticatedUser, async 
 
     await scoringRepo.assertOwnedDataset(userId, datasetId);
 
-    const leads = await jobRepo.getDatasetLeads(userId, datasetId);
+    const leads = (await jobRepo.getDatasetLeads(userId, datasetId)).filter(lead => lead.analysis_status === 'completed');
     if (!leads.length) {
       return res.status(400).json({ error: 'No company leads found in this dataset.' });
     }
@@ -1095,10 +1095,12 @@ app.post('/api/reports/dataset/:datasetId/generate', requireAuthenticatedUser, a
     }
 
     // 5. Load or compute Lead ICP Scores
+    const analyzedLeads = leadsForAnalysis.filter(lead => lead.analysis_status === 'completed');
+    const analyzedIds = new Set(analyzedLeads.map(lead => lead.id));
     let storedScores = (await scoringRepo.getLeadScores(userId, datasetId))
-      .filter(score => score.modelVersion === CURRENT_SCORING_MODEL_VERSION);
-    if (!storedScores.length && leadsForAnalysis.length > 0) {
-      const normalizedLeads: NormalizedLead[] = leadsForAnalysis.map((l) => ({
+      .filter(score => score.modelVersion === CURRENT_SCORING_MODEL_VERSION && analyzedIds.has(score.leadId));
+    if (!storedScores.length && analyzedLeads.length > 0) {
+      const normalizedLeads: NormalizedLead[] = analyzedLeads.map((l) => ({
         id: l.id,
         companyName: l.company_name,
         domain: l.normalized_domain ?? null,
@@ -1135,7 +1137,8 @@ app.post('/api/reports/dataset/:datasetId/generate', requireAuthenticatedUser, a
       needGapSummary,
       fiveC,
       stpAnalysis,
-      storedScores
+      storedScores,
+      leadsForAnalysis
     );
 
     // 7. Persist to repository

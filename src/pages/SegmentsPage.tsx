@@ -23,7 +23,7 @@ import {
   aggregateDatasetNeedGaps,
   synthesizeDetailedFiveC,
 } from '../server/strategicAnalysisService';
-import { buildDatasetSTPAnalysis } from '../server/stpService';
+import { analyzeSegmentOutcomes, buildDatasetSTPAnalysis } from '../server/stpService';
 import {
   Users,
   Target,
@@ -157,8 +157,15 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
     } catch {}
     return computeLocalSTP();
   });
-  const tierCounts = deriveTierCounts(scores);
-  const stpAnalysis = useMemo(() => qualifiedSegmentAnalysis(storedStpAnalysis, scores), [storedStpAnalysis, scores]);
+  const tierCounts = deriveTierCounts(scores, session ? storeLeads : undefined);
+  const stpAnalysis = useMemo(() => {
+    const qualified = qualifiedSegmentAnalysis(storedStpAnalysis, scores, session ? storeLeads : undefined);
+    qualified.segments = qualified.segments.map(segment => ({
+      ...segment,
+      outcomes: analyzeSegmentOutcomes(leadsForAnalysis.filter(lead => segment.primaryCompanyIds.includes(lead.id))),
+    }));
+    return qualified;
+  }, [storedStpAnalysis, scores, session, storeLeads, leadsForAnalysis]);
 
   // Load from backend on mount
   const fetchBackendSTP = useCallback(async () => {
@@ -403,10 +410,10 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
                   ANALYZED ACCOUNTS
                 </span>
                 <div className="text-2xl font-black text-[#0A0A0A] font-mono">
-                  {stpAnalysis.totalAnalyzed}
+                  {tierCounts.analyzed}
                 </div>
                 <p className="text-[11px] font-medium text-[#0A0A0A]/70">
-                  100% evaluated leads
+                  {tierCounts.pending} pending
                 </p>
               </BrutalistCard>
 

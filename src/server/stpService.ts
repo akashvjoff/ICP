@@ -14,6 +14,7 @@ import type {
 import type { SellerProfileContext } from './strategicAnalysisService';
 import type { LeadForAnalysis } from './analysisJobService';
 import { shortProblemLabel } from '../lib/offeringGrounding';
+import { classifyLeadStage } from '../lib/leadOutcomes';
 
 export interface STPRepository {
   assertOwnedDataset(ownerUserId: string, datasetId: string): Promise<void>;
@@ -63,41 +64,20 @@ export function analyzeSegmentOutcomes(leads: LeadForAnalysis[]): SegmentOutcome
   for (const lead of leads) {
     const raw = (lead.raw_row || {}) as Record<string, unknown>;
 
-    // Check status signals across multiple potential fields
+    // The uploaded stage is authoritative; normalized lead_status is a fallback.
     const rawStatus = String(
       raw.leadStage ||
+      raw['Lead Stage'] ||
+      raw['lead stage'] ||
       raw.lead_status ||
       raw.status ||
       raw.stage ||
+      lead.lead_status ||
       ''
-    ).toLowerCase().trim();
+    );
+    const outcome = classifyLeadStage(rawStatus);
 
-    const isWon =
-      rawStatus === 'won' ||
-      rawStatus === 'closed won' ||
-      rawStatus === 'closed-won' ||
-      rawStatus === 'closed_won' ||
-      rawStatus.includes('won');
-
-    const isLost =
-      !isWon &&
-      (rawStatus === 'lost' ||
-        rawStatus === 'closed lost' ||
-        rawStatus === 'closed-lost' ||
-        rawStatus === 'closed_lost' ||
-        rawStatus.includes('lost'));
-
-    const isOpen =
-      !isWon &&
-      !isLost &&
-      (rawStatus === 'open' ||
-        rawStatus === 'opportunity' ||
-        rawStatus === 'pipeline' ||
-        rawStatus === 'contacted' ||
-        rawStatus === 'qualified' ||
-        rawStatus === 'new');
-
-    if (isWon) {
+    if (outcome === 'positive') {
       wonDeals += 1;
       const rawVal = raw.dealValue ?? raw.deal_value ?? raw.annualRevenue;
       if (typeof rawVal === 'number' && !isNaN(rawVal) && rawVal > 0) {
@@ -109,25 +89,25 @@ export function analyzeSegmentOutcomes(leads: LeadForAnalysis[]): SegmentOutcome
       }
       const reason = String(raw.reasonWonLost ?? raw.reason_won_lost ?? raw.reasonWon ?? '').trim();
       if (reason) reasonsWonSet.add(reason);
-    } else if (isLost) {
+    } else if (outcome === 'negative') {
       lostDeals += 1;
       const reason = String(raw.reasonWonLost ?? raw.reason_won_lost ?? raw.reasonLost ?? '').trim();
       if (reason) reasonsLostSet.add(reason);
-    } else if (isOpen) {
+    } else {
       openDeals += 1;
     }
   }
 
   const leadsWithKnownOutcomes = wonDeals + lostDeals;
   const observedWinRate =
-    leadsWithKnownOutcomes > 0
+    leadsWithKnownOutcomes >= 10
       ? Math.round((wonDeals / leadsWithKnownOutcomes) * 100)
       : null;
 
   const winRateFormatted =
     observedWinRate !== null
       ? `${wonDeals}/${leadsWithKnownOutcomes} (${observedWinRate}%)`
-      : 'Outcome data unavailable';
+      : leadsWithKnownOutcomes > 0 ? `Awaiting 10 outcomes (${leadsWithKnownOutcomes} recorded)` : 'Outcome data unavailable';
 
   const totalWonDealValue =
     wonDealValues.length > 0
@@ -157,18 +137,18 @@ export function analyzeSegmentOutcomes(leads: LeadForAnalysis[]): SegmentOutcome
   const warnings: string[] = [];
   if (leadsWithKnownOutcomes === 0) {
     warnings.push(
-      'ICP HYPOTHESIS: No historical closed-won or closed-lost deal records present. Segment conversion cannot be statistically validated without outcome metrics.'
+      'ICP HYPOTHESIS: No positive or negative Lead Stage outcomes are available.'
     );
   } else if (leadsWithKnownOutcomes < 10) {
     warnings.push(
-      `Small sample warning: Observed win rate is based on only ${leadsWithKnownOutcomes} resolved deals. Risk of selection bias.`
+      `Win rate will appear after 10 positive or negative Lead Stage outcomes; ${leadsWithKnownOutcomes} recorded so far.`
     );
   }
 
   const dataClassification =
-    leadsWithKnownOutcomes > 0
+    leadsWithKnownOutcomes >= 10
       ? 'CUSTOMER-BACKED SEGMENT ANALYSIS'
-      : 'ICP HYPOTHESIS — OUTCOME DATA UNAVAILABLE';
+      : leadsWithKnownOutcomes > 0 ? 'EARLY OUTCOME SIGNALS' : 'ICP HYPOTHESIS — OUTCOME DATA UNAVAILABLE';
 
   return {
     totalLeads,
@@ -255,7 +235,7 @@ export function evaluateSegmentTargeting(
       : 'Unknown';
 
   const salesRationale =
-    outcomes.leadsWithKnownOutcomes > 0
+    outcomes.leadsWithKnownOutcomes >= 10
       ? `Supported by ${segment.companyCount} accounts in cohort with ${outcomes.winRateFormatted} win rate.`
       : `Scale within uploaded sample: ${segment.companyCount} accounts (${Math.round(sampleSharePct)}%). Note: Sample share does not represent total market TAM/SAM.`;
 
@@ -320,7 +300,7 @@ export function evaluateSegmentTargeting(
 
   if (isConfidentWinner) {
     recommendationTier = 'Recommended Target';
-    recommendationRationale = `Verified primary target segment supported by statistically significant deal conversion (${outcomes.winRateFormatted}) and acute need fit.`;
+    recommendationRationale = `Primary target candidate supported by observed conversion (${outcomes.winRateFormatted}) and need fit.`;
   } else if (attractivenessScore >= 70 && segment.companyCount >= 3) {
     recommendationTier = 'Provisional Shortlist';
     recommendationRationale = `Provisional target shortlist based on problem gravity and sample scale (${segment.companyCount} accounts). Full validation requires closed-deal outcome metrics and unit cost data.`;
@@ -374,7 +354,7 @@ export function generateSegmentPositioning(
     return {
       segmentId: segment.id,
       segmentName: segment.name,
-      targetCustomer: 'Unclassified / Insufficient Evidence Cohort',
+      targetCustomer: 'Unclassified accounts with insufficient evidence',
       need: 'Unknown operational need',
       categoryPointOfParity: 'Standard compliance baseline',
       competitivePointOfParity: null,

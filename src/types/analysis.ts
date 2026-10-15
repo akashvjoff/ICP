@@ -216,7 +216,7 @@ export interface SegmentOutcomeSummary {
   averageRetentionMonths: number | null;
   reasonsWon: string[];
   reasonsLost: string[];
-  dataClassification: 'CUSTOMER-BACKED SEGMENT ANALYSIS' | 'ICP HYPOTHESIS — OUTCOME DATA UNAVAILABLE';
+  dataClassification: 'CUSTOMER-BACKED SEGMENT ANALYSIS' | 'EARLY OUTCOME SIGNALS' | 'ICP HYPOTHESIS — OUTCOME DATA UNAVAILABLE';
   warnings: string[];
 }
 
@@ -503,6 +503,7 @@ export interface ExecutiveICPReport {
   summaryMetrics: {
     totalUploaded: number;
     totalAnalyzed: number;
+    pendingCount?: number;
     tier1Count: number;
     tier2Count: number;
     tier3Count: number;

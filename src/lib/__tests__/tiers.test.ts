@@ -12,7 +12,19 @@ const scores = [
 
 test('tier counts classify Tier 4 as disqualified even when the legacy flag is false', () => {
   assert.equal(scoreTier(scores[1]), 'disqualified');
-  assert.deepEqual(deriveTierCounts(scores), { tier1: 1, tier2: 0, tier3: 1, disqualified: 1, lowData: 1 });
+  assert.deepEqual(deriveTierCounts(scores), { analyzed: 3, tier1: 1, tier2: 0, tier3: 1, disqualified: 1, lowData: 1, pending: 0 });
+});
+
+test('only completed scored companies count as analyzed', () => {
+  const leads = Array.from({ length: 53 }, (_, index) => ({
+    id: `company-${index}`,
+    analysisStatus: index < 20 ? 'completed' : 'pending',
+  }));
+  const allScores = leads.map(lead => ({ ...scores[0], leadId: lead.id }));
+  assert.deepEqual(deriveTierCounts(allScores, leads), {
+    analyzed: 20, tier1: 20, tier2: 0, tier3: 0, disqualified: 0, lowData: 0, pending: 33,
+  });
+  assert.deepEqual(qualifiedSegmentIds(['finova', 'missing', 'beacon'], scores), ['finova']);
 });
 
 test('disqualified accounts are removed from segment support and primary membership', () => {

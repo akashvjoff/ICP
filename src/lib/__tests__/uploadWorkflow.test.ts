@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { parseLeadFile, processLeadPipeline, parseEmployeeRange } from '../leadPipeline';
 import { UPLOAD_CONFIG } from '../uploadConfig';
+import { classifyLeadStage, databaseLeadStage } from '../leadOutcomes';
+
+test('uploaded lead stages distinguish positive, negative, and neutral outcomes', () => {
+  for (const stage of ['Meeting Booked', 'Qualified', 'Replied']) assert.equal(classifyLeadStage(stage), 'positive');
+  assert.equal(classifyLeadStage('Not Interested'), 'negative');
+  for (const stage of ['New', 'Contacted']) assert.equal(classifyLeadStage(stage), 'neutral');
+  assert.equal(databaseLeadStage('Meeting Booked'), 'opportunity');
+});
 
 function csvFile(contents: string, name = 'synthetic-leads.csv'): File {
   return new File([contents], name, { type: 'text/csv' });

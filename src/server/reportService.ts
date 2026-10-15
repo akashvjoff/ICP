@@ -20,9 +20,10 @@ import type {
 import type { LeadICPScore } from '../types/scoring';
 import type { SellerProfileContext } from './strategicAnalysisService';
 import type { LeadForAnalysis } from './analysisJobService';
-import { deriveTierCounts, qualifiedSegmentAnalysis } from '../lib/tiers';
+import { analyzedScores, deriveTierCounts, qualifiedSegmentAnalysis } from '../lib/tiers';
+import { analyzeSegmentOutcomes } from './stpService';
 
-export const CURRENT_REPORT_MODEL_VERSION = 'v1.5-consistent-tiers';
+export const CURRENT_REPORT_MODEL_VERSION = 'v1.6-analyzed-counts';
 
 export function sanitizeCsvCell(val: unknown): string {
   if (val === null || val === undefined) return '""';
@@ -290,7 +291,7 @@ export function buildProcessMix(
   return {
     currentVsRecommended: {
       currentStateAssumption: 'Manual ad-hoc sales cycles with variable pilot durations and unstandardized success metrics.',
-      recommendedStandardizedProcess: 'A rigid 5-stage customer journey with documented success criteria at each gate, reducing sales cycle duration and eliminating pilot stalls.',
+      recommendedStandardizedProcess: 'A five-stage customer journey with documented success criteria at each gate; measure sales cycle duration and pilot completion.',
     },
     journeyStages,
     serviceStandardizationRules: [
@@ -391,7 +392,7 @@ export function generateIntegratedActionPlan(
         ? 'Verified lead contact info, customized positioning-led outreach drafts'
         : 'Verified account pain, buyer authority, budget evidence, and offering fit',
       successMetric: tier1Leads.length > 0
-        ? '≥25% reply rate and ≥10% discovery meeting booking rate'
+        ? 'Record observed reply and discovery meeting rates'
         : 'At least one account qualifies for Tier 1 with documented evidence',
       evidenceConfidence: tier1Leads.length > 0 ? 'high' : 'low',
       dependencies: tier1Leads.length > 0
@@ -457,7 +458,7 @@ export function generateIntegratedActionPlan(
       marketingMixDimension: 'people',
       suggestedRole: 'Sales Lead',
       requiredInputs: 'Battlecards on competitive alternatives and table-stakes PoP',
-      successMetric: '100% of sales reps certified on discovery objection handling',
+      successMetric: 'Sales reps complete and document discovery objection training',
       evidenceConfidence: 'medium',
       dependencies: ['Competitive analysis completed'],
     },
@@ -519,16 +520,26 @@ export function composeExecutiveICPReport(
   needGapSummary: DatasetNeedGapSummary,
   fiveC: DetailedFiveCAnalysis,
   stpAnalysis: DatasetSTPAnalysis,
-  scoredLeads: LeadICPScore[]
+  scoredLeads: LeadICPScore[],
+  leads?: LeadForAnalysis[]
 ): ExecutiveICPReport {
-  const qualifiedStp = qualifiedSegmentAnalysis(stpAnalysis, scoredLeads);
+  const activeScores = analyzedScores(scoredLeads, leads);
+  const counts = deriveTierCounts(scoredLeads, leads ?? totalUploaded);
+  const qualifiedStp = qualifiedSegmentAnalysis(stpAnalysis, activeScores, leads);
+  if (leads) {
+    const eligibleLeads = leads.filter(lead => activeScores.some(score => score.leadId === lead.id));
+    qualifiedStp.segments = qualifiedStp.segments.map(segment => ({
+      ...segment,
+      outcomes: analyzeSegmentOutcomes(eligibleLeads.filter(lead => segment.primaryCompanyIds.includes(lead.id))),
+    }));
+  }
   const targetSeg = qualifiedStp.segments.find(segment => !segment.isInsufficientEvidenceGroup && segment.companyCount > 0) || {
     id: 'segment-01',
     name: 'Primary Candidate Segment',
     sharedProblem: seller.primaryProblemSolved || 'Operational friction',
     desiredOutcome: seller.valueProposition || 'Optimized operational workflow',
-    companyCount: scoredLeads.length,
-    datasetShare: 100,
+    companyCount: counts.analyzed - counts.disqualified,
+    datasetShare: counts.analyzed ? Math.round((counts.analyzed - counts.disqualified) / counts.analyzed * 100) : 0,
   };
 
   // Compile 7Ps marketing mix for all identified segments
@@ -545,32 +556,32 @@ export function composeExecutiveICPReport(
   }
 
   // Scoring distribution & metrics
-  const { tier1: tier1Count, tier2: tier2Count, tier3: tier3Count, disqualified: disqualifiedCount, lowData: insufficientEvidenceCount } = deriveTierCounts(scoredLeads);
+  const { tier1: tier1Count, tier2: tier2Count, tier3: tier3Count, disqualified: disqualifiedCount, lowData: insufficientEvidenceCount } = counts;
 
-  const totalCoverage = scoredLeads.reduce((acc, s) => acc + (s.evidenceCoverage ?? 100), 0);
-  const averageEvidenceCoverage = scoredLeads.length > 0 ? Math.round(totalCoverage / scoredLeads.length) : 100;
+  const totalCoverage = activeScores.reduce((acc, s) => acc + (s.evidenceCoverage ?? 100), 0);
+  const averageEvidenceCoverage = activeScores.length > 0 ? Math.round(totalCoverage / activeScores.length) : 0;
 
-  const topFitScore = scoredLeads.length > 0 ? Math.max(...scoredLeads.map((s) => s.totalScore)) : 0;
-  const totalScoreSum = scoredLeads.reduce((acc, s) => acc + s.totalScore, 0);
-  const averageFitScore = scoredLeads.length > 0 ? Number((totalScoreSum / scoredLeads.length).toFixed(1)) : 0;
+  const topFitScore = activeScores.length > 0 ? Math.max(...activeScores.map((s) => s.totalScore)) : 0;
+  const totalScoreSum = activeScores.reduce((acc, s) => acc + s.totalScore, 0);
+  const averageFitScore = activeScores.length > 0 ? Number((totalScoreSum / activeScores.length).toFixed(1)) : 0;
 
-  const actionPlan = generateIntegratedActionPlan(seller, qualifiedStp, scoredLeads);
+  const actionPlan = generateIntegratedActionPlan(seller, qualifiedStp, activeScores);
 
-  const versionFingerprint = `${datasetId}:${stpAnalysis.versionFingerprint || 'v1'}:${scoredLeads.length}:${new Date().toISOString().slice(0, 10)}`;
+  const versionFingerprint = `${datasetId}:${stpAnalysis.versionFingerprint || 'v1'}:${counts.analyzed}:${new Date().toISOString().slice(0, 10)}`;
 
   // Governed Hypothesis Classification:
   // An observed win rate >= 20% alone does NOT establish independent statistical validation.
   // We distinguish: observed sales outcomes, customer-backed evidence, provisional hypothesis, and longitudinal validation.
-  const leadsWithOutcomesCount = stpAnalysis.segments.reduce((acc, s) => acc + (s.outcomes?.leadsWithKnownOutcomes || 0), 0);
-  const totalWonDeals = stpAnalysis.segments.reduce((acc, s) => acc + (s.outcomes?.wonDeals || 0), 0);
-  const totalResolvedDeals = stpAnalysis.segments.reduce((acc, s) => acc + ((s.outcomes?.wonDeals || 0) + (s.outcomes?.lostDeals || 0)), 0);
-  const aggregateWinRate = totalResolvedDeals > 0 ? Math.round((totalWonDeals / totalResolvedDeals) * 100) : null;
-  const hasCustomerOutcomes = leadsWithOutcomesCount > 0 && totalResolvedDeals > 0;
+  const leadsWithOutcomesCount = qualifiedStp.segments.reduce((acc, s) => acc + (s.outcomes?.leadsWithKnownOutcomes || 0), 0);
+  const totalWonDeals = qualifiedStp.segments.reduce((acc, s) => acc + (s.outcomes?.wonDeals || 0), 0);
+  const totalResolvedDeals = qualifiedStp.segments.reduce((acc, s) => acc + ((s.outcomes?.wonDeals || 0) + (s.outcomes?.lostDeals || 0)), 0);
+  const aggregateWinRate = totalResolvedDeals >= 10 ? Math.round((totalWonDeals / totalResolvedDeals) * 100) : null;
+  const hasCustomerOutcomes = leadsWithOutcomesCount > 0;
 
   // By scientific standard, an ICP dossier remains an ICP Hypothesis until multi-cohort longitudinal study satisfies statistical power.
   const isProvisionalHypothesis = true;
   const governanceClassification = hasCustomerOutcomes
-    ? `CUSTOMER-BACKED ICP HYPOTHESIS (Observed Win Rate: ${aggregateWinRate ?? 0}%)`
+    ? `CUSTOMER-BACKED ICP HYPOTHESIS (${aggregateWinRate === null ? `${leadsWithOutcomesCount} recorded outcomes` : `Observed Win Rate: ${aggregateWinRate}%`})`
     : 'PROVISIONAL ICP HYPOTHESIS';
 
   return {
@@ -590,7 +601,8 @@ export function composeExecutiveICPReport(
 
     summaryMetrics: {
       totalUploaded,
-      totalAnalyzed: scoredLeads.length,
+      totalAnalyzed: counts.analyzed,
+      pendingCount: counts.pending,
       tier1Count,
       tier2Count,
       tier3Count,
@@ -636,7 +648,7 @@ export function composeExecutiveICPReport(
       },
     },
 
-    scoredLeads,
+    scoredLeads: activeScores,
     marketingMixBySegment,
     actionPlan,
 
