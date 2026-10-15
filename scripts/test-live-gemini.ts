@@ -24,7 +24,7 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 async function runGeminiAcceptanceTest() {
   console.log('================================================================');
-  console.log('ICP.MODE: RUNNING LIVE GEMINI AI ACCEPTANCE TEST');
+  console.log('FIGUREDIT: RUNNING LIVE GEMINI AI ACCEPTANCE TEST');
   console.log('================================================================');
 
   if (!apiKey || apiKey.trim() === '' || apiKey.includes('MY_GEMINI_API_KEY')) {

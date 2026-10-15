@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- MIGRATION: 20261012000002_rls_and_policies.sql
--- PROJECT: icp.mode (Stage: MVP 1)
+-- PROJECT: FiguredIt (Stage: MVP 1)
 -- DESCRIPTION: Row Level Security (RLS), Cross-Dataset Validation & Access Grants
 -- TABLES PROTECTED:
 --   1. seller_profiles

@@ -1,7 +1,7 @@
 import { runLeadPipelineTests } from '../src/lib/__tests__/leadPipeline.test';
 
 console.log('================================================================');
-console.log('ICP.MODE: RUNNING LEAD INGESTION PIPELINE TEST SUITE');
+console.log('FIGUREDIT: RUNNING LEAD INGESTION PIPELINE TEST SUITE');
 console.log('================================================================');
 
 const results = runLeadPipelineTests();

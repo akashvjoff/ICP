@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- CONSOLIDATED SQL SCHEMA FOR SUPABASE SQL EDITOR
--- PROJECT: icp.mode (Stage: MVP 1)
+-- PROJECT: FiguredIt (Stage: MVP 1)
 -- INCLUDES: Schema, Foreign Keys, Triggers, Indexes, RLS Policies, Grants
 -- ==============================================================================
 

@@ -57,6 +57,7 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
     sellerContext,
     analysis,
     scores,
+    isDemoMode,
     addToast,
   } = useAppStore();
 
@@ -303,6 +304,7 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
             <p className="text-xs sm:text-sm text-[#0A0A0A]/75 font-medium mt-1.5 max-w-2xl leading-relaxed">
               Discover the groups that share the same problems — and identify which ones your product is best positioned to serve.
             </p>
+            {isDemoMode && <span className="mt-2 inline-block rounded border-2 border-black bg-[#FFE3B3] px-2 py-1 font-mono text-xs font-black">Sample output: not a live analysis</span>}
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
@@ -449,7 +451,7 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
                   EVIDENCE CONFIDENCE
                 </span>
                 <div className="text-2xl font-black text-emerald-800 font-mono">
-                  {stpAnalysis.segments.some((s) => s.confidence === 'high') ? 'HIGH' : 'MODERATE'}
+                  {isDemoMode ? 'SAMPLE' : stpAnalysis.segments.some((s) => s.confidence === 'high') ? 'HIGH' : 'MODERATE'}
                 </div>
                 <p className="text-[11px] font-medium text-[#0A0A0A]/70">
                   Grounded hypotheses
@@ -942,8 +944,8 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
                     <StatusChip color="lime">
                       {inspectingSegment.ratioFormatted} ACCOUNTS ({inspectingSegment.datasetShare}%)
                     </StatusChip>
-                    <StatusChip color={inspectingSegment.confidence === 'high' ? 'mint' : 'peach'}>
-                      {inspectingSegment.confidence.toUpperCase()} CONFIDENCE
+                    <StatusChip color={isDemoMode ? 'peach' : inspectingSegment.confidence === 'high' ? 'mint' : 'peach'}>
+                      {isDemoMode ? 'SAMPLE' : `${inspectingSegment.confidence.toUpperCase()} CONFIDENCE`}
                     </StatusChip>
                   </div>
                   <h2 className="text-2xl font-black text-[#0A0A0A] tracking-tight mt-2">

@@ -161,7 +161,7 @@ export const UploadWizardPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'icp_mode_sample_leads_template.csv');
+    link.setAttribute('download', 'figuredit_sample_leads_template.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1159,7 +1159,7 @@ export const UploadWizardPage: React.FC = () => {
               </SectionEyebrow>
 
               <h3 className="text-2xl sm:text-3xl font-black text-[#0A0A0A]">
-                {isDemoUser ? 'Demo only: sign in to save and analyze your file' : isProcessing ? processingStage : processingError ? 'Your file was not saved' : createdDatasetId ? 'Dataset Saved & Queued' : 'Ready to save your dataset'}
+                {isDemoUser ? 'Demo only: sign in to save and analyze' : isProcessing ? processingStage : processingError ? 'Your file was not saved' : createdDatasetId ? 'Dataset Saved & Queued' : 'Ready to save your dataset'}
               </h3>
 
               <p className="text-xs text-[#0A0A0A]/70 font-medium">

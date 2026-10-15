@@ -542,7 +542,7 @@ test('20. Compatibility: Deterministic lead ICP fit scoring engine operates unch
 });
 
 
-test('21. Compatibility: Seamless integration with Prompt 10 Need Gap and 5C outputs', () => {
+test('21. Compatibility: Seamless integration with Need Gap and 5C outputs', () => {
   const leads = create20LeadSyntheticCohort();
   const needGaps = leads.map((l) => analyzeLeadNeedGap(TEST_SELLER, l));
   const summary = aggregateDatasetNeedGaps('dataset-20', needGaps, TEST_SELLER);

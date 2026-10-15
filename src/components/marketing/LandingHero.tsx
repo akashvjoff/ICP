@@ -12,12 +12,12 @@ export const LandingHero: React.FC = () => {
         {/* Floating stickers on top */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <SectionEyebrow color="bg-[#6AAAFB]">
-            AI-ASSISTED ICP DISCOVERY
+            AI-ASSISTED ANALYSIS
           </SectionEyebrow>
 
           <div className="flex items-center gap-2.5">
             <StickerBadge color="lime" rotate="-2">
-              EXPLAINABLE FIT SCORES
+              EXPLAINABLE FIT SCORE
             </StickerBadge>
             <StickerBadge color="purple" rotate="2" className="hidden sm:inline-flex">
               RULE-BASED SCORING
@@ -40,7 +40,7 @@ export const LandingHero: React.FC = () => {
 
         {/* Subhead with bold clarity */}
         <p className="text-lg sm:text-xl text-[#0A0A0A]/80 max-w-2xl font-medium leading-relaxed mb-10">
-          Find your ideal B2B customers with AI-assisted analysis and an explainable, rule-based score. Prioritize leads and plan your go-to-market strategy.
+          AI-assisted analysis with an explainable, rule-based score helps you find your ideal B2B customers. Prioritize leads and plan your go-to-market strategy.
         </p>
 
         {/* Hero Actions */}

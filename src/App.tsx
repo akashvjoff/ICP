@@ -42,7 +42,7 @@ function RouteSwitch() {
       strategy: 'Strategic analysis', icp: 'ICP report', settings: 'Settings',
     };
     document.title = path === '/'
-      ? 'FiguredIt — AI-assisted ICP discovery and explainable lead scoring'
+      ? 'FiguredIt — AI-assisted analysis with an explainable, rule-based score'
       : `${titles[segment] || 'Page not found'} | FiguredIt`;
   }, [path]);
 

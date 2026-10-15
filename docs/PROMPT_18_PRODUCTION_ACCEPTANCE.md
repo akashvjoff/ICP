@@ -1,6 +1,6 @@
 # Prompt 18 — Production acceptance and release hardening
 
-Continue the existing ICP.MODE project after Prompt 17 is deployed. Preserve the current product flow, Vowmode design, and the work from Prompts 0–17. Use the existing React, Express, Supabase, and Gemini code rather than rebuilding it.
+Continue the existing FiguredIt project after Prompt 17 is deployed. Preserve the current product flow, visual design, and the work from Prompts 0–17. Use the existing React, Express, Supabase, and Gemini code rather than rebuilding it.
 
 ## Objective
 

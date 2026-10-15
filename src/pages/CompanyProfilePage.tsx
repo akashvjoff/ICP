@@ -182,6 +182,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                 userCorrectedDescription: data.userCorrectedDescription || '',
               });
             }
+            if (data.error && !data.analysis) setAnalysisError(data.error);
             if (data.userCorrectedDescription) {
               setUserCorrectedDescription(data.userCorrectedDescription);
               setEditedDescription(data.userCorrectedDescription);
@@ -209,7 +210,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
     };
   }, [lead?.id, session?.access_token, isDemoUser]);
 
-  // 2. Run Company Intelligence (Gemini or Mock fallback in demo mode)
+  // 2. Run live company intelligence for signed-in users or an isolated sample in demo mode.
   const runCompanyIntelligence = async () => {
     if (!lead) return;
     setIsAnalyzingCompany(true);
@@ -256,13 +257,13 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
         const payroll = /payroll|pay run|salary|wage/i.test(lead.companyName + ' ' + activeDescription);
         const demoAnalysis: CompanyIntelligence = {
           company_type: { value: payroll ? 'B2B SaaS Startup' : (lead.companyType || 'Enterprise Software'), origin: 'inferred', confidence: 'medium' },
-          industry: { value: payroll ? 'HR Technology' : (lead.industry || 'Business Software'), origin: 'inferred', confidence: 'high' },
+          industry: { value: payroll ? 'HR Technology' : (lead.industry || 'Business Software'), origin: 'inferred', confidence: 'low' },
           sub_industry: { value: payroll ? 'Payroll & Compliance SaaS' : 'Operations Management Software', origin: 'inferred', confidence: 'medium' },
           business_model: { value: lead.businessModel || 'Unknown', origin: 'inferred', confidence: lead.businessModel ? 'medium' : 'low' },
           product_summary: {
             value: activeDescription || 'Automated B2B cloud software platform designed for operational scaling.',
             origin: 'inferred',
-            confidence: activeDescription ? 'high' : 'low',
+            confidence: 'low',
           },
           products: {
             value: payroll ? ['Automated Pay Runs', 'Payroll Compliance Engine', 'Tax Reporting Portal'] : ['Core Software Platform', 'Integration Connectors', 'Reporting Dashboard'],
@@ -296,12 +297,12 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
           company_size: {
             value: lead.headcount !== null ? String(lead.headcount) : 'unknown',
             origin: lead.headcount !== null ? 'inferred' : 'unknown',
-            confidence: lead.headcount !== null ? 'high' : 'low',
+            confidence: 'low',
           },
           geography: {
             value: lead.country || 'unknown',
             origin: lead.country ? 'inferred' : 'unknown',
-            confidence: lead.country ? 'high' : 'low',
+            confidence: 'low',
           },
           evidence: [
             {
@@ -311,8 +312,8 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
             },
           ],
           data_quality: {
-            completeness: 'high',
-            confidence: 'high',
+            completeness: 'low',
+            confidence: 'low',
             missing_fields: [lead.headcount === null ? 'employee_count' : '', !lead.annualRevenue ? 'annual_revenue' : ''].filter(Boolean),
             limitations: [
               'Sample analysis for exploring the app; check these findings against real company information.',
@@ -426,6 +427,9 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
 
   // Helper for origin chips
   const renderOriginChip = (origin: string, confidence?: string) => {
+    if (isDemoUser) {
+      return <span className="inline-flex items-center font-mono text-[9px] font-black uppercase bg-[#FFE3B3] border border-[#0A0A0A] px-1.5 py-0.5 rounded">SAMPLE</span>;
+    }
     switch (origin) {
       case 'uploaded':
         return (
@@ -746,7 +750,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
 
               {companyIntelligence?.cached && (
                 <span className="font-mono text-[10px] font-black uppercase text-[#0A0A0A] bg-[#FFE3B3] px-2 py-1 rounded border border-[#0A0A0A]">
-                  CACHED CONTENT MATCH
+                  PREVIOUSLY ANALYZED
                 </span>
               )}
             </div>
@@ -906,9 +910,9 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-[#0A0A0A]/70">SOURCE MODE:</span>
+                  <span className="font-mono text-xs font-bold text-[#0A0A0A]/70">EVIDENCE:</span>
                   <StatusChip color="lavender">
-                    {companyIntelligence.provider === 'mock-local' ? 'SAMPLE DATA' : companyIntelligence.sourceMode.toUpperCase()}
+                    {companyIntelligence.provider === 'mock-local' ? 'SAMPLE DATA' : companyIntelligence.sourceMode === 'both' ? 'UPLOAD + WEBSITE' : companyIntelligence.sourceMode === 'public_website' ? 'PUBLIC WEBSITE' : 'UPLOADED DETAILS'}
                   </StatusChip>
                 </div>
               </div>
@@ -922,9 +926,9 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                         EXTRACTION STATUS:
                       </span>
                       <StatusChip
-                        color={companyIntelligence.websiteEvidence.source === 'sample' ? 'peach' : companyIntelligence.websiteEvidence.status === 'fetched' ? 'mint' : 'pink'}
+                        color={companyIntelligence.websiteEvidence.source === 'sample' ? 'peach' : companyIntelligence.websiteEvidence.source === 'live' && companyIntelligence.websiteEvidence.status === 'fetched' ? 'mint' : 'pink'}
                       >
-                        {companyIntelligence.websiteEvidence.source === 'sample' ? 'SAMPLE' : companyIntelligence.websiteEvidence.status.toUpperCase()}
+                        {companyIntelligence.websiteEvidence.source === 'sample' ? 'SAMPLE' : companyIntelligence.websiteEvidence.status === 'fetched' && companyIntelligence.websiteEvidence.source !== 'live' ? 'UNVERIFIED' : companyIntelligence.websiteEvidence.status.toUpperCase()}
                       </StatusChip>
                     </div>
 
@@ -1054,8 +1058,8 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                     ? 'ASSUMED FROM YOUR OFFERING'
                     : `${richNeedGap.problemIntensity.toUpperCase()} NEED GAP`}
                 </StatusChip>
-                <StatusChip color={richNeedGap.confidence === 'high' ? 'mint' : richNeedGap.confidence === 'medium' ? 'peach' : 'pink'}>
-                  {richNeedGap.confidence.toUpperCase()} CONFIDENCE
+                <StatusChip color={isDemoUser ? 'peach' : richNeedGap.confidence === 'high' ? 'mint' : richNeedGap.confidence === 'medium' ? 'peach' : 'pink'}>
+                  {isDemoUser ? 'SAMPLE' : `${richNeedGap.confidence.toUpperCase()} CONFIDENCE`}
                 </StatusChip>
               </div>
             </div>

@@ -221,6 +221,9 @@ export const StrategicAnalysisPage: React.FC<{ params?: { id?: string } }> = ({ 
 
   // Provenance chip renderer
   const renderOriginChip = (origin: EvidenceOrigin) => {
+    if (isDemoMode) {
+      return <span className="font-mono text-[9px] font-black uppercase bg-[#FFE3B3] text-amber-950 px-2 py-0.5 rounded border border-amber-950">SAMPLE</span>;
+    }
     switch (origin) {
       case 'verified':
         return (
@@ -263,8 +266,9 @@ export const StrategicAnalysisPage: React.FC<{ params?: { id?: string } }> = ({ 
               Strategic Marketing Analysis
             </h1>
             <p className="text-xs text-[#0A0A0A]/70 font-medium mt-1 max-w-2xl leading-relaxed">
-              Phase 1: Need Gap Analysis (Current vs. Ideal State) &amp; Phase 2: 5C Stakeholder Feasibility. Outputs strictly feed subsequent STP segmentation.
+              See where your offering may help each account, what evidence supports it, and what still needs validation.
             </p>
+            {isDemoMode && <span className="mt-2 inline-block rounded border-2 border-black bg-[#FFE3B3] px-2 py-1 font-mono text-xs font-black">Sample output: not a live analysis</span>}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0 self-start sm:self-auto">
@@ -677,8 +681,8 @@ export const StrategicAnalysisPage: React.FC<{ params?: { id?: string } }> = ({ 
                           RESEARCH REQUIRED
                         </StickerBadge>
                       )}
-                      <StatusChip color={dim.confidence === 'high' ? 'mint' : dim.confidence === 'medium' ? 'peach' : 'pink'}>
-                        {dim.confidence.toUpperCase()} CONFIDENCE
+                      <StatusChip color={isDemoMode ? 'peach' : dim.confidence === 'high' ? 'mint' : dim.confidence === 'medium' ? 'peach' : 'pink'}>
+                        {isDemoMode ? 'SAMPLE' : `${dim.confidence.toUpperCase()} CONFIDENCE`}
                       </StatusChip>
                       <button className="p-1 hover:bg-black/10 rounded cursor-pointer">
                         {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}

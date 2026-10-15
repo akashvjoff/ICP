@@ -1,10 +1,10 @@
-# DESIGN SYSTEM: ICP.MODE
+# DESIGN SYSTEM: FIGUREDIT
 **Aesthetic Heritage: Vowmode-Inspired Neo-Brutalist & Editorial Precision**
 
 ---
 
 ## 1. Aesthetic Thesis & Core Philosophy
-`icp.mode` adopts the authentic visual character of Vowmode (`vowmode.ai.studio`):
+FiguredIt uses a bold visual style:
 - **Neo-brutalist, playful, editorial, bold, premium, and exceptionally well organized.**
 - It feels like a high-quality, thoughtfully designed startup product—never a default AI dashboard.
 
@@ -86,7 +86,7 @@
 ## 5. Navigation Contract (AppNavbar)
 - Top border-heavy horizontal navbar (`3px solid #0A0A0A`):
   - **Left**: Small lime square (`w-3.5 h-3.5 bg-[#A1F000] border-2 border-[#0A0A0A]`) + `"THE CUSTOMER-FIT ENGINE"`
-  - **Center**: `icp.mode` wordmark (heavy black font 900, tight tracking)
+  - **Center**: FiguredIt wordmark (heavy black font 900, tight tracking)
   - **Right**: Outlined/lime `"MY DASHBOARD →"` button with hard offset black shadow
   - Graceful collapse into a bold mobile dropdown menu on small screens.
 

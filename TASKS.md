@@ -1,4 +1,4 @@
-# TASKS & MILESTONE TRACKER: ICP.MODE
+# TASKS & MILESTONE TRACKER: FIGUREDIT
 **Stage: MVP 1 Roadmap**  
 **Status: Visual Design System Implemented / Foundation Active**
 

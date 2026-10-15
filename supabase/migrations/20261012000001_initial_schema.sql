@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- MIGRATION: 20261012000001_initial_schema.sql
--- PROJECT: icp.mode (Stage: MVP 1)
+-- PROJECT: FiguredIt (Stage: MVP 1)
 -- DESCRIPTION: Core Relational Schema for ICP Intelligence Engine
 -- TABLES:
 --   1. seller_profiles

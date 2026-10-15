@@ -1,12 +1,12 @@
-# ARCHITECTURE DECISION RECORDS (ADRs): ICP.MODE
+# ARCHITECTURE DECISION RECORDS (ADRs): FIGUREDIT
 **Stage: MVP 1**
 
 ---
 
 ### ADR-001: Node.js Express Runtime with Vite Middlewares & Server-Side Gemini Proxy
 - **Status**: Accepted
-- **Context**: The app requires both rich interactive client state (React 19) and secure AI inference with `@google/genai`. Client-side API key exposure is strictly prohibited by security rules.
-- **Decision**: Use a single Node.js Express server (`server.ts`) running on port 3000 that mounts Vite middlewares in development. All Gemini calls run server-side via `/api/ai/*` routes with `User-Agent: aistudio-build`.
+- **Context**: The app requires both rich interactive client state (React 19) and secure server-side AI inference. Client-side API key exposure is strictly prohibited by security rules.
+- **Decision**: Use a single Node.js Express server (`server.ts`) running on port 3000 that mounts Vite middlewares in development. All Gemini calls run server-side via `/api/ai/*` routes.
 - **Consequence**: Secure environment variable handling, zero client key leakage, and seamless AI Studio preview deployment.
 
 ---
@@ -49,7 +49,7 @@
 
 ### ADR-006: Vowmode Neo-Brutalist Light Editorial Visual System
 - **Status**: Accepted
-- **Context**: The user specified: "TASK: Implement the complete visual design system for ICP.MODE. The attached Vowmode screenshot is the PRIMARY reference. Follow its visual character closely, but create original ICP-related branding and components. Neo-brutalist, playful, editorial, bold, premium, and exceptionally well organized."
+- **Context**: The user specified a bold editorial visual system for FiguredIt, with original ICP branding and components.
 - **Decision**: Adopt the full Vowmode visual language:
   - Warm ivory canvas (`#F9F8F4`) with faint repeating gradient CSS checkerboard texture
   - 3px solid `#0A0A0A` borders with hard offset black shadows (`4px 5px 0 #0A0A0A` / `6px 7px 0 #0A0A0A`)

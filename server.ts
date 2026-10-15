@@ -659,7 +659,7 @@ app.post('/api/ai/classify-company', requireAuthenticatedUser, async (req: Authe
   }
 });
 
-// Strategic Marketing Analysis: Need Gap & 5C Cohort Engine (Prompt 10)
+// Strategic Marketing Analysis: Need Gap & 5C Cohort Engine
 // ------------------------------------------------------------------------------
 
 // Get saved dataset strategic analysis

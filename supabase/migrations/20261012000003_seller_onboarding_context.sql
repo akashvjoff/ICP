@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- MIGRATION: 20261012000003_seller_onboarding_context.sql
--- PROJECT: icp.mode (Stage: MVP 1)
+-- PROJECT: FiguredIt (Stage: MVP 1)
 -- DESCRIPTION: Extends seller_profiles with structured onboarding_data JSONB
 -- ==============================================================================
 

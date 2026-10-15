@@ -1,6 +1,6 @@
 # Prompt 19 — Registration, live STP persistence, and recovery-state hardening
 
-Continue the deployed ICP.MODE application after Prompt 18. Preserve the existing product flow, Vowmode visual system, React/Express architecture, Supabase workspace isolation, Gemini analysis, and deterministic scoring.
+Continue the deployed FiguredIt application after Prompt 18. Preserve the existing product flow, visual system, React/Express architecture, Supabase workspace isolation, Gemini analysis, and deterministic scoring.
 
 ## Objective
 

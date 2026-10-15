@@ -14,7 +14,7 @@ export const TermsPage: React.FC = () => (
         </section>
         <section>
           <h2 className="mb-2 text-xl font-bold">Analysis and scores</h2>
-          <p>FiguredIt uses AI-assisted analysis and an explainable, rule-based score to help you explore potential customers. The findings are hypotheses and do not guarantee sales, revenue, or any other outcome.</p>
+          <p>FiguredIt uses AI-assisted analysis with an explainable, rule-based score to help you explore potential customers. The findings are hypotheses and do not guarantee sales, revenue, or any other outcome.</p>
         </section>
         <section>
           <h2 className="mb-2 text-xl font-bold">Your account and data</h2>

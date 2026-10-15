@@ -513,7 +513,7 @@ export function buildDatasetSTPAnalysis(
   const insufficientEvidenceCompanyIds = Array.from(insufficientLeadIdsSet);
 
   // 2. Identify patterns and map company memberships
-  // We use existing NeedGapPattern[] from Prompt 10
+  // Use the existing need-gap patterns.
   const topPatterns = needGapSummary.topNeedPatterns || [];
 
   // Lead lookup map

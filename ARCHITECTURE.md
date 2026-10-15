@@ -1,4 +1,4 @@
-# ARCHITECTURE: ICP.MODE
+# ARCHITECTURE: FIGUREDIT
 **Stage: MVP 1**  
 **Full-Stack Architecture & Component Topology**
 

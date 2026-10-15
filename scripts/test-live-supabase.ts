@@ -54,7 +54,7 @@ async function getOrCreateTestUser(client: any, email: string, pass: string, onC
 
 async function runLiveAcceptanceTest() {
   console.log('================================================================');
-  console.log('ICP.MODE: RUNNING LIVE SUPABASE ACCEPTANCE & ISOLATION TEST');
+  console.log('FIGUREDIT: RUNNING LIVE SUPABASE ACCEPTANCE & ISOLATION TEST');
   console.log(`Target Project Ref: ${expectedProjectRef}`);
   console.log('================================================================');
 

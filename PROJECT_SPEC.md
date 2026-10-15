@@ -1,16 +1,16 @@
-# PROJECT SPECIFICATION: ICP.MODE
+# PROJECT SPECIFICATION: FIGUREDIT
 **Stage: MVP 1**  
 **Classification: B2B Strategic GTM & ICP Discovery Platform**
 
 ---
 
 ## 1. Executive Summary & Thesis
-`icp.mode` is a specialized intelligence platform engineered for B2B founders, growth leaders, GTM consultants, and agencies who possess raw company lead lists but struggle to discover, validate, and prioritize their true **Ideal Customer Profile (ICP)**.
+FiguredIt is a specialized intelligence platform engineered for B2B founders, growth leaders, GTM consultants, and agencies who possess raw company lead lists but struggle to discover, validate, and prioritize their true **Ideal Customer Profile (ICP)**.
 
-Unlike superficial firmographic enrichment tools that merely group accounts by employee size or high-level industry labels, `icp.mode` applies rigorous classical strategic marketing frameworks (**Need Gap Analysis**, **5C / Stakeholder Analysis**, **STP - Segmentation, Targeting, Positioning**, and **Marketing Mix**) combined with a **deterministic scoring engine** to generate mathematically explainable ICP fits.
+Unlike superficial firmographic enrichment tools that merely group accounts by employee size or high-level industry labels, FiguredIt applies rigorous classical strategic marketing frameworks (**Need Gap Analysis**, **5C / Stakeholder Analysis**, **STP - Segmentation, Targeting, Positioning**, and **Marketing Mix**) combined with a **deterministic scoring engine** to generate mathematically explainable ICP fits.
 
 ### Core Tenet: Hypothesis vs. Validated ICP
-A raw lead list without closed-won / closed-lost historical conversion outcomes can **only** yield an **ICP Hypothesis**. `icp.mode` strictly enforces this distinction in all reporting and analytics: accounts are evaluated against theoretical strategic alignment until actual deal velocity, win rates, and retention data validate the cohort.
+A raw lead list without closed-won / closed-lost historical conversion outcomes can **only** yield an **ICP Hypothesis**. FiguredIt strictly enforces this distinction in all reporting and analytics: accounts are evaluated against theoretical strategic alignment until actual deal velocity, win rates, and retention data validate the cohort.
 
 ---
 
@@ -79,6 +79,6 @@ A raw lead list without closed-won / closed-lost historical conversion outcomes 
 - **Frontend**: React 19, TypeScript, Tailwind CSS v4, Motion, Lucide React
 - **Backend / Runtime**: Node.js with Express, tsx runtime, Vite middlewares
 - **Database & Auth**: Supabase PostgreSQL + Supabase Auth (with zero-credential demo sandbox fallback)
-- **AI Core**: Google Gemini API (`@google/genai` via server-side Express proxy with `User-Agent: aistudio-build`)
+- **AI Core**: Google Gemini API through the server-side Express proxy
 - **Parsing**: PapaParse for CSV ingestion and client/server data hygiene
 - **Hosting & Deployability**: Node.js container / Cloud Run / AI Studio preview compatible
