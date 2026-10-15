@@ -45,11 +45,11 @@ import {
   resumeJob,
   cancelJob,
   retryFailedLeads,
-  processBatch,
   calculateJobProgress,
   type AnalysisJobRepository,
   type LeadForAnalysis,
 } from './src/server/analysisJobService.ts';
+import { startAnalysisWorker } from './src/server/analysisWorker.ts';
 import {
   analyzeLeadNeedGap,
   toScoringNeedGap,
@@ -117,6 +117,17 @@ function getCompanyAnalyzer() {
   return companyAnalyzer;
 }
 
+async function reserveDailyCompany(ownerUserId: string): Promise<boolean> {
+  if (!serverSupabase || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('AI budget service is unavailable.');
+  const configuredLimit = Number.parseInt(process.env.AI_DAILY_COMPANIES_PER_USER || '200', 10);
+  const limit = Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : 200;
+  const { data, error } = await serverSupabase.rpc('reserve_ai_daily_company', {
+    p_owner_user_id: ownerUserId, p_limit: limit,
+  });
+  if (error) throw error;
+  return data === true;
+}
+
 function createUserScopedSupabase(accessToken: string): SupabaseClient {
   return createScopedSupabaseClient(supabaseUrl, supabaseAnonKey, accessToken);
 }
@@ -177,6 +188,13 @@ function getJobRepository(req: AuthenticatedRequest): AnalysisJobRepository {
     return createSupabaseAnalysisJobRepository(scopedClient);
   }
   return inMemoryJobRepository;
+}
+
+function getWritableJobRepository(req: AuthenticatedRequest): AnalysisJobRepository {
+  if (req.accessToken && req.accessToken !== 'demo-token' && serverSupabase && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createSupabaseAnalysisJobRepository(serverSupabase);
+  }
+  return getJobRepository(req);
 }
 
 function getCompanyAnalysisRepository(req: AuthenticatedRequest) {
@@ -278,7 +296,7 @@ app.post('/api/uploads', requireAuthenticatedUser, async (req: AuthenticatedRequ
       return res.status(403).json({ error: 'Your Free workspace already has a dataset.' });
     }
     const result = await persistPreparedUpload(
-      createSupabaseUploadRepository(scopedClient),
+      createSupabaseUploadRepository(serverSupabase || scopedClient),
       req.user!.id,
       prepared
     );
@@ -372,6 +390,9 @@ app.post('/api/ai/company-intelligence', requireAuthenticatedUser, async (req: A
       publicWebsiteFetchedAt: websiteEvidence.status === 'fetched' ? websiteEvidence.fetchedAt || undefined : undefined,
       publicWebsiteFetchStatus: websiteEvidence.status,
     };
+    if (!(await reserveDailyCompany(req.user!.id))) {
+      return res.status(429).json({ error: 'Daily company analysis budget reached. Try again tomorrow.', code: 'DAILY_BUDGET' });
+    }
     const result = await analyzeCompanyWithCache(
       createSupabaseCompanyAnalysisRepository(scopedClient),
       getCompanyAnalyzer(),
@@ -449,7 +470,7 @@ app.patch('/api/ai/company-intelligence/:leadId/description', requireAuthenticat
 // 1. Start an analysis job
 app.post('/api/analysis-jobs/:id/start', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const jobRepo = getJobRepository(req);
+    const jobRepo = getWritableJobRepository(req);
     const job = await startJob(jobRepo, req.user!.id, req.params.id);
     const progress = calculateJobProgress(job);
     return res.json({ success: true, job, progress });
@@ -459,36 +480,9 @@ app.post('/api/analysis-jobs/:id/start', requireAuthenticatedUser, async (req: A
   }
 });
 
-// 2. Process the next batch
-app.post('/api/analysis-jobs/:id/process-batch', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const jobRepo = getJobRepository(req);
-    const analysisRepo = getCompanyAnalysisRepository(req);
-    const analyzer = getCompanyAnalyzer();
-    const batchSize = typeof req.body?.batchSize === 'number' ? req.body.batchSize : 3;
-    const enrichWebsite = Boolean(req.body?.enrichWebsite);
-    const sellerContext = req.body?.sellerContext && typeof req.body.sellerContext === 'object' ? req.body.sellerContext : undefined;
-
-    const result = await processBatch(jobRepo, analysisRepo, analyzer, req.user!.id, req.params.id, {
-      batchSize,
-      enrichWebsite,
-      sellerContext,
-    });
-    const progress = calculateJobProgress(result.job);
-
-    return res.json({
-      success: true,
-      job: result.job,
-      processedLeads: result.processedLeads,
-      remainingCount: result.remainingCount,
-      quotaExceeded: result.quotaExceeded || false,
-      progress,
-      message: result.message,
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Batch processing failed.';
-    return res.status(500).json({ error: msg });
-  }
+// Browser clients cannot drive or override server-side analysis batches.
+app.post('/api/analysis-jobs/:id/process-batch', requireAuthenticatedUser, (_req: AuthenticatedRequest, res: Response) => {
+  return res.status(410).json({ error: 'Analysis batches now run automatically on the server.' });
 });
 
 // 3. Get job status
@@ -512,7 +506,7 @@ app.get('/api/analysis-jobs/by-dataset/:datasetId', requireAuthenticatedUser, as
     if (isSupabaseConfigured) {
       await getStrategicAnalysisRepository(req).assertOwnedDataset(req.user!.id, req.params.datasetId);
     }
-    const jobRepo = getJobRepository(req);
+    const jobRepo = getWritableJobRepository(req);
     let job = await jobRepo.getJobByDataset(req.user!.id, req.params.datasetId);
     const leads = await jobRepo.getDatasetLeads(req.user!.id, req.params.datasetId);
 
@@ -532,7 +526,7 @@ app.get('/api/analysis-jobs/by-dataset/:datasetId', requireAuthenticatedUser, as
 // 5. Pause processing
 app.post('/api/analysis-jobs/:id/pause', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const jobRepo = getJobRepository(req);
+    const jobRepo = getWritableJobRepository(req);
     const job = await pauseJob(jobRepo, req.user!.id, req.params.id);
     const progress = calculateJobProgress(job);
     return res.json({ success: true, job, progress });
@@ -545,7 +539,7 @@ app.post('/api/analysis-jobs/:id/pause', requireAuthenticatedUser, async (req: A
 // 6. Resume processing
 app.post('/api/analysis-jobs/:id/resume', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const jobRepo = getJobRepository(req);
+    const jobRepo = getWritableJobRepository(req);
     const job = await resumeJob(jobRepo, req.user!.id, req.params.id);
     const progress = calculateJobProgress(job);
     return res.json({ success: true, job, progress });
@@ -558,7 +552,7 @@ app.post('/api/analysis-jobs/:id/resume', requireAuthenticatedUser, async (req: 
 // 7. Retry failed leads
 app.post('/api/analysis-jobs/:id/retry-failed', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const jobRepo = getJobRepository(req);
+    const jobRepo = getWritableJobRepository(req);
     const job = await retryFailedLeads(jobRepo, req.user!.id, req.params.id);
     const progress = calculateJobProgress(job);
     return res.json({ success: true, job, progress });
@@ -571,7 +565,7 @@ app.post('/api/analysis-jobs/:id/retry-failed', requireAuthenticatedUser, async 
 // 8. Cancel processing
 app.post('/api/analysis-jobs/:id/cancel', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const jobRepo = getJobRepository(req);
+    const jobRepo = getWritableJobRepository(req);
     const job = await cancelJob(jobRepo, req.user!.id, req.params.id);
     const progress = calculateJobProgress(job);
     return res.json({ success: true, job, progress });
@@ -592,6 +586,9 @@ app.post('/api/ai/classify-company', requireAuthenticatedUser, async (req: Authe
       return res.status(400).json({ error: 'companyName and domain must not exceed 255 characters.' });
     }
 
+    if (!(await reserveDailyCompany(req.user!.id))) {
+      return res.status(429).json({ error: 'Daily company analysis budget reached. Try again tomorrow.' });
+    }
     const classification = await classifyCompanyWithAI(companyName, domain, String(description || ''), industry);
     res.json({ success: true, classification });
   } catch (error) {
@@ -1301,6 +1298,9 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[FiguredIt] Server listening on http://0.0.0.0:${PORT}`);
   });
+  if (serverSupabase && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    startAnalysisWorker(serverSupabase);
+  }
 }
 
 startServer().catch((err) => {

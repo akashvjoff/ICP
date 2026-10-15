@@ -215,7 +215,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
         const jobByDataset = new Map(jobs.map((job) => [job.dataset_id, job]));
         const mappedDatasets: DatasetMeta[] = savedDatasets.map((dataset) => {
           const job = jobByDataset.get(dataset.id);
-          const complete = job?.status === 'completed' || job?.status === 'completed_with_errors';
+          const complete = job?.status === 'done' || job?.status === 'completed' || job?.status === 'completed_with_errors';
           return {
             id: dataset.id,
             filename: dataset.original_filename,

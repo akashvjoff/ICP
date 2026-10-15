@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
@@ -36,7 +36,6 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
     datasets,
     leads: storeLeads,
     scores,
-    sellerContext,
     isDemoMode,
     addToast,
     updateDatasetProgress,
@@ -105,12 +104,6 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [quotaWarning, setQuotaWarning] = useState<boolean>(false);
-  const [batchSize, setBatchSize] = useState<number>(3);
-
-  // Execution refs to prevent race conditions or duplicate batch calls
-  const isLoopActiveRef = useRef<boolean>(false);
-  const isBatchInFlightRef = useRef<boolean>(false);
 
   // Sync to localStorage for resilient refresh recovery in demo mode
   const persistJobCheckpoint = useCallback((updatedJob: AnalysisJobRecord, updatedLeads?: NormalizedLead[]) => {
@@ -126,10 +119,10 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
   // Load latest server state on mount
   useEffect(() => {
     let isMounted = true;
-    async function fetchServerState() {
-      setIsLoading(true);
+    async function fetchServerState(initial = false) {
+      if (initial) setIsLoading(true);
       try {
-        const token = session?.access_token || 'demo-token';
+        const token = session?.access_token ? await freshAccessToken() : 'demo-token';
         const response = await fetch(`/api/analysis-jobs/by-dataset/${datasetId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -141,9 +134,11 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
           if (data.job) {
             setJob(data.job);
             persistJobCheckpoint(data.job);
+            updateDatasetProgress(datasetId, data.progress?.percent ?? 0,
+              data.job.status === 'done' || data.job.status === 'completed' ? 'Completed' : 'Processing');
           }
           if (Array.isArray(data.leads)) {
-            setDatasetLeads(data.leads.map((lead: {
+            const nextLeads: NormalizedLead[] = data.leads.map((lead: {
               id: string; company_name: string; normalized_domain: string | null; website: string | null;
               industry_raw: string | null; employee_count: number | null; annual_revenue: number | null;
               notes: string | null; geography: string | null; analysis_eligible: boolean;
@@ -155,148 +150,32 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
               description: lead.notes || '', country: lead.geography || '', technologies: [],
               isClean: true, isAiEnriched: lead.analysis_eligible,
               analysisStatus: lead.analysis_status || 'pending', ingestedAt: lead.created_at,
-            })));
+            }));
+            setDatasetLeads(nextLeads);
+            updateLeadAnalysisStatuses(Object.fromEntries(nextLeads.map(lead => [lead.id, lead.analysisStatus || 'pending'])));
           }
         }
       } catch (err) {
         console.warn('[DatasetDetails] Server sync warning, using local checkpoint:', err);
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (initial && isMounted) setIsLoading(false);
       }
     }
 
-    void fetchServerState();
+    void fetchServerState(true);
+    const timer = setInterval(() => { if (session?.access_token) void fetchServerState(); }, 4000);
 
     return () => {
       isMounted = false;
-      isLoopActiveRef.current = false;
+      clearInterval(timer);
     };
   }, [datasetId, session?.access_token, persistJobCheckpoint]);
-
-  // ----------------------------------------------------------------------------
-  // BROWSER-DRIVEN SUCCESSIVE BATCH LOOP (Prompt 9 Architecture)
-  // ----------------------------------------------------------------------------
-  const processNextBatch = useCallback(async () => {
-    if (isBatchInFlightRef.current || !isLoopActiveRef.current) return;
-    isBatchInFlightRef.current = true;
-
-    try {
-      const token = session?.access_token ? await freshAccessToken() : 'demo-token';
-      const response = await fetch(`/api/analysis-jobs/${job.id}/process-batch`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          batchSize,
-          enrichWebsite: false,
-          sellerContext,
-        }),
-      });
-
-      if (!response.ok) {
-        const errPayload = await response.json().catch(() => ({}));
-        throw new Error(errPayload.error || `Server responded with ${response.status}`);
-      }
-
-      const data = await response.json();
-      const updatedJob: AnalysisJobRecord = data.job;
-
-      // Update lead statuses from the batch response
-      let nextLeads: NormalizedLead[] = datasetLeads;
-      if (Array.isArray(data.processedLeads) && data.processedLeads.length > 0) {
-        const processedMap = new Map<string, LeadAnalysisStatus>(
-          data.processedLeads.map((pl: { id: string; status: LeadAnalysisStatus }) => [pl.id, pl.status])
-        );
-
-        nextLeads = datasetLeads.map((l): NormalizedLead => {
-          const newStatus = processedMap.get(l.id);
-          return newStatus ? { ...l, analysisStatus: newStatus } : l;
-        });
-
-        setDatasetLeads(nextLeads);
-
-        // Update central store
-        const statusMapRecord: Record<string, LeadAnalysisStatus> = {};
-        for (const pl of data.processedLeads) {
-          statusMapRecord[pl.id] = pl.status;
-        }
-        updateLeadAnalysisStatuses(statusMapRecord);
-      }
-
-      setJob(updatedJob);
-      persistJobCheckpoint(updatedJob, nextLeads);
-
-      const percent = updatedJob.total_count > 0
-        ? Math.min(100, Math.round((updatedJob.completed_count / updatedJob.total_count) * 100))
-        : 100;
-      updateDatasetProgress(
-        datasetId,
-        percent,
-        updatedJob.status === 'completed' ? 'Completed' : 'Processing'
-      );
-
-      // Handle Quota Exhaustion
-      if (data.quotaExceeded) {
-        setQuotaWarning(true);
-        isLoopActiveRef.current = false;
-        setErrorMessage('AI rate limit or free tier quota reached. Job has paused safely. Resume when quota resets.');
-        addToast('AI rate limit reached. Progress preserved. Processing paused gracefully.', 'warning');
-        return;
-      }
-
-      // Check termination conditions
-      if (
-        updatedJob.status === 'completed' ||
-        updatedJob.status === 'completed_with_errors' ||
-        updatedJob.status === 'failed' ||
-        updatedJob.status === 'paused' ||
-        updatedJob.status === 'cancelled' ||
-        data.remainingCount === 0
-      ) {
-        isLoopActiveRef.current = false;
-        if (updatedJob.status === 'completed') {
-          addToast(`Batch analysis completed! All ${updatedJob.completed_count} companies analyzed.`, 'success');
-        } else if (updatedJob.status === 'completed_with_errors') {
-          addToast(`Analysis finished with ${updatedJob.failed_count} failure(s).`, 'warning');
-        }
-        return;
-      }
-
-      // If more pending leads remain and job is running, schedule next batch
-      if (isLoopActiveRef.current && data.remainingCount > 0) {
-        setTimeout(() => {
-          void processNextBatch();
-        }, 200);
-      }
-    } catch (err) {
-      isLoopActiveRef.current = false;
-      const msg = err instanceof Error ? err.message : 'Batch processing encountered a network error.';
-      setErrorMessage(msg);
-      addToast(msg, 'warning');
-    } finally {
-      isBatchInFlightRef.current = false;
-    }
-  }, [
-    job.id,
-    batchSize,
-    sellerContext,
-    session?.access_token,
-    datasetLeads,
-    datasetId,
-    persistJobCheckpoint,
-    updateDatasetProgress,
-    updateLeadAnalysisStatuses,
-    addToast,
-  ]);
 
   // ----------------------------------------------------------------------------
   // USER ACTIONS
   // ----------------------------------------------------------------------------
   const handleStartAnalysis = async () => {
     setErrorMessage(null);
-    setQuotaWarning(false);
     setIsLoading(true);
 
     try {
@@ -318,12 +197,8 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
       setJob(data.job);
       persistJobCheckpoint(data.job);
 
-      addToast(`Batch analysis started for ${job.total_count} companies (batch size: ${batchSize}).`, 'info');
-      isLoopActiveRef.current = true;
+      addToast(`Analysis started for ${job.total_count} companies. It continues if you close this tab.`, 'info');
       setIsLoading(false);
-
-      // Begin successive batch loop
-      void processNextBatch();
     } catch (err) {
       setIsLoading(false);
       const msg = err instanceof Error ? err.message : 'Unable to start job.';
@@ -333,7 +208,6 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
   };
 
   const handlePause = async () => {
-    isLoopActiveRef.current = false;
     setIsLoading(true);
     try {
       const token = session?.access_token ? await freshAccessToken() : 'demo-token';
@@ -361,7 +235,6 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
 
   const handleResume = async () => {
     setErrorMessage(null);
-    setQuotaWarning(false);
     setIsLoading(true);
     try {
       const token = session?.access_token ? await freshAccessToken() : 'demo-token';
@@ -383,10 +256,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
       persistJobCheckpoint(data.job);
 
       addToast('Analysis resumed from saved checkpoint.', 'info');
-      isLoopActiveRef.current = true;
       setIsLoading(false);
-
-      void processNextBatch();
     } catch (err) {
       setIsLoading(false);
       const msg = err instanceof Error ? err.message : 'Unable to resume job.';
@@ -397,7 +267,6 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
 
   const handleRetryFailed = async () => {
     setErrorMessage(null);
-    setQuotaWarning(false);
     setIsLoading(true);
     try {
       const token = session?.access_token ? await freshAccessToken() : 'demo-token';
@@ -425,10 +294,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
       persistJobCheckpoint(data.job, nextLeads);
 
       addToast('Failed companies reset to pending. Retrying analysis now...', 'info');
-      isLoopActiveRef.current = true;
       setIsLoading(false);
-
-      void processNextBatch();
     } catch (err) {
       setIsLoading(false);
       const msg = err instanceof Error ? err.message : 'Unable to retry.';
@@ -438,7 +304,6 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
   };
 
   const handleCancel = async () => {
-    isLoopActiveRef.current = false;
     setIsLoading(true);
     try {
       const token = session?.access_token ? await freshAccessToken() : 'demo-token';
@@ -469,9 +334,10 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
   const percentCompleted = job.total_count > 0
     ? Math.min(100, Math.round((job.completed_count / job.total_count) * 100))
     : 100;
-  const inFlightCount = job.status === 'running' ? Math.min(batchSize, remainingCount) : 0;
-  const recoveryGuidance = quotaWarning
-    ? 'Completed records are saved. Wait for the provider quota to reset, then choose Resume Analysis.'
+  const inFlightCount = job.status === 'running' ? Math.min(1, remainingCount) : 0;
+  const retryTime = job.next_retry_at ? new Date(job.next_retry_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const recoveryGuidance = job.status === 'waiting_for_quota'
+    ? `Paused: resumes automatically at ${retryTime}`
     : job.failed_count > 0
       ? `Completed records are saved. Choose Retry ${job.failed_count} Failed to reprocess only the failed records.`
       : job.status === 'paused'
@@ -535,12 +401,12 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
         )}
 
         {/* Error / Quota Alert Banner */}
-        {(errorMessage || job.last_error || quotaWarning) && (
+        {(errorMessage || job.last_error || job.status === 'waiting_for_quota') && (
           <div className="bg-[#FFB6C2] border-[2.5px] border-[#0A0A0A] p-4 rounded-xl shadow-[4px_4px_0px_#0A0A0A] flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-rose-900 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div className="font-mono text-xs font-black uppercase text-rose-950">
-                {quotaWarning ? 'AI RATE LIMIT / QUOTA REACHED' : 'BATCH PROCESSING NOTICE'}
+                {job.status === 'waiting_for_quota' ? 'AI RATE LIMIT / QUOTA REACHED' : 'BATCH PROCESSING NOTICE'}
               </div>
               <p className="text-sm font-sans font-bold text-[#0A0A0A]">
                 {errorMessage || job.last_error}
@@ -562,11 +428,11 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
             <div className="flex items-center gap-1.5 mt-1">
               <StatusChip
                 color={
-                  job.status === 'completed'
+                  job.status === 'completed' || job.status === 'done'
                     ? 'mint'
                     : job.status === 'running'
                     ? 'lime'
-                    : job.status === 'paused'
+                    : job.status === 'paused' || job.status === 'waiting_for_quota'
                     ? 'peach'
                     : job.status === 'failed' || job.status === 'completed_with_errors'
                     ? 'pink'
@@ -574,7 +440,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
                 }
               >
                 {job.status === 'running' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-black animate-ping mr-1" />}
-                {job.status.toUpperCase()}
+                {job.status === 'waiting_for_quota' ? 'PAUSED' : job.status.toUpperCase()}
               </StatusChip>
             </div>
           </div>
@@ -718,7 +584,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
               )}
 
               {/* Retry Failed Button */}
-              {job.failed_count > 0 && job.status !== 'running' && (
+              {job.failed_count > 0 && job.status !== 'running' && job.status !== 'waiting_for_quota' && (
                 <BrutalistButton
                   variant="peach"
                   size="md"
@@ -731,7 +597,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
               )}
 
               {/* Cancel Button */}
-              {(job.status === 'running' || job.status === 'paused') && (
+              {(job.status === 'running' || job.status === 'paused' || job.status === 'waiting_for_quota') && (
                 <BrutalistButton
                   variant="white"
                   size="md"
@@ -744,7 +610,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
               )}
 
               {/* Completed: View Results */}
-              {(job.status === 'completed' || job.status === 'completed_with_errors') && (
+              {(job.status === 'done' || job.status === 'completed' || job.status === 'completed_with_errors') && (
                 <>
                   <BrutalistButton
                     variant="lime"
@@ -767,29 +633,6 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
               )}
             </div>
 
-            {/* Batch Size Selector */}
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-[#0A0A0A]/70">
-                BATCH SIZE:
-              </span>
-              <div className="flex items-center gap-1 border-[2px] border-[#0A0A0A] rounded-lg p-0.5 bg-[#F9F8F4]">
-                {[3, 4, 5].map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => setBatchSize(size)}
-                    disabled={job.status === 'running'}
-                    className={`font-mono text-xs font-black px-2.5 py-1 rounded transition-colors ${
-                      batchSize === size
-                        ? 'bg-[#A1F000] text-[#0A0A0A] border-[1.5px] border-[#0A0A0A]'
-                        : 'text-[#0A0A0A]/70 hover:bg-[#FFE3B3]'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 

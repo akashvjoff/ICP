@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { z } from 'zod';
+import { AIProviderError, generateStructured, retryProviderCall, type AIProvider } from '../ai/provider';
 import {
   CompanyAnalysisError,
   GeminiCompanyAnalyzer,
@@ -76,6 +78,13 @@ test('runtime model selection prefers an available fast low-cost model and rejec
     () => selectPreferredGeminiModel(models, 'gemini-does-not-exist'),
     (error) => error instanceof CompanyAnalysisError && error.code === 'UNSUPPORTED_MODEL',
   );
+});
+
+test('stable Flash is preferred over preview when a model is not specified', () => {
+  assert.equal(selectPreferredGeminiModel([
+    { name: 'models/gemini-3-flash-preview', supportedActions: ['generateContent'] },
+    { name: 'models/gemini-3.5-flash', supportedActions: ['generateContent'] },
+  ]), 'gemini-3.5-flash');
 });
 
 test('Gemini analyzer retries invalid structured JSON once and validates the corrected result', async () => {
@@ -163,4 +172,29 @@ test('signed-in analysis cannot select the sample provider', () => {
     () => createCompanyAnalyzer({ COMPANY_ANALYSIS_PROVIDER: 'mock' }),
     (error) => error instanceof CompanyAnalysisError && error.code === 'PROVIDER_CONFIGURATION',
   );
+});
+
+test('provider retries transient 5xx responses up to success', async () => {
+  let calls = 0;
+  const result = await retryProviderCall(async () => {
+    calls += 1;
+    if (calls < 3) throw new AIProviderError('Temporary outage', 503, 0);
+    return 'ready';
+  });
+  assert.equal(result, 'ready');
+  assert.equal(calls, 3);
+});
+
+test('Azure fallback is validated against the same Zod schema and records its model', async () => {
+  const schema = z.object({ answer: z.string() });
+  const providers: AIProvider[] = [
+    { name: 'gemini', model: 'gemini-3.5-flash', async generate<T>() { throw new AIProviderError('Quota', 429, 60_000); } },
+    { name: 'azure-openai', model: 'fallback-deployment', async generate<T>(request: { schema: z.ZodType<T> }) {
+      return { value: request.schema.parse({ answer: 'ok' }), provider: 'azure-openai' as const, model: 'fallback-deployment' };
+    } },
+  ];
+  const result = await generateStructured({ prompt: 'Test', systemInstruction: 'Return JSON', schema }, providers);
+  assert.equal(result.value.answer, 'ok');
+  assert.equal(result.provider, 'azure-openai');
+  assert.equal(result.model, 'fallback-deployment');
 });

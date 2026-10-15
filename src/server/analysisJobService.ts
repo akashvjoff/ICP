@@ -17,6 +17,8 @@ export type JobStatus =
   | 'queued'
   | 'running'
   | 'paused'
+  | 'waiting_for_quota'
+  | 'done'
   | 'completed'
   | 'completed_with_errors'
   | 'failed'
@@ -41,6 +43,9 @@ export interface AnalysisJobRecord {
   last_error: string | null;
   created_at: string;
   updated_at: string;
+  next_retry_at?: string | null;
+  worker_locked_at?: string | null;
+  quota_retry_count?: number;
 }
 
 export interface LeadForAnalysis {
@@ -83,6 +88,7 @@ export interface ProcessBatchOptions {
   enrichWebsite?: boolean;
   sellerContext?: Record<string, unknown>;
   websiteEnricher?: typeof enrichFromPublicWebsite;
+  reserveDailyCompany?: (ownerUserId: string) => Promise<boolean>;
 }
 
 export interface AnalysisJobRepository {
@@ -119,9 +125,8 @@ export async function startJob(
   if (!job) {
     throw new Error('Analysis job not found.');
   }
-  if (job.status === 'cancelled') {
-    throw new Error('Cancelled analysis job cannot be started.');
-  }
+  if (job.status === 'cancelled') throw new Error('Cancelled analysis job cannot be started.');
+  if (job.status !== 'queued') throw new Error('Only queued analysis jobs can be started.');
 
   // Reset any stale processing leads from a previous crash or interrupted session
   await repository.resetStaleProcessingLeads(ownerUserId, job.dataset_id);
@@ -142,9 +147,6 @@ export async function pauseJob(
     throw new Error('Analysis job not found.');
   }
 
-  // Reset any currently processing leads back to pending so they can be picked up upon resume
-  await repository.resetStaleProcessingLeads(ownerUserId, job.dataset_id);
-
   return repository.updateJob(ownerUserId, jobId, {
     status: 'paused',
     updated_at: new Date().toISOString(),
@@ -160,10 +162,12 @@ export async function resumeJob(
   if (!job) {
     throw new Error('Analysis job not found.');
   }
-  if (job.status === 'cancelled') {
-    throw new Error('Cancelled analysis job cannot be resumed.');
-  }
+  if (job.status === 'cancelled') throw new Error('Cancelled analysis job cannot be resumed.');
+  if (job.status !== 'paused') throw new Error('Only manually paused analysis jobs can be resumed.');
 
+  if (job.worker_locked_at && Date.now() - Date.parse(job.worker_locked_at) < 10 * 60_000) {
+    throw new Error('The current company is still finishing. Try again shortly.');
+  }
   await repository.resetStaleProcessingLeads(ownerUserId, job.dataset_id);
 
   return repository.updateJob(ownerUserId, jobId, {
@@ -182,9 +186,6 @@ export async function cancelJob(
   if (!job) {
     throw new Error('Analysis job not found.');
   }
-
-  await repository.resetStaleProcessingLeads(ownerUserId, job.dataset_id);
-
   return repository.updateJob(ownerUserId, jobId, {
     status: 'cancelled',
     updated_at: new Date().toISOString(),
@@ -199,6 +200,9 @@ export async function retryFailedLeads(
   const job = await repository.getJob(ownerUserId, jobId);
   if (!job) {
     throw new Error('Analysis job not found.');
+  }
+  if (job.status === 'running' || job.status === 'waiting_for_quota' || job.worker_locked_at) {
+    throw new Error('Wait for the current analysis to finish before retrying failed companies.');
   }
 
   const resetCount = await repository.resetFailedLeads(ownerUserId, job.dataset_id);
@@ -243,6 +247,14 @@ export async function processBatch(
     };
   }
 
+  if (job.status === 'waiting_for_quota' && job.next_retry_at && Date.parse(job.next_retry_at) > Date.now()) {
+    return { job, processedLeads: [], remainingCount: Math.max(0, job.total_count - job.completed_count - job.failed_count), message: 'Waiting for provider quota.' };
+  }
+
+  if (job.status === 'done') {
+    return { job, processedLeads: [], remainingCount: 0, message: 'Job is already finished.' };
+  }
+
   if (job.status === 'completed' || job.status === 'completed_with_errors') {
     return {
       job,
@@ -252,10 +264,11 @@ export async function processBatch(
     };
   }
 
-  // Transition queued to running if needed
-  if (job.status === 'queued') {
+  // Transition queued or due quota work to running if needed.
+  if (job.status === 'queued' || job.status === 'waiting_for_quota') {
     job = await repository.updateJob(ownerUserId, jobId, {
       status: 'running',
+      next_retry_at: null,
       updated_at: new Date().toISOString(),
     });
   }
@@ -290,10 +303,28 @@ export async function processBatch(
   for (let i = 0; i < claimedLeads.length; i++) {
     const lead = claimedLeads[i];
 
+    const latestJob = await repository.getJob(ownerUserId, jobId);
+    if (latestJob?.status === 'paused' || latestJob?.status === 'cancelled') {
+      job.status = latestJob.status;
+      for (let j = i; j < claimedLeads.length; j++) await repository.updateLeadAnalysisStatus(ownerUserId, claimedLeads[j].id, 'pending');
+      break;
+    }
+
     // If quota was exceeded in previous iteration of this batch, reset remaining claimed leads to pending
     if (quotaExceeded) {
       await repository.updateLeadAnalysisStatus(ownerUserId, lead.id, 'pending');
       continue;
+    }
+
+    if (options.reserveDailyCompany && !(await options.reserveDailyCompany(ownerUserId))) {
+      quotaExceeded = true;
+      job.status = 'waiting_for_quota';
+      job.last_error = 'Daily company analysis budget reached.';
+      const tomorrowUtc = new Date();
+      tomorrowUtc.setUTCHours(24, 0, 0, 0);
+      job.next_retry_at = tomorrowUtc.toISOString();
+      for (let j = i; j < claimedLeads.length; j++) await repository.updateLeadAnalysisStatus(ownerUserId, claimedLeads[j].id, 'pending');
+      break;
     }
 
     const domain = lead.normalized_domain || lead.website || '';
@@ -358,6 +389,11 @@ export async function processBatch(
 
       await repository.updateLeadAnalysisStatus(ownerUserId, lead.id, 'completed');
       job.completed_count += 1;
+      job.quota_retry_count = 0;
+      job.next_retry_at = null;
+      if (job.last_error === 'AI quota reached. Analysis will resume automatically.' || job.last_error === 'Daily company analysis budget reached.') {
+        job.last_error = null;
+      }
       processedLeads.push({
         id: lead.id,
         companyName: lead.company_name,
@@ -370,15 +406,17 @@ export async function processBatch(
 
       if (isQuotaOrRateLimit) {
         quotaExceeded = true;
-        await repository.updateLeadAnalysisStatus(ownerUserId, lead.id, 'failed', error.message);
-        job.failed_count += 1;
-        job.status = 'paused';
-        job.last_error = 'AI rate limit / quota exceeded. Processing paused gracefully. Resume when quota resets.';
+        await repository.updateLeadAnalysisStatus(ownerUserId, lead.id, 'pending');
+        job.status = 'waiting_for_quota';
+        job.quota_retry_count = (job.quota_retry_count || 0) + 1;
+        const delay = error.retryAfterMs ?? Math.min(24 * 60 * 60_000, 10 * 60_000 * 2 ** Math.min(job.quota_retry_count - 1, 8));
+        job.next_retry_at = new Date(Date.now() + delay).toISOString();
+        job.last_error = 'AI quota reached. Analysis will resume automatically.';
 
         processedLeads.push({
           id: lead.id,
           companyName: lead.company_name,
-          status: 'failed',
+          status: 'pending',
           error: job.last_error,
         });
 
@@ -403,10 +441,14 @@ export async function processBatch(
   }
 
   const remaining = await repository.getPendingCount(ownerUserId, job.dataset_id);
+  const latestStatus = (await repository.getJob(ownerUserId, jobId))?.status;
+  if (latestStatus === 'paused' || latestStatus === 'cancelled') job.status = latestStatus;
   if (!quotaExceeded && remaining === 0) {
-    job.status = job.failed_count > 0
-      ? (job.completed_count > 0 ? 'completed_with_errors' : 'failed')
-      : 'completed';
+    if (job.status !== 'paused' && job.status !== 'cancelled') {
+      job.status = job.failed_count > 0
+        ? (job.completed_count > 0 ? 'completed_with_errors' : 'failed')
+        : 'completed';
+    }
   }
 
   job = await repository.updateJob(ownerUserId, jobId, {
@@ -414,6 +456,8 @@ export async function processBatch(
     completed_count: job.completed_count,
     failed_count: job.failed_count,
     last_error: job.last_error,
+    next_retry_at: job.next_retry_at,
+    quota_retry_count: job.quota_retry_count,
     updated_at: new Date().toISOString(),
   });
 
@@ -429,7 +473,7 @@ export async function processBatch(
 // SUPABASE REPOSITORY IMPLEMENTATION
 // ------------------------------------------------------------------------------
 
-export function createSupabaseAnalysisJobRepository(client: SupabaseClient): AnalysisJobRepository {
+export function createSupabaseAnalysisJobRepository(client: SupabaseClient, serviceRole = false): AnalysisJobRepository {
   return {
     async getJob(ownerUserId, jobId) {
       const { data, error } = await client
@@ -491,6 +535,16 @@ export function createSupabaseAnalysisJobRepository(client: SupabaseClient): Ana
     },
 
     async claimNextBatch(ownerUserId, datasetId, batchSize) {
+      if (serviceRole) {
+        const { data, error } = await client.rpc('claim_next_analysis_batch_service', {
+          p_owner_user_id: ownerUserId, p_dataset_id: datasetId, p_batch_size: batchSize,
+        });
+        if (error) throw error;
+        return (data || []).map((row: Record<string, unknown>) => ({
+          ...row, dataset_id: datasetId, owner_user_id: ownerUserId,
+          analysis_eligible: Boolean(row.analysis_eligible), analysis_status: 'processing' as const,
+        })) as LeadForAnalysis[];
+      }
       // 1. Try atomic database RPC function first
       try {
         const { data: rpcData, error: rpcError } = await client.rpc('claim_next_analysis_batch', {

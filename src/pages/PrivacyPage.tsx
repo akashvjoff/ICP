@@ -22,7 +22,7 @@ export const PrivacyPage: React.FC = () => {
           </section>
           <section>
             <h2 className="mb-2 text-xl font-bold">Service providers</h2>
-            <p>Render hosts the app. Supabase provides authentication and data storage. When you use AI analysis, relevant uploaded company rows and offering details are sent to Google Gemini to generate the requested output. Personal contact fields are removed before analysis. Google also processes the basic profile data needed for Google sign-in.</p>
+            <p>Render hosts the app. Supabase provides authentication and data storage. When you use AI analysis, relevant uploaded company rows and offering details are sent to Google Gemini, or to Azure OpenAI if Gemini is unavailable and the fallback is enabled. Personal contact fields are removed before analysis. Google also processes the basic profile data needed for Google sign-in.</p>
           </section>
           <section>
             <h2 className="mb-2 text-xl font-bold">Retention and deletion</h2>

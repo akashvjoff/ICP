@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
-import { z } from 'zod';
+import { AIProviderError, createAIProviders, generateStructured, DEFAULT_GEMINI_MODEL } from './ai/provider';
 import { hasUnsupportedStat } from '../lib/offeringGrounding';
 import {
   companyAnalysisInputSchema,
@@ -25,6 +25,7 @@ export class CompanyAnalysisError extends Error {
     message: string,
     public readonly statusCode: number,
     public readonly recoverable = false,
+    public readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'CompanyAnalysisError';
@@ -36,6 +37,7 @@ export interface CompanyAnalyzer {
   analyze(input: CompanyAnalysisInput): Promise<{
     analysis: CompanyIntelligence;
     modelVersion: string;
+    providerName?: string;
   }>;
 }
 
@@ -144,13 +146,13 @@ export function getRankedGeminiModels(models: ModelInfo[], configuredModel?: str
     .sort((left, right) => {
       const score = (model: ModelInfo) => {
         const name = normalizeModelName(model.name || '');
-        if (/3-flash-preview/i.test(name)) return 0;
-        if (/flash-latest/i.test(name)) return 1;
-        if (/3\.5-flash$/i.test(name)) return 2;
-        if (/flash-lite/i.test(name)) return 3;
-        if (/3\.7-flash/i.test(name)) return 4;
-        if (/3\.8-flash$/i.test(name)) return 5;
-        if (/3\.6-flash/i.test(name)) return 6;
+        if (/3\.5-flash$/i.test(name)) return 0;
+        if (/3\.8-flash$/i.test(name)) return 1;
+        if (/3\.7-flash$/i.test(name)) return 2;
+        if (/3\.6-flash$/i.test(name)) return 3;
+        if (/flash-lite/i.test(name) && !/preview|latest/i.test(name)) return 4;
+        if (/flash-latest/i.test(name)) return 8;
+        if (/preview/i.test(name)) return 15;
         if (/flash/i.test(name)) return 7;
         if (/pro/i.test(name)) return 10;
         return 20;
@@ -250,6 +252,7 @@ export class GeminiCompanyAnalyzer implements CompanyAnalyzer {
 
   private async resolveCandidateModels(client: GeminiClientLike): Promise<string[]> {
     if (this.selectedModel) return [this.selectedModel];
+    if (this.configuredModel) return [normalizeModelName(this.configuredModel)];
     try {
       const pager = await client.models.list({ config: { pageSize: 100, queryBase: true } });
       const models: ModelInfo[] = [];
@@ -264,35 +267,28 @@ export class GeminiCompanyAnalyzer implements CompanyAnalyzer {
     const input = sanitizeCompanyAnalysisInput(rawInput);
     const client = this.getClient();
     const candidates = await this.resolveCandidateModels(client);
-    const rawSchema = z.toJSONSchema(companyIntelligenceSchema, { target: 'openApi3' });
-    const responseJsonSchema = cleanGeminiSchema(rawSchema) as Record<string, unknown>;
-
     let lastError: CompanyAnalysisError | null = null;
     for (const model of candidates) {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const response = await client.models.generateContent({
-            model,
-            contents: buildPrompt(input, attempt === 1),
-            config: {
-              systemInstruction: SYSTEM_INSTRUCTION,
-              responseMimeType: 'application/json',
-              responseJsonSchema,
-              temperature: 0.1,
-              httpOptions: { timeout: this.timeoutMs },
-            },
-          });
-          const analysis = enforceEvidenceGuards(parseStructuredAnalysis(response.text));
+          const generated = await generateStructured({
+            prompt: buildPrompt(input, attempt === 1),
+            systemInstruction: SYSTEM_INSTRUCTION,
+            schema: companyIntelligenceSchema,
+          }, createAIProviders({ ...process.env, GEMINI_API_KEY: this.apiKey, GEMINI_MODEL: model, COMPANY_ANALYSIS_TIMEOUT_MS: String(this.timeoutMs) }, client as never));
+          const analysis = enforceEvidenceGuards(generated.value);
           if (hasUnsupportedStat(analysis.value_proposition.value, JSON.stringify(input))) {
             throw new CompanyAnalysisError('INVALID_STRUCTURED_OUTPUT', 'The provider returned an unsupported numeric outcome claim.', 502, true);
           }
           this.selectedModel = model;
-          return { analysis, modelVersion: model };
+          return { analysis, modelVersion: generated.model, providerName: generated.provider };
         } catch (error) {
-          const classified = classifyProviderError(error);
+          const classified = error instanceof AIProviderError
+            ? new CompanyAnalysisError(error.status === 429 ? 'RATE_LIMITED' : error.status === 422 ? 'INVALID_STRUCTURED_OUTPUT' : error.status === 404 ? 'UNSUPPORTED_MODEL' : 'NETWORK_FAILURE', error.message, error.status, error.status === 429 || error.status >= 500, error.retryAfterMs)
+            : classifyProviderError(error);
           lastError = classified;
           if (classified.code === 'INVALID_STRUCTURED_OUTPUT' && attempt === 0) continue;
-          if (classified.code === 'UNSUPPORTED_MODEL' || classified.statusCode === 503 || classified.statusCode === 502) {
+          if (classified.code === 'UNSUPPORTED_MODEL') {
             break;
           }
           throw classified;
@@ -347,69 +343,10 @@ export class MockCompanyAnalyzer implements CompanyAnalyzer {
   }
 }
 
-export class OllamaCompanyAnalyzer implements CompanyAnalyzer {
-  readonly providerName = 'ollama';
-
-  constructor(
-    private readonly baseUrl = 'http://127.0.0.1:11434',
-    private readonly configuredModel = '',
-    private readonly timeoutMs = 30_000,
-  ) {}
-
-  private async resolveModel(): Promise<string> {
-    if (this.configuredModel) return this.configuredModel;
-    try {
-      const response = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(this.timeoutMs) });
-      if (!response.ok) throw new Error(`Ollama model list returned ${response.status}.`);
-      const payload = await response.json() as { models?: Array<{ name?: string }> };
-      const model = payload.models?.[0]?.name;
-      if (!model) throw new CompanyAnalysisError('UNSUPPORTED_MODEL', 'No local Ollama model is installed.', 503);
-      return model;
-    } catch (error) {
-      throw classifyProviderError(error);
-    }
-  }
-
-  async analyze(rawInput: CompanyAnalysisInput) {
-    const input = sanitizeCompanyAnalysisInput(rawInput);
-    const model = await this.resolveModel();
-    const format = z.toJSONSchema(companyIntelligenceSchema, { target: 'draft-7' });
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await fetch(`${this.baseUrl}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(this.timeoutMs),
-          body: JSON.stringify({
-            model,
-            stream: false,
-            think: false,
-            format,
-            messages: [
-              { role: 'system', content: SYSTEM_INSTRUCTION },
-              { role: 'user', content: buildPrompt(input, attempt === 1) },
-            ],
-            options: { temperature: 0.1 },
-          }),
-        });
-        if (!response.ok) throw new Error(`Ollama returned ${response.status}.`);
-        const payload = await response.json() as { message?: { content?: string } };
-        return { analysis: enforceEvidenceGuards(parseStructuredAnalysis(payload.message?.content)), modelVersion: model };
-      } catch (error) {
-        const classified = classifyProviderError(error);
-        if (classified.code === 'INVALID_STRUCTURED_OUTPUT' && attempt === 0) continue;
-        throw classified;
-      }
-    }
-    throw new CompanyAnalysisError('INVALID_STRUCTURED_OUTPUT', 'Ollama returned invalid structured output twice.', 502);
-  }
-}
-
 export function createCompanyAnalyzer(env: NodeJS.ProcessEnv = process.env): CompanyAnalyzer {
   const provider = (env.COMPANY_ANALYSIS_PROVIDER || 'gemini').toLowerCase();
   const timeout = Number.parseInt(env.COMPANY_ANALYSIS_TIMEOUT_MS || '60000', 10);
   if (provider === 'mock') throw new CompanyAnalysisError('PROVIDER_CONFIGURATION', 'Sample analysis is unavailable for signed-in accounts.', 503);
-  if (provider === 'ollama') return new OllamaCompanyAnalyzer(env.OLLAMA_BASE_URL, env.OLLAMA_MODEL, timeout);
-  if (provider === 'gemini') return new GeminiCompanyAnalyzer(env.GEMINI_API_KEY || '', env.GEMINI_MODEL || '', timeout);
+  if (provider === 'gemini') return new GeminiCompanyAnalyzer(env.GEMINI_API_KEY || '', env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL, timeout);
   throw new CompanyAnalysisError('PROVIDER_CONFIGURATION', `Unsupported company analysis provider "${provider}".`, 503);
 }

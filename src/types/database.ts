@@ -121,12 +121,15 @@ export interface DbAnalysisJob {
   id: string;
   owner_user_id: string;
   dataset_id: string;
-  status: 'pending' | 'queued' | 'running' | 'processing' | 'paused' | 'completed' | 'completed_with_errors' | 'failed' | 'cancelled';
+  status: 'pending' | 'queued' | 'running' | 'processing' | 'waiting_for_quota' | 'paused' | 'done' | 'completed' | 'completed_with_errors' | 'failed' | 'cancelled';
   total_count: number;
   completed_count: number;
   failed_count: number;
   skipped_count: number;
   last_error: string | null;
+  next_retry_at?: string | null;
+  worker_locked_at?: string | null;
+  quota_retry_count?: number;
   created_at: string;
   updated_at: string;
 }

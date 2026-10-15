@@ -304,7 +304,7 @@ test('10. Concurrent batch claims do not claim the same leads twice', async () =
   }
 });
 
-test('11. AI quota exhaustion pauses job gracefully and resets unattempted leads', async () => {
+test('11. AI quota exhaustion schedules automatic retry without losing the affected lead', async () => {
   const owner = 'user-001';
   const datasetId = 'dataset-quota';
   const leads = createSyntheticLeads(datasetId, owner, 4);
@@ -329,14 +329,33 @@ test('11. AI quota exhaustion pauses job gracefully and resets unattempted leads
   const result = await processBatch(repo, analysisRepo, quotaExhaustedAnalyzer, owner, job.id, { batchSize: 4 });
 
   assert.equal(result.quotaExceeded, true);
-  assert.equal(result.job.status, 'paused');
-  assert.ok(result.job.last_error?.includes('AI rate limit / quota exceeded'));
+  assert.equal(result.job.status, 'waiting_for_quota');
+  assert.ok(result.job.next_retry_at && Date.parse(result.job.next_retry_at) > Date.now());
+  assert.equal(result.job.failed_count, 0);
   assert.equal(attempted, 1, 'Should stop immediately on quota error without burning more calls');
 
   // Verify remaining leads in batch were reset to 'pending'
   const datasetLeads = await repo.getDatasetLeads(owner, datasetId);
   const pendingLeads = datasetLeads.filter((l) => l.analysis_status === 'pending');
-  assert.equal(pendingLeads.length, 3, 'Unattempted leads must be restored to pending');
+  assert.equal(pendingLeads.length, 4, 'The rate-limited lead and unattempted leads must be restored to pending');
+
+  await repo.updateJob(owner, job.id, { next_retry_at: new Date(Date.now() - 1000).toISOString() });
+  const resumed = await processBatch(repo, analysisRepo, new MockCompanyAnalyzer(), owner, job.id, { batchSize: 4 });
+  assert.equal(resumed.job.status, 'completed');
+  assert.equal(resumed.job.completed_count, 4);
+});
+
+test('daily company budget waits until the next UTC day without marking leads failed', async () => {
+  const owner = 'budget-user';
+  const repo = new InMemoryAnalysisJobRepository([], createSyntheticLeads('budget-dataset', owner, 2));
+  const job = await repo.createJob(owner, 'budget-dataset', 2);
+  const result = await processBatch(repo, new InMemoryCompanyAnalysisRepository(), new MockCompanyAnalyzer(), owner, job.id, {
+    batchSize: 2, reserveDailyCompany: async () => false,
+  });
+  assert.equal(result.job.status, 'waiting_for_quota');
+  assert.equal(result.job.failed_count, 0);
+  assert.equal(result.remainingCount, 2);
+  assert.ok(result.job.next_retry_at);
 });
 
 test('12. Authentication and cross-tenant ownership protection', async () => {

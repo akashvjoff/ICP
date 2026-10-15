@@ -1,9 +1,8 @@
-import { GoogleGenAI, Type } from '@google/genai';
 import { z } from 'zod';
 import { OfferingProfile } from '../types/offering';
 import { NormalizedLead, AIClassification } from '../types/lead';
 import { FullStrategicAnalysis } from '../types/analysis';
-import { selectPreferredGeminiModel } from './companyAnalyzer';
+import { createAIProviders, generateStructured } from './ai/provider';
 import { hasOfferingOverlap, hasUnsupportedStat } from '../lib/offeringGrounding';
 
 const strategicResponseSchema = z.object({
@@ -26,25 +25,17 @@ const strategicResponseSchema = z.object({
 });
 
 
-// Initialize Gemini on server-side only
-const apiKey = process.env.GEMINI_API_KEY || '';
-export const isGeminiConfigured = Boolean(apiKey && !apiKey.includes('MY_GEMINI_API_KEY'));
+const classificationSchema = z.object({
+  detectedIndustry: z.string(), businessModel: z.enum(['B2B SaaS', 'Enterprise Software', 'Professional Services', 'E-Commerce/Retail', 'FinTech', 'Healthcare/BioTech', 'Manufacturing', 'Unknown']), primaryProducts: z.array(z.string()),
+  targetAudience: z.string(), perceivedPainPoints: z.array(z.string()),
+  buyingMaturity: z.enum(['Early', 'Scaling', 'Enterprise Mature']), confidenceScore: z.number(),
+});
 
-export const ai = isGeminiConfigured
-  ? new GoogleGenAI({ apiKey })
-  : null;
-
-let resolvedGeminiModel: string | null = null;
-
-async function getAvailableGeminiModel(): Promise<string> {
-  if (!ai) throw new Error('GEMINI_API_KEY is not configured on the server.');
-  if (resolvedGeminiModel) return resolvedGeminiModel;
-  const pager = await ai.models.list({ config: { pageSize: 100, queryBase: true } });
-  const models = [];
-  for await (const model of pager) models.push(model);
-  resolvedGeminiModel = selectPreferredGeminiModel(models, process.env.GEMINI_MODEL || undefined);
-  return resolvedGeminiModel;
-}
+const onboardingSchema = z.object({
+  productDescription: z.string(), coreFeatures: z.array(z.string()), mainBenefit: z.string(),
+  currentCustomerProblem: z.string(), idealCustomerOutcome: z.string(), motivationToChange: z.string(),
+  whyCustomersChoose: z.string(), mainAlternatives: z.string(), pointOfParity: z.string(), pointOfDifference: z.string(),
+});
 
 /**
  * Legacy company classification adapter. New code should use the structured
@@ -56,10 +47,6 @@ export async function classifyCompanyWithAI(
   description: string,
   industry?: string
 ): Promise<AIClassification> {
-  if (!ai) {
-    throw new Error('Gemini is unavailable. Company classification was not generated.');
-  }
-
   const prompt = `Analyze this B2B company based on its firmographic details:
 Company Name: ${companyName}
 Domain: ${domain}
@@ -70,49 +57,8 @@ Classify the company type, business model, primary products, target audience, an
 Respond strictly with structured JSON matching the schema.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: await getAvailableGeminiModel(),
-      contents: prompt,
-      config: {
-        systemInstruction: 'You are a senior B2B SaaS market analyst. Provide realistic, un-hallucinated firmographic classifications based solely on given details.',
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            detectedIndustry: { type: Type.STRING },
-            businessModel: {
-              type: Type.STRING,
-              description: 'One of: B2B SaaS, Enterprise Software, Professional Services, E-Commerce/Retail, FinTech, Healthcare/BioTech, Manufacturing, Unknown'
-            },
-            primaryProducts: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            targetAudience: { type: Type.STRING },
-            perceivedPainPoints: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
-            buyingMaturity: {
-              type: Type.STRING,
-              description: 'One of: Early, Scaling, Enterprise Mature'
-            },
-            confidenceScore: { type: Type.NUMBER }
-          },
-          required: [
-            'detectedIndustry',
-            'businessModel',
-            'primaryProducts',
-            'targetAudience',
-            'perceivedPainPoints',
-            'buyingMaturity',
-            'confidenceScore'
-          ]
-        }
-      }
-    });
-
-    const parsed = JSON.parse(response.text || '{}');
+    const { value: parsed } = await generateStructured({ prompt, schema: classificationSchema,
+      systemInstruction: 'You are a senior B2B SaaS market analyst. Provide realistic, un-hallucinated firmographic classifications based solely on given details.' }, createAIProviders());
     return {
       detectedIndustry: parsed.detectedIndustry || industry || 'Technology',
       businessModel: parsed.businessModel || 'B2B SaaS',
@@ -157,7 +103,6 @@ export async function runStrategicMarketingAnalysis(
   offering: OfferingProfile,
   leads: NormalizedLead[]
 ): Promise<FullStrategicAnalysis> {
-  if (!ai) throw new Error('Gemini is unavailable. Strategic analysis was not generated.');
 
   const leadsSummary = leads.slice(0, 10).map((l, idx) => `
 Lead ${idx + 1}: ${l.companyName} (${l.domain})
@@ -193,16 +138,9 @@ Follow these strategic marketing rules:
 8. Do not claim numeric improvements, savings, or ROI unless those exact figures appear in the seller input.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: await getAvailableGeminiModel(),
-      contents: groundedPrompt,
-      config: {
-        systemInstruction: 'You are a veteran B2B GTM strategist. Follow classical strategic marketing frameworks with precision.',
-        responseMimeType: 'application/json'
-      }
-    });
-
-    const parsed = validateStrategicResponse(JSON.parse(response.text || '{}'), offering);
+    const { value } = await generateStructured({ prompt: groundedPrompt, schema: strategicResponseSchema,
+      systemInstruction: 'You are a veteran B2B GTM strategist. Follow classical strategic marketing frameworks with precision.' }, createAIProviders());
+    const parsed = validateStrategicResponse(value, offering);
     return {
       offeringId: offering.id,
       analyzedAt: new Date().toISOString(),
@@ -231,26 +169,6 @@ export async function suggestSellerOnboardingContext(partial: Record<string, unk
   const existingDesc = String(partial.productDescription || '');
   const existingProblem = String(partial.currentCustomerProblem || '');
 
-  if (!ai) {
-    return {
-      productDescription: existingDesc || `An enterprise cloud platform designed for ${industry} organizations to streamline operational efficiency and automate mission-critical workflows.`,
-      coreFeatures: [
-        'Real-time automated workflow diagnostics and continuous monitoring',
-        'Direct API integration with legacy and cloud enterprise architectures',
-        'Role-based security dashboards with automated anomaly alerting',
-        'Custom executive reporting and compliance audit logs',
-      ],
-      mainBenefit: 'Could help teams reduce manual work and respond to operational issues sooner; validate the outcome with customers.',
-      currentCustomerProblem: existingProblem || 'Teams spend excessive manual hours firefighting unexpected operational incidents, causing stakeholder escalations and missed delivery targets.',
-      idealCustomerOutcome: 'Continuous predictability and automated error containment with instant root-cause clarity.',
-      motivationToChange: 'A high-visibility incident that disrupted business operations or failed an executive audit.',
-      whyCustomersChoose: 'Potentially simpler setup and clearer visibility; confirm these advantages with customers.',
-      mainAlternatives: 'Manual spreadsheets, ad-hoc internal scripts, or legacy heavyweight enterprise suites.',
-      pointOfParity: 'Standard SOC2 compliance, role-based access control, and webhook alerts.',
-      pointOfDifference: 'Zero-configuration anomaly prediction engine that flags issues before they cause downstream disruption.',
-    };
-  }
-
   const prompt = `You are a world-class B2B Product Marketing Director and Pricing Strategist.
 Help an entrepreneur or sales leader articulate their product context using the Need Gap Framework (Current State -> Ideal State -> Gap).
 
@@ -276,16 +194,8 @@ Return strictly valid JSON with the following fields:
 - pointOfDifference: string (decisive unfair advantage or proprietary edge)`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: await getAvailableGeminiModel(),
-      contents: prompt,
-      config: {
-        systemInstruction: 'You are an elite B2B product marketing specialist. Provide actionable, practical, non-academic suggestions grounded in real B2B buying behavior.',
-        responseMimeType: 'application/json',
-      },
-    });
-
-    const parsed = JSON.parse(response.text || '{}');
+    const { value: parsed } = await generateStructured({ prompt, schema: onboardingSchema,
+      systemInstruction: 'You are an elite B2B product marketing specialist. Provide actionable, practical, non-academic suggestions grounded in real B2B buying behavior.' }, createAIProviders());
     const suppliedText = Object.values(partial).filter((value): value is string => typeof value === 'string').join(' ');
     if (hasUnsupportedStat(String(parsed.mainBenefit || ''), suppliedText)) {
       parsed.mainBenefit = `Could help address ${existingProblem || 'the described customer problem'}; quantify the impact with customer evidence.`;
@@ -295,24 +205,8 @@ Return strictly valid JSON with the following fields:
     }
     return parsed;
   } catch (err) {
-    console.error('Gemini onboarding suggestion error:', err);
-    return {
-      productDescription: `Enterprise B2B software designed for ${industry} to automate operations and prevent high-stakes failures.`,
-      coreFeatures: [
-        'Automated telemetry monitoring and real-time detection',
-        'Native connectors for enterprise data and messaging tools',
-        'Granular role-based permissions and audit logs',
-        'Self-healing automation playbooks',
-      ],
-      mainBenefit: 'Could reduce manual triage and help teams respond to incidents sooner; quantify the impact with customers.',
-      currentCustomerProblem: 'Teams struggle with silent failures and fragmented point solutions, resulting in delayed response times and stakeholder churn.',
-      idealCustomerOutcome: 'Unified proactive visibility with automated resolution and zero downtime surprises.',
-      motivationToChange: 'A critical outage or leadership mandate to eliminate manual overhead.',
-      whyCustomersChoose: 'May simplify setup and incident response; confirm this with customers.',
-      mainAlternatives: 'Homegrown scripts, spreadsheets, or heavyweight legacy monitoring tools.',
-      pointOfParity: 'Standard alert notifications and enterprise authentication.',
-      pointOfDifference: 'Predictive root-cause isolation that identifies failures before customer impact.',
-    };
+    console.error('Onboarding suggestion provider error:', err);
+    throw new Error('Onboarding suggestions are unavailable right now. Please retry.');
   }
 }
 

@@ -47,7 +47,7 @@ export async function analyzeCompanyWithCache(
   await repository.assertOwnedLead(ownerUserId, leadId);
 
   const cached = await repository.findCached(ownerUserId, inputHash);
-  if (cached && cached.provider === analyzer.providerName) {
+  if (cached && (cached.provider === analyzer.providerName || (analyzer.providerName === 'gemini' && cached.provider === 'azure-openai'))) {
     const cachedEnvelope = {
       ...cached,
       cached: true,
@@ -62,7 +62,7 @@ export async function analyzeCompanyWithCache(
     const generated = await analyzer.analyze(input);
     const envelope: CompanyAnalysisEnvelope = {
       analysis: companyIntelligenceSchema.parse(generated.analysis),
-      provider: analyzer.providerName,
+      provider: generated.providerName || analyzer.providerName,
       modelVersion: generated.modelVersion,
       analyzedAt: new Date().toISOString(),
       cached: false,
