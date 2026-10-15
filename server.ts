@@ -1301,12 +1301,13 @@ async function startServer() {
     app.get('*', (req: Request, res: Response) => {
       const indexPath = path.resolve(__dirname, 'dist', 'index.html');
       const pathname = req.path;
-      const knownRoute = ['/', '/demo', '/auth', '/privacy', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings'].includes(pathname)
+      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings'].includes(pathname)
         || /^\/(uploads|companies|segments|strategy)\/[^/]+$/.test(pathname)
         || /^\/icp\/report\/[^/]+$/.test(pathname);
       const publicTitles: Record<string, string> = {
         '/': 'FiguredIt — AI-Powered ICP Discovery &amp; GTM Strategy',
         '/demo': 'Try the public demo | FiguredIt',
+        '/about': 'About and Q&A | FiguredIt',
         '/privacy': 'Privacy notice | FiguredIt',
       };
       const routeTitles: Record<string, string> = {
