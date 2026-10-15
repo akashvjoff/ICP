@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
+import { PLANS, PAID_PLAN_IDS } from './src/config/plans.ts';
 import {
   classifyCompanyWithAI,
   runStrategicMarketingAnalysis,
@@ -228,6 +230,24 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok' });
 });
 
+const waitlistSchema = z.object({
+  email: z.email().max(254).transform(value => value.trim().toLowerCase()),
+  plan: z.enum(PAID_PLAN_IDS),
+});
+
+app.post('/api/waitlist', async (req: Request, res: Response) => {
+  const parsed = waitlistSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Enter a valid email and plan.' });
+  if (!isSupabaseConfigured || !supabaseAnonKey) return res.status(503).json({ error: 'The waitlist is temporarily unavailable.' });
+  const anonymousClient = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { error } = await anonymousClient.from('waitlist').insert(parsed.data);
+  if (error && error.code !== '23505') {
+    console.error('[Waitlist] Insert failed:', error.code);
+    return res.status(503).json({ error: 'We could not add you right now. Please try again.' });
+  }
+  return res.status(201).json({ success: true });
+});
+
 // Mock/Sample Leads Route
 app.get('/api/sample-data', (req: Request, res: Response) => {
   res.json({
@@ -243,7 +263,20 @@ app.get('/api/sample-data', (req: Request, res: Response) => {
 app.post('/api/uploads', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const prepared = await prepareUpload(req.body);
+    const freePlan = PLANS[0];
+    if (!prepared.parsed.fileName.toLowerCase().endsWith('.csv')) {
+      return res.status(422).json({ error: 'The Free plan accepts CSV files only.' });
+    }
+    if (prepared.parsed.rawRows.length > freePlan.uploadRowLimit) {
+      return res.status(422).json({ error: `The Free plan accepts up to ${freePlan.uploadRowLimit} rows per file.` });
+    }
     const scopedClient = createUserScopedSupabase(req.accessToken!);
+    const { count, error: countError } = await scopedClient.from('datasets')
+      .select('id', { head: true, count: 'exact' }).eq('owner_user_id', req.user!.id);
+    if (countError) throw countError;
+    if ((count ?? 0) >= freePlan.datasetsPerMonth) {
+      return res.status(403).json({ error: 'Your Free workspace already has a dataset.' });
+    }
     const result = await persistPreparedUpload(
       createSupabaseUploadRepository(scopedClient),
       req.user!.id,
@@ -259,6 +292,9 @@ app.post('/api/uploads', requireAuthenticatedUser, async (req: AuthenticatedRequ
   } catch (error) {
     if (error instanceof UploadValidationError) {
       return res.status(error.statusCode).json({ error: error.message });
+    }
+    if (error instanceof Error && error.message === 'Your Free workspace already has a dataset.') {
+      return res.status(403).json({ error: error.message });
     }
     console.error('[Upload] Persistence failed without logging uploaded row data.');
     return res.status(500).json({ error: 'The dataset could not be saved. No partial upload was retained.' });
@@ -1219,7 +1255,7 @@ async function startServer() {
     app.get('*', (req: Request, res: Response) => {
       const indexPath = path.resolve(__dirname, 'dist', 'index.html');
       const pathname = req.path;
-      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings'].includes(pathname)
+      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings'].includes(pathname)
         || /^\/(uploads|companies|segments|strategy)\/[^/]+$/.test(pathname)
         || /^\/icp\/report\/[^/]+$/.test(pathname);
       const publicTitles: Record<string, string> = {
@@ -1229,6 +1265,8 @@ async function startServer() {
         '/privacy': 'Privacy notice | FiguredIt',
         '/terms': 'Terms of use | FiguredIt',
         '/pricing': 'Pricing | FiguredIt',
+        '/refund-policy': 'Refund policy | FiguredIt',
+        '/contact': 'Contact | FiguredIt',
       };
       const routeTitles: Record<string, string> = {
         auth: 'Sign in or create an account', onboarding: 'Set up your offering', dashboard: 'Dashboard',

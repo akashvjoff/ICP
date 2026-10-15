@@ -429,8 +429,7 @@ export const AuthPage: React.FC = () => {
       </div>
 
       <div className="text-center font-mono text-xs text-[#0A0A0A]/50 mt-8">
-        FiguredIt · AI-assisted analysis with explainable scoring ·{' '}
-        <a href="/privacy" className="underline hover:text-[#0A0A0A]">Privacy notice</a>
+        By continuing you agree to the <a href="/terms" className="underline hover:text-[#0A0A0A]">Terms</a> and <a href="/privacy" className="underline hover:text-[#0A0A0A]">Privacy Policy</a>.
       </div>
     </div>
   );

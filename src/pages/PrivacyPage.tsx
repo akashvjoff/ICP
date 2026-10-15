@@ -9,7 +9,7 @@ export const PrivacyPage: React.FC = () => {
           ← FiguredIt
         </a>
         <h1 className="mb-2 text-4xl font-black">Privacy notice</h1>
-        <p className="mb-8 font-mono text-sm text-slate-600">Effective October 14, 2026</p>
+        <p className="mb-8 font-mono text-sm text-slate-600">Last updated October 15, 2026</p>
 
         <div className="space-y-7 leading-relaxed">
           <section>
@@ -18,11 +18,15 @@ export const PrivacyPage: React.FC = () => {
           </section>
           <section>
             <h2 className="mb-2 text-xl font-bold">Information you add to FiguredIt</h2>
-            <p>The app processes the offering details, company information, and CSV or spreadsheet records you provide to generate customer fit analyses, segments, and reports. Account data and saved analyses are stored in Supabase. Some app preferences and demo data are stored in your browser.</p>
+            <p>The app processes the offering details, company information, and CSV records you provide to generate customer fit analyses, segments, and reports. We store your profile, datasets, normalized company records, analyses, scores, and reports in Supabase. Some app preferences and demo data are stored in your browser.</p>
           </section>
           <section>
             <h2 className="mb-2 text-xl font-bold">Service providers</h2>
-            <p>Render hosts the app. Supabase provides authentication and data storage. When you use AI analysis, relevant information from your offering and company records may be sent to Google Gemini to generate the requested output. Google also processes the basic profile data needed for Google sign-in.</p>
+            <p>Render hosts the app. Supabase provides authentication and data storage. When you use AI analysis, relevant uploaded company rows and offering details are sent to Google Gemini to generate the requested output. Personal contact fields are removed before analysis. Google also processes the basic profile data needed for Google sign-in.</p>
+          </section>
+          <section>
+            <h2 className="mb-2 text-xl font-bold">Retention and deletion</h2>
+            <p>We do not keep the original uploaded file. Raw row copies retained for processing are cleared after 90 days; normalized records and analysis remain in your workspace until you request deletion or your account is removed. To request deletion of your account and saved data, email us below.</p>
           </section>
           <section>
             <h2 className="mb-2 text-xl font-bold">Sessions and security</h2>

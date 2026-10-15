@@ -21,6 +21,7 @@ import {
   PipelineProcessResult,
 } from '../lib/leadPipeline';
 import { UPLOAD_CONFIG, formatBytes } from '../lib/uploadConfig';
+import { PLANS } from '../config/plans';
 import { savePendingUpload, getPendingUpload, clearPendingUpload, pendingUploadKey } from '../lib/pendingUpload';
 import { RawLeadRecord, ColumnMapping } from '../types/lead';
 import { formatHeadcount } from '../lib/formatters';
@@ -91,8 +92,8 @@ export const UploadWizardPage: React.FC = () => {
   const runPipeline = (currentRaw: RawLeadRecord[], currentMapping: ColumnMapping, dedupe: boolean) => {
     if (currentRaw.length === 0) return;
     const res = processLeadPipeline(currentRaw, currentMapping, {
-      maxTotalRows: UPLOAD_CONFIG.MAX_ROWS_PER_DATASET,
-      maxAiEnrichedDemo: UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO,
+      maxTotalRows: isDemoUser ? UPLOAD_CONFIG.MAX_ROWS_PER_DATASET : PLANS[0].uploadRowLimit,
+      maxAiEnrichedDemo: isDemoUser ? UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO : PLANS[0].companiesPerDataset,
       skipDuplicates: dedupe,
       piiColumnsToScrub: piiColumnsDetected,
     });
@@ -106,6 +107,8 @@ export const UploadWizardPage: React.FC = () => {
     setFileError(null);
     try {
       const parsed: ParseResult = await parseLeadFile(selectedFile);
+      if (!isDemoUser && !selectedFile.name.toLowerCase().endsWith('.csv')) throw new Error('The Free plan accepts CSV files only.');
+      if (!isDemoUser && parsed.rawRows.length > PLANS[0].uploadRowLimit) throw new Error(`The Free plan accepts up to ${PLANS[0].uploadRowLimit} rows per file.`);
       setFile(selectedFile);
       setFileName(selectedFile.name);
       setFileSizeStr(formatBytes(selectedFile.size));
@@ -120,8 +123,8 @@ export const UploadWizardPage: React.FC = () => {
 
       // Run pipeline on raw rows with auto-detected mapping
       const res = processLeadPipeline(parsed.rawRows, activeMapping, {
-        maxTotalRows: UPLOAD_CONFIG.MAX_ROWS_PER_DATASET,
-        maxAiEnrichedDemo: UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO,
+        maxTotalRows: isDemoUser ? UPLOAD_CONFIG.MAX_ROWS_PER_DATASET : PLANS[0].uploadRowLimit,
+        maxAiEnrichedDemo: isDemoUser ? UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO : PLANS[0].companiesPerDataset,
         skipDuplicates: activeDedupe,
         piiColumnsToScrub: parsed.piiColumnsDetected,
       });
@@ -387,7 +390,7 @@ export const UploadWizardPage: React.FC = () => {
             }
             description={
               wizardStep === 1
-                ? `Upload CSV or XLSX spreadsheets up to ${UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Max ${UPLOAD_CONFIG.MAX_ROWS_PER_DATASET} rows stored; first ${UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO} AI-analyzed.`
+                ? isDemoUser ? `Preview CSV or XLSX spreadsheets up to ${UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}.` : `Upload CSV files up to ${UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Max ${PLANS[0].uploadRowLimit} rows and ${PLANS[0].companiesPerDataset} AI-analyzed companies.`
                 : wizardStep === 2
                 ? 'Confirm company identifiers, firmographics, and CRM commercial parameters. Personal contact data will be automatically redacted.'
                 : wizardStep === 3
@@ -446,7 +449,7 @@ export const UploadWizardPage: React.FC = () => {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".csv,.xlsx"
+                accept={isDemoUser ? '.csv,.xlsx' : '.csv'}
                 className="hidden"
               />
               <div className="w-16 h-16 rounded-full bg-[#A1F000] border-[2.5px] border-[#0A0A0A] flex items-center justify-center text-[#0A0A0A] mb-4 shadow-[2px_2px_0px_#0A0A0A] group-hover:scale-110 transition-transform">
@@ -456,7 +459,7 @@ export const UploadWizardPage: React.FC = () => {
                 Drop your CSV or XLSX file here
               </h3>
               <p className="text-xs sm:text-sm text-[#0A0A0A]/70 max-w-md mb-4 font-medium">
-                Supports .csv and .xlsx files up to {UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Headers are detected automatically.
+                Supports {isDemoUser ? '.csv and .xlsx' : '.csv'} files up to {UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Headers are detected automatically.
               </p>
               <span className="font-mono text-xs font-bold text-[#8C6ADE] underline underline-offset-4">
                 Click to browse files on your computer
@@ -472,12 +475,12 @@ export const UploadWizardPage: React.FC = () => {
               </div>
               <div className="bg-[#F9F8F4] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[2px_2px_0px_#0A0A0A]">
                 <span className="font-black text-[#0A0A0A]/60 block text-[10px] uppercase">MAX STORED ROWS</span>
-                <span className="text-base font-black text-[#0A0A0A]">{UPLOAD_CONFIG.MAX_ROWS_PER_DATASET} Records</span>
+                <span className="text-base font-black text-[#0A0A0A]">{isDemoUser ? UPLOAD_CONFIG.MAX_ROWS_PER_DATASET : PLANS[0].uploadRowLimit} Records</span>
                 <span className="text-[10px] text-[#0A0A0A]/70 block mt-1">All rows stored & inspectable</span>
               </div>
               <div className="bg-[#E5F7E5] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[2px_2px_0px_#0A0A0A]">
                 <span className="font-black text-[#0A0A0A]/60 block text-[10px] uppercase">AI ENRICHMENT TIER</span>
-                <span className="text-base font-black text-emerald-900">{UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO} Accounts</span>
+                <span className="text-base font-black text-emerald-900">{isDemoUser ? UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO : PLANS[0].companiesPerDataset} Accounts</span>
                 <span className="text-[10px] text-emerald-800 block mt-1">Deep strategic classification</span>
               </div>
             </div>

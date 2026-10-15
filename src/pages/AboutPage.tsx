@@ -18,7 +18,7 @@ const questions = [
   },
   {
     question: 'Can I use my own lead list?',
-    answer: 'Yes. In a signed-in workspace, you can upload a CSV or spreadsheet of companies and review the resulting analyses and reports.',
+    answer: 'Yes. In a signed-in workspace, you can upload a CSV of companies and review the resulting analyses and reports.',
   },
   {
     question: 'How are customer fit scores calculated?',
@@ -99,7 +99,7 @@ export const AboutPage: React.FC = () => (
     <footer className="border-t-[3px] border-black px-6 py-8">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 font-mono text-xs font-bold">
         <a href="/" className="text-lg font-black tracking-tight">Figured<span className="text-[#5F3EB5]">It</span></a>
-        <div className="flex flex-wrap gap-4"><a className="underline" href="/demo">DEMO</a><a className="underline" href="/privacy">PRIVACY</a><a className="underline" href={contactHref}>CONTACT</a></div>
+        <div className="flex flex-wrap gap-4"><a className="underline" href="/demo">DEMO</a><a className="underline" href="/pricing">PRICING</a><a className="underline" href="/terms">TERMS</a><a className="underline" href="/privacy">PRIVACY</a><a className="underline" href="/refund-policy">REFUNDS</a><a className="underline" href="/contact">CONTACT</a></div>
       </div>
     </footer>
   </div>

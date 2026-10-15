@@ -27,6 +27,8 @@ import { PublicDemoPage } from './pages/PublicDemoPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { TermsPage } from './pages/TermsPage';
 import { PricingPage } from './pages/PricingPage';
+import { RefundPolicyPage } from './pages/RefundPolicyPage';
+import { ContactPage } from './pages/ContactPage';
 
 function RouteSwitch() {
   const { path } = useRouter();
@@ -35,7 +37,7 @@ function RouteSwitch() {
     const segment = path.split('/')[1];
     const titles: Record<string, string> = {
       auth: 'Sign in or create an account', demo: 'Try the public demo',
-      privacy: 'Privacy notice', about: 'About and Q&A', terms: 'Terms of use', pricing: 'Pricing', dashboard: 'Dashboard', onboarding: 'Set up your offering',
+      privacy: 'Privacy notice', about: 'About and Q&A', terms: 'Terms of use', pricing: 'Pricing', contact: 'Contact', 'refund-policy': 'Refund policy', dashboard: 'Dashboard', onboarding: 'Set up your offering',
       uploads: 'Lead uploads', companies: 'Companies', segments: 'Segments',
       strategy: 'Strategic analysis', icp: 'ICP report', settings: 'Settings',
     };
@@ -68,6 +70,14 @@ function RouteSwitch() {
 
   if (path === '/pricing') {
     return <PricingPage />;
+  }
+
+  if (path === '/refund-policy') {
+    return <RefundPolicyPage />;
+  }
+
+  if (path === '/contact') {
+    return <ContactPage />;
   }
 
   if (path === '/demo') {
