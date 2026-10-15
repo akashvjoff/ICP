@@ -84,6 +84,7 @@ import {
   type ReportRepository,
 } from './src/server/reportService.ts';
 import type { ExecutiveICPReport } from './src/types/analysis.ts';
+import { canExport, COMPANY_COLUMNS, CONTACT_COLUMNS, encodeExport, exportFilename, exportQuerySchema, selectExportRows, type ExportContact } from './src/server/exportService.ts';
 
 dotenv.config();
 
@@ -316,6 +317,67 @@ app.post('/api/uploads', requireAuthenticatedUser, async (req: AuthenticatedRequ
     }
     console.error('[Upload] Persistence failed without logging uploaded row data.');
     return res.status(500).json({ error: 'The dataset could not be saved. No partial upload was retained.' });
+  }
+});
+
+app.get('/api/datasets/:id/export', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
+  const parsed = exportQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid export options.' });
+  if (!req.accessToken || req.accessToken === 'demo-token') return res.status(401).json({ error: 'Sign in to export your dataset.' });
+  const userId = req.user!.id;
+  const datasetId = req.params.id;
+  const query = parsed.data;
+  try {
+    const scopedClient = createUserScopedSupabase(req.accessToken);
+    const { data: dataset, error: datasetError } = await scopedClient.from('datasets')
+      .select('id, original_filename').eq('id', datasetId).eq('owner_user_id', userId).maybeSingle();
+    if (datasetError) throw datasetError;
+    if (!dataset) return res.status(404).json({ error: 'Dataset not found.' });
+
+    const [leads, scores, stp] = await Promise.all([
+      getJobRepository(req).getDatasetLeads(userId, datasetId),
+      getScoringRepository(req).getLeadScores(userId, datasetId).then(scores => scores.filter(score => score.modelVersion === CURRENT_SCORING_MODEL_VERSION)),
+      getSTPRepository(req).getDatasetSTPAnalysis(userId, datasetId),
+    ]);
+    if (query.segmentId && !stp?.segments.some(segment => segment.id === query.segmentId)) {
+      return res.status(404).json({ error: 'Segment not found in this dataset.' });
+    }
+
+    const mode = query.preset === 'tier1_contacts' ? 'contacts' : query.mode;
+    const contacts: ExportContact[] = [];
+    if (mode === 'contacts') {
+      if (!serverSupabase || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return res.status(503).json({ error: 'Contact export is temporarily unavailable.' });
+      }
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await serverSupabase.from('lead_contacts')
+          .select('lead_id, first_name, last_name, job_title, seniority, email, email_status, phone, linkedin_url, lead_stage, city, country')
+          .eq('owner_user_id', userId).eq('dataset_id', datasetId)
+          .order('created_at', { ascending: true }).order('id', { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        contacts.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+    }
+    const rows = selectExportRows(leads, scores, stp, contacts, query);
+    if (!canExport(req.user!, mode, rows.length)) return res.status(403).json({ error: 'Your plan does not include this export.' });
+    const columns = mode === 'contacts' ? CONTACT_COLUMNS : COMPANY_COLUMNS;
+    const data = await encodeExport(rows, columns, query.format);
+    const filter = query.preset || [
+      query.segmentId && stp?.segments.find(segment => segment.id === query.segmentId)?.name,
+      query.tier !== 'all' && query.tier,
+      query.coverage !== 'all' && query.coverage,
+      query.search,
+    ].filter(Boolean).join('_') || 'all';
+    const filename = `${exportFilename(dataset.original_filename, filter)}.${query.format}`;
+    res.setHeader('Content-Type', query.format === 'csv' ? 'text/csv; charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    return res.send(data);
+  } catch (error) {
+    console.error('[Export] Failed to prepare dataset export:', error instanceof Error ? error.message : 'Unknown error');
+    return res.status(500).json({ error: 'The export could not be prepared. Please try again.' });
   }
 });
 

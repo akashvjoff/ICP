@@ -10,6 +10,7 @@ import { StickerBadge } from '../components/ui/StickerBadge';
 import { StatusChip } from '../components/ui/StatusChip';
 import { TableShell } from '../components/ui/TableShell';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ExportMenu } from '../components/ui/ExportMenu';
 import { formatScore, formatHeadcount } from '../lib/formatters';
 import { batchScoreLeads } from '../lib/scoring';
 import { analyzedScores, deriveTierCounts, qualifiedSegmentIds, scoreTier } from '../lib/tiers';
@@ -390,12 +391,12 @@ export const DashboardPage: React.FC = () => {
                     {filteredAndSortedScores.length} OF {allScoredLeads.length} ACCOUNTS
                   </span>
                 </div>
-                <button
-                  onClick={() => navigate('/companies')}
-                  className="font-mono text-xs font-black text-[#0A0A0A] hover:text-[#8C6ADE] underline underline-offset-4 cursor-pointer"
-                >
-                  VIEW ALL {leads.length} COMPANIES →
-                </button>
+                <div className="flex items-center gap-3">
+                  <ExportMenu datasetId={activeDataset?.id} filters={{ tier: tierFilter, coverage: coverageFilter, sort: sortBy, analyzedOnly: 'true', limit: 10 }} />
+                  <button onClick={() => navigate('/companies')} className="font-mono text-xs font-black text-[#0A0A0A] hover:text-[#8C6ADE] underline underline-offset-4 cursor-pointer">
+                    VIEW ALL {leads.length} COMPANIES →
+                  </button>
+                </div>
               </div>
 
               {/* Filtering & Sorting Controls Bar (Prompt 12) */}

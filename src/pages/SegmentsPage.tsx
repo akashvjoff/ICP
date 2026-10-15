@@ -8,6 +8,7 @@ import { AppLayout } from '../components/layout/AppLayout';
 import { SectionEyebrow } from '../components/ui/SectionEyebrow';
 import { BrutalistCard } from '../components/ui/BrutalistCard';
 import { BrutalistButton } from '../components/ui/BrutalistButton';
+import { ExportMenu } from '../components/ui/ExportMenu';
 import { EmptyState } from '../components/ui/EmptyState';
 import { StatusChip } from '../components/ui/StatusChip';
 import type {
@@ -561,7 +562,10 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
 
                         <div className="pt-2 flex justify-between items-center text-xs font-mono font-black text-[#0A0A0A]">
                           <span className="underline">INSPECT SEGMENT</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-2">
+                            <ExportMenu datasetId={datasetId} filters={{ segmentId: segment.id, sort: 'created' }} />
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </div>
                         </div>
                       </div>
                     </BrutalistCard>
@@ -1071,6 +1075,7 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
 
               {/* Footer Actions */}
               <div className="border-t-[2px] border-[#0A0A0A] pt-4 flex items-center justify-between">
+                <ExportMenu datasetId={datasetId} filters={{ segmentId: inspectingSegment.id, sort: 'created' }} />
                 <BrutalistButton
                   variant="lime"
                   size="sm"

@@ -7,13 +7,14 @@ import { SectionEyebrow } from '../components/ui/SectionEyebrow';
 import { TableShell } from '../components/ui/TableShell';
 import { StatusChip } from '../components/ui/StatusChip';
 import { BrutalistButton } from '../components/ui/BrutalistButton';
+import { ExportMenu } from '../components/ui/ExportMenu';
 import { formatScore, formatHeadcount } from '../lib/formatters';
 import { analyzedScores, deriveTierCounts, scoreTier } from '../lib/tiers';
-import { Search, Filter, ExternalLink, Download, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, ExternalLink } from 'lucide-react';
 
 export const CompaniesPage: React.FC = () => {
   const { navigate } = useRouter();
-  const { leads, scores, datasets, isDemoMode, refreshLiveWorkspace } = useAppStore();
+  const { leads, scores, datasets, activeDatasetId, isDemoMode, refreshLiveWorkspace } = useAppStore();
   const hasDatasets = datasets.length > 0;
   useEffect(() => {
     if (!isDemoMode && hasDatasets) refreshLiveWorkspace();
@@ -66,6 +67,7 @@ export const CompaniesPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+            <ExportMenu datasetId={activeDatasetId || datasets[0]?.id} filters={{ search, tier: tierFilter, sort: sortBy }} />
             <BrutalistButton
               variant="white"
               size="sm"
@@ -134,6 +136,12 @@ export const CompaniesPage: React.FC = () => {
               DISQUALIFIED ({tierCounts.disqualified})
             </button>
           </div>
+          <select aria-label="Sort companies" value={sortBy} onChange={event => setSortBy(event.target.value as typeof sortBy)}
+            className="bg-[#F9F8F4] border-[2px] border-[#0A0A0A] rounded-lg px-2 py-1.5 font-mono text-xs font-bold">
+            <option value="scoreDesc">Score: high to low</option>
+            <option value="scoreAsc">Score: low to high</option>
+            <option value="name">Company name</option>
+          </select>
         </div>
 
         {/* Directory Table */}
