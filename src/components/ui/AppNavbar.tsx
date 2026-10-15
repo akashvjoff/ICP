@@ -7,6 +7,7 @@ const links = [
   { href: '/#test-drive', label: 'SAMPLE ANALYSIS' },
   { href: '/demo', label: 'PUBLIC DEMO' },
   { href: '/about', label: 'ABOUT & Q&A' },
+  { href: '/pricing', label: 'PRICING' },
   { href: '/privacy', label: 'PRIVACY' },
   { href: '/auth', label: 'SIGN IN' },
 ];

@@ -311,7 +311,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
             confidence: 'high',
             missing_fields: [lead.headcount === null ? 'employee_count' : '', !lead.annualRevenue ? 'annual_revenue' : ''].filter(Boolean),
             limitations: [
-              'Evaluated in local demo sandbox with deterministic company intelligence schema.',
+              'Sample analysis for exploring the app; check these findings against real company information.',
               'Potential business needs and target buying roles are explicitly unvalidated hypotheses.',
             ],
           },
@@ -544,7 +544,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
           {/* Large ICP Score Box or Queued Badge */}
           <div className="bg-white border-[3px] border-[#0A0A0A] rounded-2xl p-5 shadow-[5px_6px_0px_#0A0A0A] shrink-0 text-center min-w-[210px] space-y-2">
             <span className="font-mono text-[10px] font-black uppercase tracking-wider text-[#0A0A0A]/60 block">
-              DETERMINISTIC FIT
+              RULE-BASED FIT
             </span>
             {activeScore ? (
               <>
@@ -777,9 +777,6 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
                       Structured Company Intelligence
                     </h2>
                   </div>
-                  <p className="font-mono text-xs text-[#0A0A0A]/70 font-bold mt-1">
-                    PROVIDER: {companyIntelligence.provider.toUpperCase()} · MODEL: {companyIntelligence.modelVersion}
-                  </p>
                 </div>
 
                 <StatusChip
@@ -1020,7 +1017,7 @@ export const CompanyProfilePage: React.FC<{ params: { id: string } }> = ({ param
               Company Intelligence Ready to Generate
             </h3>
             <p className="text-xs text-[#0A0A0A]/75 font-medium max-w-md mx-auto">
-              Run structured Gemini analysis on this company to infer business models, extract public website facts, and generate acute need hypotheses.
+              Run AI-assisted analysis on this company to review its business model, public website facts, and possible customer needs.
             </p>
             <BrutalistButton
               variant="lime"

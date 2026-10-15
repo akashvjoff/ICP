@@ -64,8 +64,8 @@ export const ScoringMatrix: React.FC<ScoringMatrixProps> = ({
         <SectionHeading
           eyebrow="STEP 04 OF 05 // CALCULATION"
           eyebrowColor="bg-[#A1F000]"
-          title="Deterministic Fit Scoring Engine"
-          description="Non-AI pure arithmetic scoring. Calibrate dimension weights to reflect your specific go-to-market trade-offs."
+          title="Explainable Fit Scoring"
+          description="A rule-based score with visible components. Adjust the weights to reflect your go-to-market priorities."
           className="mb-0"
         />
 

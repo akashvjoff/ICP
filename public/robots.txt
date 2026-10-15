@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /uploads
+Disallow: /companies
+Disallow: /strategy
+Disallow: /segments
+Disallow: /icp
+
+Sitemap: https://figuredit.in/sitemap.xml

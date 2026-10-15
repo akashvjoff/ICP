@@ -9,7 +9,6 @@ import {
   classifyCompanyWithAI,
   runStrategicMarketingAnalysis,
   suggestSellerOnboardingContext,
-  isGeminiConfigured,
 } from './src/server/gemini.ts';
 import { calculateDeterministicICPScore, batchScoreLeads } from './src/lib/scoring.ts';
 import { OfferingProfile } from './src/types/offering.ts';
@@ -196,43 +195,7 @@ app.use(verifyAuth);
 
 // Health Endpoint
 app.get('/api/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    service: 'icp.mode',
-    timestamp: new Date().toISOString(),
-    geminiConfigured: isGeminiConfigured,
-    supabaseConfigured: isSupabaseConfigured,
-  });
-});
-
-// Supabase Status Endpoint
-app.get('/api/supabase/status', async (req: Request, res: Response) => {
-  if (!serverSupabase) {
-    return res.json({
-      configured: false,
-      message: 'Supabase credentials not configured in environment.',
-      mode: 'demo-persistence',
-    });
-  }
-
-  try {
-    const { data, error } = await serverSupabase
-      .from('datasets')
-      .select('count', { count: 'exact', head: true });
-
-    res.json({
-      configured: true,
-      mode: 'live-postgresql',
-      connected: !error,
-      error: error ? error.message : null,
-    });
-  } catch (err) {
-    res.json({
-      configured: true,
-      connected: false,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
+  res.json({ status: 'ok' });
 });
 
 // Mock/Sample Leads Route
@@ -1301,14 +1264,16 @@ async function startServer() {
     app.get('*', (req: Request, res: Response) => {
       const indexPath = path.resolve(__dirname, 'dist', 'index.html');
       const pathname = req.path;
-      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings'].includes(pathname)
+      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings'].includes(pathname)
         || /^\/(uploads|companies|segments|strategy)\/[^/]+$/.test(pathname)
         || /^\/icp\/report\/[^/]+$/.test(pathname);
       const publicTitles: Record<string, string> = {
-        '/': 'FiguredIt — AI-Powered ICP Discovery &amp; GTM Strategy',
+        '/': 'FiguredIt — AI-assisted ICP discovery and explainable lead scoring',
         '/demo': 'Try the public demo | FiguredIt',
         '/about': 'About and Q&A | FiguredIt',
         '/privacy': 'Privacy notice | FiguredIt',
+        '/terms': 'Terms of use | FiguredIt',
+        '/pricing': 'Pricing | FiguredIt',
       };
       const routeTitles: Record<string, string> = {
         auth: 'Sign in or create an account', onboarding: 'Set up your offering', dashboard: 'Dashboard',
@@ -1341,7 +1306,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[icp.mode] Server listening on http://0.0.0.0:${PORT}`);
+    console.log(`[FiguredIt] Server listening on http://0.0.0.0:${PORT}`);
   });
 }
 

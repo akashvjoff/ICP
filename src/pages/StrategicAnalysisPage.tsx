@@ -255,7 +255,7 @@ export const StrategicAnalysisPage: React.FC<{ params?: { id?: string } }> = ({ 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-[2.5px] border-[#0A0A0A] pb-6">
           <div>
             <SectionEyebrow color="bg-[#A1F000]">
-              ACADEMIC GTM PIPELINE · PROMPT 10
+              CUSTOMER NEEDS &amp; BUYING CONTEXT
             </SectionEyebrow>
             <h1 className="text-3xl sm:text-4xl font-black text-[#0A0A0A] tracking-tight">
               Strategic Marketing Analysis
@@ -398,10 +398,10 @@ export const StrategicAnalysisPage: React.FC<{ params?: { id?: string } }> = ({ 
             <div className="bg-[#FFE3B3] border-[2.5px] border-[#0A0A0A] p-4 rounded-xl shadow-[3px_3px_0px_#0A0A0A] text-xs font-medium space-y-1">
               <div className="flex items-center gap-2 font-black font-mono uppercase text-[#0A0A0A]">
                 <Info className="w-4 h-4 text-[#8C6ADE]" />
-                <span>NEED GAP &amp; DEMAND DISCOVERY INVARIANTS</span>
+                <span>HOW TO READ THESE FINDINGS</span>
               </div>
               <p className="text-[#0A0A0A]/85 leading-relaxed">
-                <strong>Need:</strong> State of dissatisfaction. <strong>Need Gap:</strong> Discrepancy between current operational state and desired state. <strong>Demand:</strong> Want supported by willingness to pay. <em>Guardrail: Willingness to pay is never inferred from headcount or industry alone. Accounts without deal outcomes remain unvalidated hypotheses.</em>
+                <strong>Need:</strong> A problem the customer wants to solve. <strong>Need gap:</strong> The difference between their current and desired state. <strong>Demand:</strong> Interest backed by willingness to pay. Willingness to pay is not inferred from company size or industry alone; accounts without deal outcomes remain unvalidated hypotheses.
               </p>
             </div>
 
@@ -521,7 +521,7 @@ export const StrategicAnalysisPage: React.FC<{ params?: { id?: string } }> = ({ 
                   </h3>
                 </div>
                 <p className="text-xs text-rose-950 font-medium leading-relaxed">
-                  These accounts lack verified website content, product descriptions, or uploaded notes. Under our academic guardrails, we strictly refuse to fabricate internal operational problems from industry or headcount alone.
+                  These accounts lack verified website content, product descriptions, or uploaded notes. We do not infer internal problems from industry or company size alone.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1 font-mono text-xs">
                   {needGapSummary.insufficientEvidenceLeadIds.map((id) => {

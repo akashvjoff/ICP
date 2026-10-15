@@ -45,7 +45,6 @@ export const DashboardPage: React.FC = () => {
     isContextComplete,
     contextCompletionScore,
     missingContextFields,
-    clearToEmptyState,
     resetToDemoData,
     refreshLiveWorkspace,
   } = useAppStore();
@@ -131,16 +130,7 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {isDemoMode && totalLeads > 0 ? (
-              <BrutalistButton
-                variant="white"
-                size="md"
-                onClick={clearToEmptyState}
-                className="text-xs font-bold"
-              >
-                TEST EMPTY STATE
-              </BrutalistButton>
-            ) : isDemoMode ? (
+            {isDemoMode && totalLeads === 0 ? (
               <BrutalistButton
                 variant="white"
                 size="md"

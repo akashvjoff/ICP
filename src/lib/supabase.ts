@@ -53,7 +53,7 @@ export function formatSupabaseError(error: unknown): string {
     return 'Too many attempts. Please pause for a few seconds before trying again.';
   }
   if (msg.includes('NetworkError') || msg.includes('Failed to fetch')) {
-    return 'Unable to connect to Supabase. Check your network connection or verify VITE_SUPABASE_URL.';
+    return 'Unable to connect. Check your network connection and try again.';
   }
   return msg || 'Authentication request failed.';
 }

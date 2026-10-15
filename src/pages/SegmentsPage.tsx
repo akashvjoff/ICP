@@ -581,7 +581,7 @@ export const SegmentsPage: React.FC<SegmentsPageProps> = ({ params }) => {
                 {stpAnalysis.overallTargetingRecommendation.summary}
               </p>
               <p className="text-xs text-[#0A0A0A]/80 font-medium">
-                Note: In accordance with academic marketing invariants, revenue is not treated as profit. Margin estimates remain unknown until unit-economics cost data is imported.
+                Revenue is not profit. Margin estimates remain unknown until cost data is available.
               </p>
             </div>
 

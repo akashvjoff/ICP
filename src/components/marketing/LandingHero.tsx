@@ -12,15 +12,15 @@ export const LandingHero: React.FC = () => {
         {/* Floating stickers on top */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <SectionEyebrow color="bg-[#6AAAFB]">
-            THE ALGORITHMIC B2B STRATEGY ENGINE
+            AI-ASSISTED ICP DISCOVERY
           </SectionEyebrow>
 
           <div className="flex items-center gap-2.5">
             <StickerBadge color="lime" rotate="-2">
-              100% EXPLAINABLE FIT
+              EXPLAINABLE FIT SCORES
             </StickerBadge>
             <StickerBadge color="purple" rotate="2" className="hidden sm:inline-flex">
-              CLASSICAL 4-STAGE PIPELINE
+              RULE-BASED SCORING
             </StickerBadge>
           </div>
         </div>
@@ -40,7 +40,7 @@ export const LandingHero: React.FC = () => {
 
         {/* Subhead with bold clarity */}
         <p className="text-lg sm:text-xl text-[#0A0A0A]/80 max-w-2xl font-medium leading-relaxed mb-10">
-          Find your ideal B2B customers with AI-powered customer intelligence. Build an explainable ideal customer profile (ICP), prioritize leads, and plan your go-to-market strategy.
+          Find your ideal B2B customers with AI-assisted analysis and an explainable, rule-based score. Prioritize leads and plan your go-to-market strategy.
         </p>
 
         {/* Hero Actions */}

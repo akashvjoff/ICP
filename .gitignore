@@ -5,6 +5,7 @@ coverage/
 .DS_Store
 *.log
 *.txt
+!public/robots.txt
 scratch/
 .env*
 !.env.example

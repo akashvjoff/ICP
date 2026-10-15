@@ -212,7 +212,7 @@ export const AppSidebar: React.FC = () => {
 
           {/* Bottom Card: Demo Mode Banner & User Profile */}
           <div className="pt-5 border-t-[2.5px] border-[#0A0A0A] space-y-3 mt-4">
-            <div className="bg-[#FFE3B3] border-[2px] border-[#0A0A0A] rounded-xl p-3 shadow-[2px_2px_0px_#0A0A0A]">
+            {workspaceUser.isDemoUser && <div className="bg-[#FFE3B3] border-[2px] border-[#0A0A0A] rounded-xl p-3 shadow-[2px_2px_0px_#0A0A0A]">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-mono text-[10px] font-black uppercase text-[#0A0A0A]">
                   DATASET STATE
@@ -220,21 +220,19 @@ export const AppSidebar: React.FC = () => {
                 <span className={`font-mono text-[9px] font-black px-1.5 py-0.2 rounded border border-[#0A0A0A] ${
                   isDemoMode ? 'bg-[#A1F000]' : 'bg-white'
                 }`}>
-                  {isDemoMode ? 'DEMO' : 'LIVE'}
+                  {isDemoMode ? 'DEMO' : 'BLANK'}
                 </span>
               </div>
               <p className="text-[11px] text-[#0A0A0A]/80 font-medium leading-tight mb-2">
-                {isDemoMode ? 'Synthetic B2B dataset loaded for test drives.' : 'Your signed-in Supabase workspace.'}
+                {isDemoMode ? 'Sample B2B accounts for exploring the app.' : 'Sample accounts are hidden.'}
               </p>
-              {workspaceUser.isDemoUser && (
-                <button
-                  onClick={toggleDemoMode}
-                  className="w-full text-center font-mono text-[10px] font-black text-[#0A0A0A] bg-white border border-[#0A0A0A] py-1 rounded hover:bg-[#A1F000] transition-colors cursor-pointer"
-                >
-                  {isDemoMode ? 'SWITCH TO BLANK MODE' : 'RESTORE DEMO DATA'}
-                </button>
-              )}
-            </div>
+              <button
+                onClick={toggleDemoMode}
+                className="w-full text-center font-mono text-[10px] font-black text-[#0A0A0A] bg-white border border-[#0A0A0A] py-1 rounded hover:bg-[#A1F000] transition-colors cursor-pointer"
+              >
+                {isDemoMode ? 'SWITCH TO BLANK MODE' : 'RESTORE DEMO DATA'}
+              </button>
+            </div>}
 
             {/* User profile snippet */}
             <div className="flex items-center justify-between bg-white border-[2px] border-[#0A0A0A] p-2.5 rounded-xl shadow-[2px_2px_0px_#0A0A0A]">

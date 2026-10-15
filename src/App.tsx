@@ -25,6 +25,8 @@ import { ICPReportPage } from './pages/ICPReportPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PublicDemoPage } from './pages/PublicDemoPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { TermsPage } from './pages/TermsPage';
+import { PricingPage } from './pages/PricingPage';
 
 function RouteSwitch() {
   const { path } = useRouter();
@@ -33,12 +35,12 @@ function RouteSwitch() {
     const segment = path.split('/')[1];
     const titles: Record<string, string> = {
       auth: 'Sign in or create an account', demo: 'Try the public demo',
-      privacy: 'Privacy notice', about: 'About and Q&A', dashboard: 'Dashboard', onboarding: 'Set up your offering',
+      privacy: 'Privacy notice', about: 'About and Q&A', terms: 'Terms of use', pricing: 'Pricing', dashboard: 'Dashboard', onboarding: 'Set up your offering',
       uploads: 'Lead uploads', companies: 'Companies', segments: 'Segments',
       strategy: 'Strategic analysis', icp: 'ICP report', settings: 'Settings',
     };
     document.title = path === '/'
-      ? 'FiguredIt — AI-Powered ICP Discovery & GTM Strategy'
+      ? 'FiguredIt — AI-assisted ICP discovery and explainable lead scoring'
       : `${titles[segment] || 'Page not found'} | FiguredIt`;
   }, [path]);
 
@@ -58,6 +60,14 @@ function RouteSwitch() {
 
   if (path === '/about') {
     return <AboutPage />;
+  }
+
+  if (path === '/terms') {
+    return <TermsPage />;
+  }
+
+  if (path === '/pricing') {
+    return <PricingPage />;
   }
 
   if (path === '/demo') {

@@ -156,7 +156,7 @@ export const InteractiveTeaser: React.FC = () => {
                 <div className="flex items-center justify-between border-b-[2px] border-[#0A0A0A]/20 pb-4 mb-6">
                   <div>
                     <span className="font-mono text-[11px] font-bold text-[#0A0A0A]/60 uppercase tracking-wider">
-                      DETERMINISTIC FIT SCORE
+                      RULE-BASED FIT SCORE
                     </span>
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="text-4xl sm:text-5xl font-black font-mono tabular-nums text-[#0A0A0A]">

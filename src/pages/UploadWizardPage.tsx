@@ -232,14 +232,14 @@ export const UploadWizardPage: React.FC = () => {
 
     try {
       if (isSupabaseConfigured && !isDemoUser) {
-        if (!file) throw new Error('Select the original CSV or XLSX file before saving to Supabase.');
+        if (!file) throw new Error('Select the original CSV or XLSX file before saving to your workspace.');
         const { data: refreshed, error: refreshError } = await supabase!.auth.refreshSession();
         if (refreshError || !refreshed.session?.access_token) {
           throw new Error('Your session could not be refreshed. Sign in again before saving this dataset.');
         }
 
         setProgressPercent(45);
-        setProcessingStage('Persisting the validated dataset and leads to your Supabase workspace...');
+        setProcessingStage('Saving the validated dataset and leads to your workspace...');
         const fileBase64 = await fileToBase64(file);
         const response = await fetch('/api/uploads', {
           method: 'POST',
@@ -256,7 +256,7 @@ export const UploadWizardPage: React.FC = () => {
           }),
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || 'Supabase upload failed.');
+        if (!response.ok) throw new Error(payload.error || 'The upload could not be saved.');
         if (typeof payload.datasetId !== 'string' || !payload.datasetId) throw new Error('The dataset was not confirmed as saved. Please retry.');
         datasetMeta.id = payload.datasetId;
         datasetMeta.validRows = payload.summary?.validRowsCount ?? finalLeads.length;
@@ -342,7 +342,7 @@ export const UploadWizardPage: React.FC = () => {
                 ? 'Step 2: Map Firmographic & Commercial Columns'
                 : wizardStep === 3
                 ? 'Step 3: Review Data Hygiene & Duplicates'
-                : 'Step 4: Execute Deterministic Ingestion'
+                : 'Step 4: Save Your Lead List'
             }
             description={
               wizardStep === 1
@@ -351,7 +351,7 @@ export const UploadWizardPage: React.FC = () => {
                 ? 'Confirm company identifiers, firmographics, and CRM commercial parameters. Personal contact data will be automatically redacted.'
                 : wizardStep === 3
                 ? 'Verify domain hygiene, duplicate detection, and schema validation before writing to database.'
-                : 'Persisting accounts, assigning deterministic weights, and initializing ICP analysis job.'
+                : 'Saving your accounts and preparing them for analysis.'
             }
           />
         </div>
@@ -1128,7 +1128,7 @@ export const UploadWizardPage: React.FC = () => {
 
               <p className="text-xs text-[#0A0A0A]/70 font-medium">
                 {isProcessing
-                  ? 'The server is re-parsing the original file, enforcing limits, applying RLS ownership, and creating a queued analysis job.'
+                  ? 'Checking your file and saving valid accounts to your workspace.'
                   : `All ${pipelineResult?.validLeads.length || 0} valid leads in "${fileName}" have been stored. No AI classification has run yet.`}
               </p>
             </div>

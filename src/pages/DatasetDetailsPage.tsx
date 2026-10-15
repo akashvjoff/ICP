@@ -528,7 +528,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
           <div className="bg-[#FFE3B3]/40 border-[2px] border-[#0A0A0A] p-3.5 rounded-xl shadow-[3px_3px_0px_#0A0A0A] flex items-center gap-3 text-xs font-mono font-bold text-[#0A0A0A]">
             <Info className="w-4 h-4 text-[#8C6ADE] shrink-0" />
             <span>
-              DEMO PERSISTENCE SANDBOX: Job states & completed profiles are cached across browser refreshes in local storage. Production mode persists durably to PostgreSQL.
+              Demo results are saved in this browser so you can continue exploring after a refresh.
             </span>
           </div>
         )}

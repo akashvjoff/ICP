@@ -24,8 +24,4 @@ export interface ScoreLeadsRequest {
 
 export interface HealthResponse {
   status: 'ok';
-  service: 'icp.mode';
-  timestamp: string;
-  geminiConfigured: boolean;
-  supabaseConfigured: boolean;
 }

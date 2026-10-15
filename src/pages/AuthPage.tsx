@@ -162,17 +162,10 @@ export const AuthPage: React.FC = () => {
           className="flex items-center gap-2 cursor-pointer focus:outline-hidden"
         >
           <span className="w-3.5 h-3.5 bg-[#A1F000] border-[2px] border-[#0A0A0A] shadow-[1.5px_1.5px_0px_#0A0A0A]" />
-          <span className="text-2xl font-black tracking-tighter text-[#0A0A0A]">
-            icp<span className="text-[#A1F000]">.</span>mode
-          </span>
+          <span className="text-2xl font-black tracking-tighter text-[#0A0A0A]">Figured<span className="text-[#A1F000]">It</span></span>
         </button>
 
         <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2 bg-white border-[1.5px] border-[#0A0A0A] px-2.5 py-1 rounded-md text-[11px] font-mono font-bold shadow-[1.5px_1.5px_0px_#0A0A0A]">
-            <span className={`w-2 h-2 rounded-full border border-[#0A0A0A] ${isConfigured ? 'bg-[#A1F000]' : 'bg-[#FFE3B3]'}`} />
-            {isConfigured ? 'SUPABASE POSTGRES LIVE' : 'DEMO PERSISTENCE'}
-          </div>
-
           <button
             onClick={() => navigate('/')}
             className="font-mono text-xs font-bold text-[#0A0A0A] hover:underline cursor-pointer"
@@ -435,7 +428,7 @@ export const AuthPage: React.FC = () => {
       </div>
 
       <div className="text-center font-mono text-xs text-[#0A0A0A]/50 mt-8">
-        FiguredIt · AI-powered customer intelligence · Supabase Auth Protected ·{' '}
+        FiguredIt · AI-assisted analysis with explainable scoring ·{' '}
         <a href="/privacy" className="underline hover:text-[#0A0A0A]">Privacy notice</a>
       </div>
     </div>

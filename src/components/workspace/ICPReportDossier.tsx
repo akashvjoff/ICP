@@ -91,7 +91,7 @@ export const ICPReportDossier: React.FC<ICPReportDossierProps> = ({
           eyebrow="STEP 05 OF 05 // EXECUTIVE SYNTHESIS"
           eyebrowColor="bg-[#A1F000]"
           title="Explainable ICP Report & Lead Dossier"
-          description="Deterministic customer scores, mathematical audit traces, and segmented go-to-market priorities."
+          description="Explainable, rule-based fit scores and segmented go-to-market priorities."
           className="mb-0"
         />
 

@@ -152,7 +152,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signInWithGoogle = async () => {
     clearError();
     if (!supabase) {
-      return { success: false, error: 'Google sign-in requires the live Supabase workspace.' };
+      return { success: false, error: 'Google sign-in is unavailable right now.' };
     }
 
     try {

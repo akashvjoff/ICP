@@ -212,7 +212,7 @@ function enforceEvidenceGuards(analysis: CompanyIntelligence): CompanyIntelligen
   return guarded;
 }
 
-const SYSTEM_INSTRUCTION = `You are ICP.MODE's company intelligence normalizer.
+const SYSTEM_INSTRUCTION = `You are FiguredIt's company intelligence normalizer.
 Use only supplied uploaded attributes and the optional public webpage excerpt.
 Every material claim must carry origin, confidence, and its source field or URL when available.
 Potential business needs and buying roles are hypotheses, not observed pain or intent.
@@ -334,7 +334,7 @@ export class MockCompanyAnalyzer implements CompanyAnalyzer {
         completeness: input.companyProductDescription ? 'medium' : 'low',
         confidence: payroll ? 'medium' : 'low',
         missing_fields: [companySize === undefined ? 'company_size' : '', geography === undefined ? 'geography' : ''].filter(Boolean),
-        limitations: ['Mock analysis is deterministic and intended for tests or local development only.', 'Potential needs and buying roles are unvalidated hypotheses.'],
+        limitations: ['Sample analysis is illustrative and should be checked against real company information.', 'Potential needs and buying roles are unvalidated hypotheses.'],
       },
     };
     return { analysis, modelVersion: 'mock-company-analyzer-v1' };

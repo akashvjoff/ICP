@@ -1,4 +1,5 @@
 import React from 'react';
+import { contactEmail, contactHref } from '../lib/contact';
 
 export const PrivacyPage: React.FC = () => {
   return (
@@ -29,7 +30,7 @@ export const PrivacyPage: React.FC = () => {
           </section>
           <section>
             <h2 className="mb-2 text-xl font-bold">Questions and requests</h2>
-            <p>For questions about your data or to request access or deletion, contact <a className="underline" href="mailto:figuredit.in@gmail.com">figuredit.in@gmail.com</a>. We will review requests against the data held by FiguredIt and its service providers.</p>
+            <p>For questions about your data or to request access or deletion, contact <a className="underline" href={contactHref}>{contactEmail}</a>. We will review requests against the data held by FiguredIt and its service providers.</p>
           </section>
         </div>
       </div>

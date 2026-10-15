@@ -254,7 +254,7 @@ export const OfferingWizard: React.FC<OfferingWizardProps> = ({
         <div className="bg-white border-[2px] border-[#0A0A0A] rounded-xl p-4 shadow-[2px_2px_0px_#0A0A0A] flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <p className="text-xs text-[#0A0A0A]/80 font-medium leading-relaxed">
-            <strong>Governance Checkpoint:</strong> This assumption vector defines what the deterministic engine looks for. Without historical closed-won CRM metrics, all cohort scores will be explicitly labeled as an <em>ICP Hypothesis</em>.
+            <strong>Keep in mind:</strong> These assumptions guide the rule-based score. Until you add actual deal outcomes, cohort scores remain an <em>ICP hypothesis</em>.
           </p>
         </div>
       </BrutalistCard>

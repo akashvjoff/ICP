@@ -3,6 +3,7 @@ import { AppNavbar } from '../components/ui/AppNavbar';
 import { LandingHero } from '../components/marketing/LandingHero';
 import { MarketingSequence } from '../components/marketing/MarketingSequence';
 import { InteractiveTeaser } from '../components/marketing/InteractiveTeaser';
+import { contactHref } from '../lib/contact';
 
 export const LandingPage: React.FC = () => {
   return (
@@ -33,7 +34,9 @@ export const LandingPage: React.FC = () => {
             <a href="/demo" className="underline hover:text-[#8C6ADE]">EXPLORE DEMO</a>
             <a href="/about" className="underline hover:text-[#8C6ADE]">ABOUT & Q&A</a>
             <a href="/privacy" className="underline hover:text-[#8C6ADE]">PRIVACY</a>
-            <a href="mailto:figuredit.in@gmail.com" className="underline hover:text-[#8C6ADE]">CONTACT</a>
+            <a href="/pricing" className="underline hover:text-[#8C6ADE]">PRICING</a>
+            <a href="/terms" className="underline hover:text-[#8C6ADE]">TERMS</a>
+            <a href={contactHref} className="underline hover:text-[#8C6ADE]">CONTACT</a>
             <span className="bg-white px-2 py-0.5 rounded border border-[#0A0A0A]">
               NEED GAP ANALYSIS
             </span>
@@ -44,7 +47,7 @@ export const LandingPage: React.FC = () => {
               STP STRATEGY
             </span>
             <span className="bg-[#A1F000] px-2 py-0.5 rounded border border-[#0A0A0A]">
-              DETERMINISTIC MATH
+              RULE-BASED SCORING
             </span>
           </div>
         </div>

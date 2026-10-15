@@ -9,14 +9,7 @@ const apiKey = process.env.GEMINI_API_KEY || '';
 export const isGeminiConfigured = Boolean(apiKey && !apiKey.includes('MY_GEMINI_API_KEY'));
 
 export const ai = isGeminiConfigured
-  ? new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
-    })
+  ? new GoogleGenAI({ apiKey })
   : null;
 
 let resolvedGeminiModel: string | null = null;

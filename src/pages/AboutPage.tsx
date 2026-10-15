@@ -1,6 +1,7 @@
 import React from 'react';
 import { AppNavbar } from '../components/ui/AppNavbar';
 import { ArrowRight, Mail, Phone } from 'lucide-react';
+import { contactEmail, contactHref } from '../lib/contact';
 
 const questions = [
   {
@@ -29,7 +30,7 @@ const questions = [
   },
   {
     question: 'How is my information handled?',
-    answer: 'FiguredIt uses Supabase for accounts and saved workspace data. Relevant offering and company details may be sent to Google Gemini when you request AI analysis. Read the privacy notice for details.',
+    answer: 'Your signed-in workspace stores the offering and company information you add. AI-assisted analysis uses relevant details to generate findings. Read the privacy notice for how data is handled.',
   },
 ];
 
@@ -41,7 +42,7 @@ export const AboutPage: React.FC = () => (
         <div className="mx-auto max-w-6xl">
           <span className="inline-block rotate-[-2deg] rounded-md border-2 border-black bg-[#A1F000] px-3 py-1 font-mono text-xs font-black shadow-[3px_3px_0px_#0A0A0A]">ABOUT FIGUREDIT</span>
           <h1 className="mt-8 max-w-4xl text-4xl font-black leading-[1.05] tracking-tight sm:text-6xl">Figure out who your best customers are.</h1>
-          <p className="mt-6 max-w-2xl border-l-4 border-[#8C6ADE] pl-5 text-lg leading-relaxed sm:text-xl">AI-powered customer intelligence, ICP discovery and go-to-market strategy. FiguredIt helps turn a lead list into a clearer, explainable plan for finding the right customers.</p>
+          <p className="mt-6 max-w-2xl border-l-4 border-[#8C6ADE] pl-5 text-lg leading-relaxed sm:text-xl">AI-assisted analysis with an explainable, rule-based score. FiguredIt helps turn a lead list into a clearer plan for finding the right customers.</p>
           <div className="mt-9 flex flex-wrap gap-3">
             <a href="/demo" className="inline-flex items-center gap-2 rounded-lg border-[3px] border-black bg-[#A1F000] px-5 py-3 font-mono text-xs font-black shadow-[4px_4px_0px_#0A0A0A] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_#0A0A0A]">EXPLORE DEMO <ArrowRight size={16} aria-hidden="true" /></a>
             <a href="/auth" className="inline-flex items-center gap-2 rounded-lg border-[3px] border-black bg-white px-5 py-3 font-mono text-xs font-black shadow-[4px_4px_0px_#0A0A0A] hover:bg-[#E4E6FB]">FIND MY IDEAL CUSTOMERS</a>
@@ -87,7 +88,7 @@ export const AboutPage: React.FC = () => (
             <p className="mt-3 text-sm leading-relaxed">FiguredIt is built by Akash V. Reach out about the app, your account, or your data.</p>
           </div>
           <div className="flex flex-col justify-center gap-3">
-            <a className="inline-flex items-center gap-3 break-all rounded-lg border-2 border-black bg-white p-3 font-mono text-sm font-bold hover:bg-[#E4E6FB]" href="mailto:figuredit.in@gmail.com"><Mail size={18} className="shrink-0" aria-hidden="true" />figuredit.in@gmail.com</a>
+            <a className="inline-flex items-center gap-3 break-all rounded-lg border-2 border-black bg-white p-3 font-mono text-sm font-bold hover:bg-[#E4E6FB]" href={contactHref}><Mail size={18} className="shrink-0" aria-hidden="true" />{contactEmail}</a>
             <a className="inline-flex items-center gap-3 rounded-lg border-2 border-black bg-white p-3 font-mono text-sm font-bold hover:bg-[#E4E6FB]" href="tel:+918778068507"><Phone size={18} className="shrink-0" aria-hidden="true" />+91 87780 68507</a>
           </div>
         </div>
@@ -96,7 +97,7 @@ export const AboutPage: React.FC = () => (
     <footer className="border-t-[3px] border-black px-6 py-8">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 font-mono text-xs font-bold">
         <a href="/" className="text-lg font-black tracking-tight">Figured<span className="text-[#5F3EB5]">It</span></a>
-        <div className="flex flex-wrap gap-4"><a className="underline" href="/demo">DEMO</a><a className="underline" href="/privacy">PRIVACY</a><a className="underline" href="mailto:figuredit.in@gmail.com">CONTACT</a></div>
+        <div className="flex flex-wrap gap-4"><a className="underline" href="/demo">DEMO</a><a className="underline" href="/privacy">PRIVACY</a><a className="underline" href={contactHref}>CONTACT</a></div>
       </div>
     </footer>
   </div>

@@ -48,7 +48,7 @@ export const StrategicPipeline: React.FC<StrategicPipelineProps> = ({
             disabled={isAnalyzing || leads.length === 0}
             icon={<Sparkles className={`w-3.5 h-3.5 text-[#8C6ADE] ${isAnalyzing ? 'animate-spin' : ''}`} />}
           >
-            {isAnalyzing ? 'ANALYZING...' : 'RUN GEMINI ANALYSIS'}
+            {isAnalyzing ? 'ANALYZING...' : 'RUN AI ANALYSIS'}
           </BrutalistButton>
 
           <BrutalistButton

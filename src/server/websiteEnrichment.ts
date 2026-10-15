@@ -93,7 +93,7 @@ function requestOnce(url: URL, pinned: { address: string; family: number }): Pro
     const request = https.get(url, {
       timeout: WEBSITE_LIMITS.timeoutMs,
       headers: {
-        'User-Agent': 'ICP.MODE public company profile fetcher/1.0 (+respect robots.txt)',
+        'User-Agent': 'FiguredIt public company profile fetcher/1.0 (+respect robots.txt)',
         Accept: 'text/html,application/xhtml+xml;q=0.9',
       },
       lookup: ((_hostname: string, _options: unknown, callback: (...args: unknown[]) => void) => {
