@@ -3,8 +3,8 @@ import { Menu, X, ArrowRight } from 'lucide-react';
 import { BrutalistLink } from './BrutalistButton';
 
 const links = [
-  { href: '#how-it-works', label: 'HOW IT WORKS' },
-  { href: '#test-drive', label: 'SAMPLE ANALYSIS' },
+  { href: '/#how-it-works', label: 'HOW IT WORKS' },
+  { href: '/#test-drive', label: 'SAMPLE ANALYSIS' },
   { href: '/demo', label: 'PUBLIC DEMO' },
   { href: '/about', label: 'ABOUT & Q&A' },
   { href: '/privacy', label: 'PRIVACY' },
