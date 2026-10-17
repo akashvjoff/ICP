@@ -62,7 +62,7 @@ export const AppSidebar: React.FC = () => {
     { id: 'companies', label: 'COMPANIES', path: '/companies', icon: Building2 },
     { id: 'strategy', label: 'STRATEGY', path: strategyPath, icon: Compass, tag: '5C' },
     { id: 'segments', label: 'SEGMENTS', path: segmentsPath, icon: GitFork },
-    { id: 'icp-report', label: 'ICP REPORT', path: reportPath, icon: FileText, tag: 'PRO' },
+    { id: 'icp-report', label: 'ICP REPORT', path: reportPath, icon: FileText, tag: 'REPORT' },
     { id: 'settings', label: 'SETTINGS', path: '/settings', icon: Settings },
   ];
 
@@ -80,7 +80,7 @@ export const AppSidebar: React.FC = () => {
           className="flex items-center gap-2 font-black text-xl tracking-tighter text-[#0A0A0A] cursor-pointer"
         >
           <span className="w-3 h-3 bg-[#A1F000] border-[1.5px] border-[#0A0A0A] inline-block shadow-[1px_1px_0px_#0A0A0A]" />
-          <span>Figured<span className="text-[#A1F000]">It</span></span>
+          <span>Figured<span className="text-[#5F3EB5]">It</span></span>
         </button>
 
         <div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ export const AppSidebar: React.FC = () => {
                 className="flex items-center text-left cursor-pointer group"
               >
                 <span className="text-2xl font-black tracking-tighter text-[#0A0A0A] group-hover:text-[#8C6ADE] transition-colors">
-                  Figured<span className="text-[#A1F000]">It</span>
+                  Figured<span className="text-[#5F3EB5]">It</span>
                 </span>
               </button>
 

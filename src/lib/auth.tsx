@@ -38,6 +38,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [authError, setAuthError] = useState<string | null>(null);
   const [isDemoUser, setIsDemoUser] = useState<boolean>(!isSupabaseConfigured);
   const demoModeRef = useRef(!isSupabaseConfigured);
+  const reportedSignups = useRef(new Set<string>());
+
+  const reportSignup = (nextSession: Session, created: boolean) => {
+    if (!created || reportedSignups.current.has(nextSession.user.id)) return;
+    reportedSignups.current.add(nextSession.user.id);
+    void fetch('/api/analytics/signup', {
+      method: 'POST', headers: { Authorization: `Bearer ${nextSession.access_token}` },
+    }).catch(() => undefined);
+  };
 
   // Derive workspace user profile
   const workspaceUser: WorkspaceUser = user
@@ -61,7 +70,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const acceptSession = async (nextSession: Session | null) => {
       const request = ++latest;
       try {
-        if (nextSession?.user) await dbService.ensureSellerProfile(nextSession.user);
+        if (nextSession?.user) reportSignup(nextSession, await dbService.ensureSellerProfile(nextSession.user));
         if (!active || request !== latest) return;
         setSession(nextSession);
         setUser(nextSession?.user ?? null);
@@ -206,7 +215,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const requiresConfirmation = !data.session;
       if (data.session) {
-        if (data.user) await dbService.ensureSellerProfile(data.user);
+        if (data.user) reportSignup(data.session, await dbService.ensureSellerProfile(data.user));
         setSession(data.session);
         setUser(data.user);
         setIsDemoUser(false);

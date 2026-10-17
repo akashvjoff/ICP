@@ -10,6 +10,10 @@ import type { NormalizedLead } from '../types/lead';
 import { companyIntelligenceSchema } from '../types/companyIntelligence';
 import type { CompanyAnalysisEnvelope } from '../types/companyIntelligence';
 import { CURRENT_SCORING_MODEL_VERSION } from '../lib/scoring';
+import { captureServerFailure, trackServerEvent } from './telemetry';
+import { clearExpiredContacts } from './contactRetention';
+import { sendAnalysisFinishedEmail } from './analysisEmail';
+import { canAnalyzeCompany } from './billingService';
 
 export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessEnv = process.env): () => void {
   const configuredLimit = Number.parseInt(env.AI_DAILY_COMPANIES_PER_USER || '200', 10);
@@ -17,16 +21,38 @@ export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessE
   const analyzer = createCompanyAnalyzer(env);
   let busy = false;
   let retryAfterError = 0;
+  let nextRetentionSweep = 0;
+  let nextHoneybadgerCheckin = 0;
 
   const tick = async () => {
+    if (Date.now() >= nextRetentionSweep) {
+      nextRetentionSweep = Date.now() + 60 * 60_000;
+      void clearExpiredContacts(client, env).catch(error => {
+        captureServerFailure(error, { component: 'contact_retention' });
+        nextRetentionSweep = Date.now() + 5 * 60_000;
+      });
+    }
     if (busy || Date.now() < retryAfterError) return;
     busy = true;
     let claimed: AnalysisJobRecord | undefined;
     try {
       const { data, error } = await client.rpc('claim_next_analysis_job');
       if (error) throw error;
+      if (env.HONEYBADGER_CHECKIN_URL && Date.now() >= nextHoneybadgerCheckin) {
+        nextHoneybadgerCheckin = Date.now() + 60_000;
+        void fetch(env.HONEYBADGER_CHECKIN_URL, { signal: AbortSignal.timeout(5000) }).catch(() => undefined);
+      }
       claimed = Array.isArray(data) ? data[0] as AnalysisJobRecord | undefined : undefined;
       if (!claimed) return;
+
+      if (!(await canAnalyzeCompany(client, claimed.owner_user_id, claimed.dataset_id))) {
+        const { error: limitError } = await client.from('analysis_jobs').update({
+          status: 'paused', last_error: 'PLAN_LIMIT: Your plan has reached its AI company limit. Upgrade to continue.',
+          worker_locked_at: null,
+        }).eq('id', claimed.id).eq('owner_user_id', claimed.owner_user_id);
+        if (limitError) throw limitError;
+        return;
+      }
 
       const { data: seller, error: sellerError } = await client.from('seller_profiles')
         .select('company_name, product_description, main_customer_problem, onboarding_data')
@@ -106,12 +132,22 @@ export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessE
         await createSupabaseScoringRepository(client).saveLeadScores(claimed.owner_user_id, claimed.dataset_id, scores);
       }
       if (result.job.status === 'completed' || result.job.status === 'completed_with_errors') {
-        const { error: doneError } = await client.from('analysis_jobs').update({ status: 'done' })
+        const { data: doneRows, error: doneError } = await client.from('analysis_jobs').update({ status: 'done' })
           .eq('id', claimed.id).eq('owner_user_id', claimed.owner_user_id)
-          .in('status', ['completed', 'completed_with_errors']);
+          .in('status', ['completed', 'completed_with_errors']).select('id');
         if (doneError) throw doneError;
+        if (doneRows?.length) {
+          trackServerEvent('analysis_completed');
+          try {
+            await sendAnalysisFinishedEmail(client, claimed, env);
+          } catch (emailError) {
+            captureServerFailure(emailError, { component: 'analysis_email', job_id: claimed.id });
+            console.error('[Analysis worker] Completion email failed:', emailError instanceof Error ? emailError.message : 'Unknown error');
+          }
+        }
       }
     } catch (error) {
+      captureServerFailure(error, { job_id: claimed?.id || 'unclaimed' });
       console.error('[Analysis worker] Batch failed:', error instanceof Error ? error.message : error);
       retryAfterError = Date.now() + 30_000;
     } finally {

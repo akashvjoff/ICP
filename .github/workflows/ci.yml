@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -17,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -26,8 +30,15 @@ jobs:
       - name: Type check (Lint)
         run: npm run lint
 
-      - name: Run unit and integration tests
-        run: npm test
+      - name: Run unit and integration tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          use_oidc: true
+          fail_ci_if_error: true
 
       - name: Run lead ingestion pipeline tests
         run: npm run test:pipeline

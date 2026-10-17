@@ -20,7 +20,7 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <span className="text-xl font-black tracking-tighter text-[#0A0A0A]">
-              Figured<span className="text-[#A1F000]">It</span>
+              Figured<span className="text-[#5F3EB5]">It</span>
             </span>
             <span className="font-mono text-xs text-[#0A0A0A]/40 font-bold">/</span>
             <span className="font-mono text-xs font-bold text-[#0A0A0A]/70">

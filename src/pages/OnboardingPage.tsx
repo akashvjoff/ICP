@@ -3,6 +3,7 @@ import { useRouter } from '../lib/router';
 import { useAppStore } from '../lib/store';
 import { useAuth } from '../lib/auth';
 import { dbService } from '../lib/supabase';
+import { pendingUploadKey } from '../lib/pendingUpload';
 import {
   SellerProductContext,
   BuyerRole,
@@ -39,7 +40,7 @@ import {
 
 export const OnboardingPage: React.FC = () => {
   const { navigate } = useRouter();
-  const { sellerContext, updateSellerContext, addToast } = useAppStore();
+  const { sellerContext, updateSellerContext, addToast, datasets } = useAppStore();
   const { user, isConfigured } = useAuth();
   const draftKey = `icp_mode_onboarding_draft_${user?.id || 'demo'}`;
 
@@ -252,6 +253,13 @@ export const OnboardingPage: React.FC = () => {
 
   // Final Save & Engine Calibration
   const handleFinalSave = async () => {
+    if (!completion.isComplete) {
+      const firstMissing = completion.missingFields[0];
+      setCurrentStep(firstMissing === 'Company Name' || firstMissing === 'Company Industry' ? 1 :
+        firstMissing === 'Buyer Roles' ? 3 : firstMissing === 'Customer Problem' || firstMissing === 'Ideal Customer Outcome' ? 4 : 2);
+      addToast(`Complete ${completion.missingFields.join(', ')} before continuing.`, 'warning');
+      return;
+    }
     setSavingProgress(true);
 
     const finalized: SellerProductContext = {
@@ -282,7 +290,7 @@ export const OnboardingPage: React.FC = () => {
 
     setSavingProgress(false);
     addToast('Seller Product Context calibrated! ICP Engine is ready for lead analysis.', 'success');
-    navigate('/dashboard');
+    navigate(sessionStorage.getItem(pendingUploadKey) ? '/uploads/new' : datasets.length ? '/dashboard' : '/start');
   };
 
   // Trigger AI Suggestion Flow
@@ -363,7 +371,7 @@ export const OnboardingPage: React.FC = () => {
           >
             <span className="w-3.5 h-3.5 bg-[#A1F000] border-[2px] border-[#0A0A0A] shadow-[1.5px_1.5px_0px_#0A0A0A]" />
             <span className="text-2xl font-black tracking-tighter text-[#0A0A0A]">
-              icp<span className="text-[#A1F000]">.</span>mode
+              Figured<span className="text-[#5F3EB5]">It</span>
             </span>
           </button>
 

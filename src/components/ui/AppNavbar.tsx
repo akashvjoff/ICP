@@ -19,7 +19,7 @@ export const AppNavbar: React.FC = () => {
       <div className="mx-auto flex h-20 max-w-7xl min-w-0 items-center justify-between gap-2 px-4 sm:px-8">
         <a href="/" className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0A0A0A]" aria-label="Let’s FiguredIt — home">
           <span className="font-mono text-xs font-black uppercase tracking-tight sm:text-sm">LET’S</span>
-          <span className="text-2xl font-black tracking-tighter sm:text-3xl">Figured<span className="text-[#A1F000] drop-shadow-[1px_1px_0px_#0A0A0A]">It</span></span>
+          <span className="text-2xl font-black tracking-tighter sm:text-3xl">Figured<span className="text-[#5F3EB5]">It</span></span>
         </a>
         <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-3 xl:gap-4">
           {links.map(link => <a key={link.href} href={link.href} className="font-mono text-[10px] xl:text-xs font-bold tracking-wide hover:underline">{link.label}</a>)}

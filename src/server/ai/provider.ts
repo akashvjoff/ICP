@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
+import { captureServerFailure } from '../telemetry';
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 
@@ -142,6 +143,7 @@ export async function generateStructured<T>(request: StructuredRequest<T>, provi
   for (const provider of providers) {
     try { return await provider.generate(request); }
     catch (error) {
+      captureServerFailure(error, { provider: provider.name, model: provider.model });
       lastError = error;
       if (!(error instanceof AIProviderError) || (error.status !== 429 && error.status !== 422 && error.status < 500)) break;
     }

@@ -152,6 +152,7 @@ export const DashboardPage: React.FC = () => {
             >
               UPLOAD LEADS
             </BrutalistButton>
+            <a href="/pricing" className="font-mono text-xs font-black underline underline-offset-4 hover:text-[#6247A5]">COMPARE PLANS →</a>
           </div>
         </div>
 

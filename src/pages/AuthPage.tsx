@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { pendingUploadKey } from '../lib/pendingUpload';
+import { dbService } from '../lib/supabase';
 import { useRouter } from '../lib/router';
 import { useAuth } from '../lib/auth';
 import { useAppStore } from '../lib/store';
@@ -54,11 +55,18 @@ export const AuthPage: React.FC = () => {
     }
   }, []);
 
-  // If already authenticated with Supabase session, redirect to dashboard
+  // Finish seller setup before opening a new account's workspace.
   useEffect(() => {
-    if (!authLoading && session && user && !localError && !authError) {
-      navigate(sessionStorage.getItem(pendingUploadKey) ? '/uploads/new' : '/dashboard');
-    }
+    if (authLoading || !session || !user || localError || authError) return;
+    let active = true;
+    void dbService.getSellerProfile(user.id).then(profile => {
+      if (!active) return;
+      const complete = profile?.onboarding_data?.isComplete === true;
+      navigate(complete ? (sessionStorage.getItem(pendingUploadKey) ? '/uploads/new' : '/dashboard') : '/onboarding');
+    }).catch(error => {
+      if (active) setLocalError(error instanceof Error ? error.message : 'Could not open your workspace. Please retry.');
+    });
+    return () => { active = false; };
   }, [authLoading, session, user, localError, authError, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,7 +96,7 @@ export const AuthPage: React.FC = () => {
         const res = await signIn(email, password);
         if (res.success) {
           addToast('Signed in successfully. Welcome to FiguredIt!', 'success');
-          navigate(sessionStorage.getItem(pendingUploadKey) ? '/uploads/new' : '/dashboard');
+          // The session effect checks whether this account still needs seller setup.
         } else {
           setLocalError(res.error || 'Failed to sign in.');
         }
@@ -163,7 +171,7 @@ export const AuthPage: React.FC = () => {
           className="flex items-center gap-2 cursor-pointer focus:outline-hidden"
         >
           <span className="w-3.5 h-3.5 bg-[#A1F000] border-[2px] border-[#0A0A0A] shadow-[1.5px_1.5px_0px_#0A0A0A]" />
-          <span className="text-2xl font-black tracking-tighter text-[#0A0A0A]">Figured<span className="text-[#A1F000]">It</span></span>
+          <span className="text-2xl font-black tracking-tighter text-[#0A0A0A]">Figured<span className="text-[#5F3EB5]">It</span></span>
         </button>
 
         <div className="flex items-center gap-4">

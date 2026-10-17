@@ -6,8 +6,10 @@
 import React, { useEffect } from 'react';
 import { Router, useRouter } from './lib/router';
 import { AuthProvider, useAuth } from './lib/auth';
-import { AppStoreProvider } from './lib/store';
+import { AppStoreProvider, useAppStore } from './lib/store';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AppLayout } from './components/layout/AppLayout';
+import { EmptyState } from './components/ui/EmptyState';
 
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
@@ -29,14 +31,21 @@ import { TermsPage } from './pages/TermsPage';
 import { PricingPage } from './pages/PricingPage';
 import { RefundPolicyPage } from './pages/RefundPolicyPage';
 import { ContactPage } from './pages/ContactPage';
+import { StartAnalysisPage } from './pages/StartAnalysisPage';
+import { BillingPage } from './pages/BillingPage';
+import { UpgradeModal } from './components/billing/UpgradeModal';
+import { syncPublicAnalytics } from './lib/clientTelemetry';
 
 function RouteSwitch() {
-  const { path } = useRouter();
+  const { path, navigate } = useRouter();
+  const { user } = useAuth();
+  const { datasets, workspaceLoading, isContextComplete } = useAppStore();
 
   useEffect(() => {
+    syncPublicAnalytics(path);
     const segment = path.split('/')[1];
     const titles: Record<string, string> = {
-      auth: 'Sign in or create an account', demo: 'Try the public demo',
+      auth: 'Sign in or create an account', demo: 'Try the public demo', start: 'Start your analysis',
       privacy: 'Privacy notice', about: 'About and Q&A', terms: 'Terms of use', pricing: 'Pricing', contact: 'Contact', 'refund-policy': 'Refund policy', dashboard: 'Dashboard', onboarding: 'Set up your offering',
       uploads: 'Lead uploads', companies: 'Companies', segments: 'Segments',
       strategy: 'Strategic analysis', icp: 'ICP report', settings: 'Settings',
@@ -82,6 +91,21 @@ function RouteSwitch() {
 
   if (path === '/demo') {
     return <PublicDemoPage />;
+  }
+
+  if (path === '/start') {
+    return <ProtectedRoute><StartAnalysisPage /></ProtectedRoute>;
+  }
+
+  if (user && (/^\/(dashboard|companies|segments|strategy)(\/|$)/.test(path) ||
+      /^\/uploads\/(?!new$)[^/]+$/.test(path) || /^\/icp\/report(\/|$)/.test(path))) {
+    if (workspaceLoading) return <AppLayout><p className="font-mono text-sm">Opening your workspace…</p></AppLayout>;
+    if (datasets.length === 0) return <AppLayout><div className="py-16">
+      <EmptyState title="Your workspace is ready for its first list"
+        description={isContextComplete ? 'Add a company list to start analysis and follow its live progress.' : 'Tell us what you sell, then add a list to start analysis.'}
+        actionText={isContextComplete ? 'ADD YOUR FIRST LIST' : 'SET UP WHAT YOU SELL'}
+        onAction={() => navigate(isContextComplete ? '/start' : '/onboarding')} />
+    </div></AppLayout>;
   }
 
   if (path === '/onboarding') {
@@ -188,6 +212,7 @@ function RouteSwitch() {
       </ProtectedRoute>
     );
   }
+  if (path === '/settings/billing') return <ProtectedRoute><BillingPage /></ProtectedRoute>;
 
   // Fallback
   return <NotFoundPage />;
@@ -199,6 +224,7 @@ function ScopedWorkspace() {
   return (
     <AppStoreProvider key={scope}>
       <RouteSwitch />
+      <UpgradeModal />
     </AppStoreProvider>
   );
 }

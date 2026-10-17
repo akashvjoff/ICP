@@ -15,12 +15,13 @@ type ExportFilters = {
 
 export const ExportMenu: React.FC<{ datasetId?: string; filters?: ExportFilters }> = ({ datasetId, filters }) => {
   const { isDemoMode } = useAppStore();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).get('export') === 'tier1_contacts');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [mode, setMode] = useState<'companies' | 'contacts'>('companies');
   const [format, setFormat] = useState<'csv' | 'xlsx'>('csv');
-  const [preset, setPreset] = useState<'current' | 'tier1_contacts' | 'all_analyzed'>('current');
+  const [preset, setPreset] = useState<'current' | 'tier1_contacts' | 'all_analyzed'>(() =>
+    new URLSearchParams(window.location.search).get('export') === 'tier1_contacts' ? 'tier1_contacts' : 'current');
 
   const download = async () => {
     if (!datasetId || isDemoMode) {

@@ -12,6 +12,7 @@ import {
   type CompanyAnalysisRepository,
 } from './companyIntelligenceService';
 import { enrichFromPublicWebsite } from './websiteEnrichment';
+import { captureServerFailure } from './telemetry';
 
 export type JobStatus =
   | 'queued'
@@ -402,6 +403,11 @@ export async function processBatch(
         envelope,
       });
     } catch (error) {
+      captureServerFailure(error, {
+        provider: analyzer.providerName,
+        model: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+        job_id: job.id,
+      });
       const isQuotaOrRateLimit = error instanceof CompanyAnalysisError &&
         (error.code === 'RATE_LIMITED' || /quota|rate.?limit/i.test(error.message));
 

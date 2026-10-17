@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PLANS, PAID_PLAN_IDS } from './src/config/plans.ts';
+import { PLANS, PAID_PLAN_IDS, BILLING_INTERVALS, BILLING_CURRENCIES } from './src/config/plans.ts';
 import {
   classifyCompanyWithAI,
   runStrategicMarketingAnalysis,
@@ -85,6 +85,9 @@ import {
 } from './src/server/reportService.ts';
 import type { ExecutiveICPReport } from './src/types/analysis.ts';
 import { canExport, COMPANY_COLUMNS, CONTACT_COLUMNS, encodeExport, exportFilename, exportQuerySchema, selectExportRows, type ExportContact } from './src/server/exportService.ts';
+import { captureServerFailure, trackServerEvent } from './src/server/telemetry.ts';
+import { deleteAccountData, exportAccountData } from './src/server/accountDataService.ts';
+import { billingPeriodStart, canAnalyzeCompany, cancelDodoSubscription, createCheckout, createPortalLink, getBillingUsage, getEntitlements, processDodoWebhook } from './src/server/billingService.ts';
 
 dotenv.config();
 
@@ -95,6 +98,21 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
+app.post('/api/billing/webhook/dodo', express.raw({ type: 'application/json', limit: '1mb' }), async (req: Request, res: Response) => {
+  if (!serverSupabase || !process.env.SUPABASE_SERVICE_ROLE_KEY) return res.status(503).json({ error: 'Billing storage is unavailable.' });
+  try {
+    const headers = {
+      'webhook-id': String(req.header('webhook-id') || ''),
+      'webhook-timestamp': String(req.header('webhook-timestamp') || ''),
+      'webhook-signature': String(req.header('webhook-signature') || ''),
+    };
+    await processDodoWebhook(serverSupabase, (req.body as Buffer).toString('utf8'), headers);
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    console.error('[Billing] Rejected webhook:', error instanceof Error ? error.message : 'Unknown error');
+    return res.status(400).json({ error: 'Invalid webhook.' });
+  }
+});
 app.use(express.json({ limit: '10mb' }));
 
 // Server-side Supabase client (using service role or anon key if present)
@@ -178,6 +196,53 @@ const requireAuthenticatedUser = createRequireAuthenticatedUser({
   allowProductionDemo: process.env.ALLOW_PRODUCTION_DEMO === 'true',
 });
 
+function billingClient(): SupabaseClient {
+  if (!serverSupabase || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('Billing storage is unavailable.');
+  return serverSupabase;
+}
+function planLimit(res: Response, error: string) { return res.status(402).json({ code: 'PLAN_LIMIT', error }); }
+
+app.post('/api/billing/checkout', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (req.accessToken === 'demo-token') return res.status(401).json({ error: 'Sign in to choose a plan.' });
+    const { plan: currentPlan } = await getEntitlements(billingClient(), req.user!.id);
+    if (currentPlan.id !== 'free') return res.status(409).json({ error: 'Manage your existing subscription from Settings → Billing before choosing another plan.' });
+    const url = await createCheckout(req.body, { id: req.user!.id, email: req.user!.email });
+    return res.json({ url });
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Choose a valid paid plan and billing interval.' });
+    console.error('[Billing] Checkout failed:', error instanceof Error ? error.message : 'Unknown error');
+    return res.status(503).json({ error: 'Checkout is unavailable right now. Please try again.' });
+  }
+});
+
+app.get('/api/billing/status', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const client = billingClient();
+    const { plan, subscription } = await getEntitlements(client, req.user!.id);
+    const periodStart = subscription?.current_period_end && subscription.interval === 'annual'
+      ? new Date(new Date(subscription.current_period_end).setUTCFullYear(new Date(subscription.current_period_end).getUTCFullYear() - 1)).toISOString()
+      : billingPeriodStart(subscription?.interval || null);
+    const usage = await getBillingUsage(client, req.user!.id, periodStart);
+    return res.json({ plan: plan.id, subscription: subscription && {
+      status: subscription.status, interval: subscription.interval, current_period_end: subscription.current_period_end,
+      cancel_at_period_end: subscription.cancel_at_period_end,
+    }, usage, limits: { datasets: plan.datasetsPerMonth, companies: plan.companiesPerDataset, rows: plan.uploadRowLimit } });
+  } catch { return res.status(503).json({ error: 'Billing status is unavailable.' }); }
+});
+
+app.post('/api/billing/portal', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try { return res.json({ url: await createPortalLink(billingClient(), req.user!.id) }); }
+  catch { return res.status(503).json({ error: 'The subscription portal is unavailable.' }); }
+});
+
+app.post('/api/billing/cancel', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    await cancelDodoSubscription(billingClient(), req.user!.id);
+    return res.json({ requested: true, message: 'Cancellation requested. Your plan updates after Dodo confirms it.' });
+  } catch { return res.status(503).json({ error: 'Could not schedule cancellation.' }); }
+});
+
 const inMemoryJobRepository = new InMemoryAnalysisJobRepository();
 const inMemoryCompanyAnalysisRepository = new InMemoryCompanyAnalysisRepository();
 const inMemoryStrategicAnalysisRepository = new InMemoryStrategicAnalysisRepository();
@@ -252,6 +317,8 @@ app.get('/api/health', (req: Request, res: Response) => {
 const waitlistSchema = z.object({
   email: z.email().max(254).transform(value => value.trim().toLowerCase()),
   plan: z.enum(PAID_PLAN_IDS),
+  interval: z.enum(BILLING_INTERVALS).default('monthly'),
+  currency: z.enum(BILLING_CURRENCIES).default('INR'),
 });
 
 app.post('/api/waitlist', async (req: Request, res: Response) => {
@@ -264,7 +331,57 @@ app.post('/api/waitlist', async (req: Request, res: Response) => {
     console.error('[Waitlist] Insert failed:', error.code);
     return res.status(503).json({ error: 'We could not add you right now. Please try again.' });
   }
+  if (!error) trackServerEvent('waitlist_joined');
   return res.status(201).json({ success: true });
+});
+
+app.post('/api/analytics/signup', requireAuthenticatedUser, (_req: AuthenticatedRequest, res: Response) => {
+  trackServerEvent('signup_completed');
+  res.status(204).end();
+});
+
+app.delete('/api/datasets/:id', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
+  if (!serverSupabase || !process.env.SUPABASE_SERVICE_ROLE_KEY || req.accessToken === 'demo-token') {
+    return res.status(503).json({ error: 'Dataset deletion is unavailable right now.' });
+  }
+  if (!z.uuid().safeParse(req.params.id).success) return res.status(400).json({ error: 'Invalid dataset ID.' });
+  try {
+    const { data, error } = await serverSupabase.from('datasets').delete()
+      .eq('id', req.params.id).eq('owner_user_id', req.user!.id).select('id');
+    if (error) throw error;
+    if (!data?.length) return res.status(404).json({ error: 'Dataset not found.' });
+    return res.status(204).end();
+  } catch {
+    return res.status(500).json({ error: 'The dataset could not be deleted. Please try again.' });
+  }
+});
+
+app.get('/api/account/export', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
+  if (!serverSupabase || !process.env.SUPABASE_SERVICE_ROLE_KEY || req.accessToken === 'demo-token') {
+    return res.status(503).json({ error: 'Account export is unavailable right now.' });
+  }
+  try {
+    const data = await exportAccountData(serverSupabase, req.user!.id, req.user!.email);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="figuredit_my_data.json"');
+    res.setHeader('Cache-Control', 'private, no-store');
+    return res.send(JSON.stringify(data));
+  } catch {
+    return res.status(500).json({ error: 'Your data could not be exported. Please try again.' });
+  }
+});
+
+app.delete('/api/account', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
+  if (req.body?.confirm !== 'DELETE') return res.status(400).json({ error: 'Type DELETE to confirm.' });
+  if (!serverSupabase || !process.env.SUPABASE_SERVICE_ROLE_KEY || req.accessToken === 'demo-token') {
+    return res.status(503).json({ error: 'Account deletion is unavailable right now.' });
+  }
+  try {
+    await deleteAccountData(serverSupabase, req.user!.id, req.user!.email);
+    return res.status(204).end();
+  } catch {
+    return res.status(500).json({ error: 'Your account could not be deleted. Please contact support.' });
+  }
 });
 
 // Mock/Sample Leads Route
@@ -281,26 +398,30 @@ app.get('/api/sample-data', (req: Request, res: Response) => {
 // on the server; ownership always comes from the verified Supabase access token.
 app.post('/api/uploads', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (req.accessToken === 'demo-token') return res.status(401).json({ error: 'Sign in to save a dataset.' });
+    const { plan, subscription } = await getEntitlements(billingClient(), req.user!.id);
     const prepared = await prepareUpload(req.body);
-    const freePlan = PLANS[0];
-    if (!prepared.parsed.fileName.toLowerCase().endsWith('.csv')) {
-      return res.status(422).json({ error: 'The Free plan accepts CSV files only.' });
+    if (plan.id === 'free' && !prepared.parsed.fileName.toLowerCase().endsWith('.csv')) {
+      return planLimit(res, 'The Free plan accepts CSV files only.');
     }
-    if (prepared.parsed.rawRows.length > freePlan.uploadRowLimit) {
-      return res.status(422).json({ error: `The Free plan accepts up to ${freePlan.uploadRowLimit} rows per file.` });
+    if (prepared.parsed.rawRows.length > plan.uploadRowLimit) {
+      return planLimit(res, `The ${plan.name} plan accepts up to ${plan.uploadRowLimit} rows per file.`);
     }
     const scopedClient = createUserScopedSupabase(req.accessToken!);
-    const { count, error: countError } = await scopedClient.from('datasets')
-      .select('id', { head: true, count: 'exact' }).eq('owner_user_id', req.user!.id);
+    let countQuery = scopedClient.from('datasets').select('id', { head: true, count: 'exact' }).eq('owner_user_id', req.user!.id);
+    if (plan.id !== 'free') countQuery = countQuery.gte('created_at', billingPeriodStart(subscription?.interval || null));
+    const { count, error: countError } = await countQuery;
     if (countError) throw countError;
-    if ((count ?? 0) >= freePlan.datasetsPerMonth) {
-      return res.status(403).json({ error: 'Your Free workspace already has a dataset.' });
+    if (plan.datasetsPerMonth !== null && (count ?? 0) >= plan.datasetsPerMonth) {
+      return planLimit(res, `Your ${plan.name} plan has reached its dataset limit.`);
     }
     const result = await persistPreparedUpload(
       createSupabaseUploadRepository(serverSupabase || scopedClient),
       req.user!.id,
       prepared
     );
+
+    trackServerEvent('dataset_uploaded');
 
     return res.status(201).json({
       success: true,
@@ -312,6 +433,7 @@ app.post('/api/uploads', requireAuthenticatedUser, async (req: AuthenticatedRequ
     if (error instanceof UploadValidationError) {
       return res.status(error.statusCode).json({ error: error.message });
     }
+    if (error instanceof Error && /PLAN_LIMIT/.test(error.message)) return planLimit(res, 'Your plan limit has been reached.');
     if (error instanceof Error && error.message === 'Your Free workspace already has a dataset.') {
       return res.status(403).json({ error: error.message });
     }
@@ -333,6 +455,9 @@ app.get('/api/datasets/:id/export', requireAuthenticatedUser, async (req: Authen
       .select('id, original_filename').eq('id', datasetId).eq('owner_user_id', userId).maybeSingle();
     if (datasetError) throw datasetError;
     if (!dataset) return res.status(404).json({ error: 'Dataset not found.' });
+    const { plan } = await getEntitlements(billingClient(), userId);
+    const requestedMode = query.preset === 'tier1_contacts' ? 'contacts' : query.mode;
+    if (!canExport(req.user!, requestedMode, query.limit || 0, plan, query)) return planLimit(res, 'Upgrade to export contacts, XLSX, or filtered results.');
 
     const [leads, scores, stp] = await Promise.all([
       getJobRepository(req).getDatasetLeads(userId, datasetId),
@@ -361,7 +486,7 @@ app.get('/api/datasets/:id/export', requireAuthenticatedUser, async (req: Authen
       }
     }
     const rows = selectExportRows(leads, scores, stp, contacts, query);
-    if (!canExport(req.user!, mode, rows.length)) return res.status(403).json({ error: 'Your plan does not include this export.' });
+    if (!canExport(req.user!, mode, rows.length, plan, query)) return planLimit(res, 'Your plan does not include this export.');
     const columns = mode === 'contacts' ? CONTACT_COLUMNS : COMPANY_COLUMNS;
     const data = await encodeExport(rows, columns, query.format);
     const filter = query.preset || [
@@ -374,6 +499,7 @@ app.get('/api/datasets/:id/export', requireAuthenticatedUser, async (req: Authen
     res.setHeader('Content-Type', query.format === 'csv' ? 'text/csv; charset=utf-8' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Cache-Control', 'private, no-store');
+    trackServerEvent('export_clicked');
     return res.send(data);
   } catch (error) {
     console.error('[Export] Failed to prepare dataset export:', error instanceof Error ? error.message : 'Unknown error');
@@ -397,12 +523,17 @@ app.post('/api/ai/company-intelligence', requireAuthenticatedUser, async (req: A
     const scopedClient = createUserScopedSupabase(req.accessToken!);
     const { data: lead, error: leadError } = await scopedClient
       .from('leads')
-      .select('company_name, normalized_domain, website, industry_raw, employee_count, company_size_raw, geography, company_type_raw, business_model_raw, product_raw, notes, user_corrected_description')
+      .select('dataset_id, company_name, normalized_domain, website, industry_raw, employee_count, company_size_raw, geography, company_type_raw, business_model_raw, product_raw, notes, user_corrected_description')
       .eq('id', leadId)
       .eq('owner_user_id', req.user!.id)
       .maybeSingle();
     if (leadError) throw leadError;
     if (!lead) return res.status(404).json({ error: 'Company record not found.', code: 'COMPANY_NOT_FOUND' });
+    const { data: priorAnalysis, error: priorError } = await scopedClient.from('company_analyses')
+      .select('analyzed_at').eq('lead_id', leadId).eq('owner_user_id', req.user!.id).eq('analysis_status', 'completed').maybeSingle();
+    if (priorError) throw priorError;
+    const isRecentRerun = priorAnalysis?.analyzed_at && Date.parse(priorAnalysis.analyzed_at) > Date.now() - 30 * 86400_000;
+    if (!isRecentRerun && !(await canAnalyzeCompany(billingClient(), req.user!.id, lead.dataset_id))) return planLimit(res, 'Your plan has reached its AI company limit for this dataset.');
 
     const correction = String(lead.user_corrected_description || requestedInput.userCorrectedDescription || '').trim();
     const uploadedDescription = correction || String(lead.product_raw || lead.notes || requestedInput.companyProductDescription || '');
@@ -465,9 +596,12 @@ app.post('/api/ai/company-intelligence', requireAuthenticatedUser, async (req: A
     );
     return res.json({ success: true, ...result });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('PLAN_LIMIT')) return planLimit(res, 'Your plan has reached its AI company limit.');
     if (error instanceof CompanyAnalysisError) {
+      captureServerFailure(error, { provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-3.5-flash' });
       return res.status(error.statusCode).json({ error: error.message, code: error.code });
     }
+    captureServerFailure(error, { provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-3.5-flash' });
     console.error('[Company Intelligence] Analysis failed without logging company input or prompt data.');
     return res.status(500).json({ error: 'Company analysis failed.', code: 'ANALYSIS_FAILED' });
   }
@@ -533,6 +667,8 @@ app.patch('/api/ai/company-intelligence/:leadId/description', requireAuthenticat
 app.post('/api/analysis-jobs/:id/start', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const jobRepo = getWritableJobRepository(req);
+    const existing = await jobRepo.getJob(req.user!.id, req.params.id);
+    if (existing && !(await canAnalyzeCompany(billingClient(), req.user!.id, existing.dataset_id))) return planLimit(res, 'Your plan has reached its AI company limit.');
     const job = await startJob(jobRepo, req.user!.id, req.params.id);
     const progress = calculateJobProgress(job);
     return res.json({ success: true, job, progress });
@@ -602,6 +738,8 @@ app.post('/api/analysis-jobs/:id/pause', requireAuthenticatedUser, async (req: A
 app.post('/api/analysis-jobs/:id/resume', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const jobRepo = getWritableJobRepository(req);
+    const existing = await jobRepo.getJob(req.user!.id, req.params.id);
+    if (existing && !(await canAnalyzeCompany(billingClient(), req.user!.id, existing.dataset_id))) return planLimit(res, 'Your plan has reached its AI company limit.');
     const job = await resumeJob(jobRepo, req.user!.id, req.params.id);
     const progress = calculateJobProgress(job);
     return res.json({ success: true, job, progress });
@@ -1096,6 +1234,15 @@ app.post('/api/scoring/dataset/:datasetId/run', requireAuthenticatedUser, async 
 // EXECUTIVE ICP REPORT & 7Ps MARKETING MIX ENDPOINTS (Prompt 13)
 // -----------------------------------------------------------------------------
 
+app.get('/api/reports/dataset/:datasetId/print-access', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    await getReportRepository(req).assertOwnedDataset(req.user!.id, req.params.datasetId);
+    const { plan } = await getEntitlements(billingClient(), req.user!.id);
+    if (plan.id === 'free') return planLimit(res, 'Upgrade to Starter or Pro to save a PDF report.');
+    return res.json({ allowed: true, watermark: plan.id !== 'pro' });
+  } catch (error) { return respondToDatasetReadError(res, error, 'Unable to check report access.'); }
+});
+
 app.get('/api/reports/dataset/:datasetId', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const reportRepo = getReportRepository(req);
@@ -1317,7 +1464,7 @@ async function startServer() {
     app.get('*', (req: Request, res: Response) => {
       const indexPath = path.resolve(__dirname, 'dist', 'index.html');
       const pathname = req.path;
-      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings'].includes(pathname)
+      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings', '/settings/billing'].includes(pathname)
         || /^\/(uploads|companies|segments|strategy)\/[^/]+$/.test(pathname)
         || /^\/icp\/report\/[^/]+$/.test(pathname);
       const publicTitles: Record<string, string> = {
@@ -1342,6 +1489,11 @@ async function startServer() {
         if (publicTitles[pathname]) {
           html = html.replace('rel="canonical" href="https://figuredit.in/"', `rel="canonical" href="https://figuredit.in${pathname}"`);
           html = html.replace('property="og:url" content="https://figuredit.in/"', `property="og:url" content="https://figuredit.in${pathname}"`);
+          if (pathname === '/pricing') {
+            html = html.replace(/(<meta name="description" content=")[^"]*(" \/>)/, '$1Simple pricing for explainable ICP discovery. Start free, then join the waitlist for Starter or Pro as your pipeline grows.$2');
+            html = html.replace(/(<meta property="og:title" content=")[^"]*(" \/>)/, '$1Pricing | FiguredIt$2');
+            html = html.replace(/(<meta property="og:description" content=")[^"]*(" \/>)/, '$1Start free. Upgrade when your pipeline grows. Compare Free, Starter and Pro plans for AI-assisted ICP analysis.$2');
+          }
         } else {
           html = html.replace(/\s*<link rel="canonical"[^>]*>/, '');
           html = html.replace('</head>', '<meta name="robots" content="noindex" /></head>');

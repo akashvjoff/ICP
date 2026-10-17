@@ -23,6 +23,7 @@ import {
 import { UPLOAD_CONFIG, formatBytes } from '../lib/uploadConfig';
 import { PLANS } from '../config/plans';
 import { savePendingUpload, getPendingUpload, clearPendingUpload, pendingUploadKey } from '../lib/pendingUpload';
+import { sampleIndustries, selectedSampleKey } from '../lib/sampleLists';
 import { RawLeadRecord, ColumnMapping } from '../types/lead';
 import { formatHeadcount } from '../lib/formatters';
 import {
@@ -80,6 +81,7 @@ export const UploadWizardPage: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resumeStarted = useRef(false);
+  const sampleStarted = useRef(false);
 
   const wizardSteps: StepItem[] = [
     { id: '1', num: '01', label: 'CHOOSE FILE', pastelBg: 'peach' },
@@ -303,6 +305,19 @@ export const UploadWizardPage: React.FC = () => {
   }, [isDemoUser]);
 
   useEffect(() => {
+    if (sampleStarted.current || sessionStorage.getItem(pendingUploadKey)) return;
+    const selected = sessionStorage.getItem(selectedSampleKey);
+    if (!sampleIndustries.some(industry => industry === selected)) return;
+    sampleStarted.current = true;
+    sessionStorage.removeItem(selectedSampleKey);
+    void fetch(`/samples/${selected}.csv`).then(async response => {
+      if (!response.ok) throw new Error('Sample list could not be loaded. Please choose a file instead.');
+      const content = await response.text();
+      await handleProcessSelectedFile(new File([content], `figuredit_${selected}_sample.csv`, { type: 'text/csv' }));
+    }).catch(error => setFileError(error instanceof Error ? error.message : 'Sample list could not be loaded.'));
+  }, []);
+
+  useEffect(() => {
     if (resumeReady && pipelineResult && file && !isDemoUser) {
       setResumeReady(false);
       void executeProcessing();
@@ -451,7 +466,7 @@ export const UploadWizardPage: React.FC = () => {
                 <UploadCloud className="w-8 h-8 stroke-[2.5]" />
               </div>
               <h3 className="text-xl sm:text-2xl font-black text-[#0A0A0A] mb-1">
-                Drop your CSV or XLSX file here
+                Drop your {isDemoUser ? 'CSV or XLSX' : 'CSV'} file here
               </h3>
               <p className="text-xs sm:text-sm text-[#0A0A0A]/70 max-w-md mb-4 font-medium">
                 Supports {isDemoUser ? '.csv and .xlsx' : '.csv'} files up to {UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Headers are detected automatically.
@@ -494,10 +509,10 @@ export const UploadWizardPage: React.FC = () => {
               <BrutalistButton
                 variant="lavender"
                 size="md"
-                onClick={handleLoadCalibratedSample}
+                onClick={isDemoUser ? handleLoadCalibratedSample : () => navigate('/start')}
                 icon={<Sparkles className="w-4 h-4 text-[#8C6ADE]" />}
               >
-                LOAD BENCHMARK SAMPLE (5 ACCOUNTS)
+                {isDemoUser ? 'LOAD BENCHMARK SAMPLE (5 ACCOUNTS)' : 'CHOOSE INDUSTRY SAMPLE'}
               </BrutalistButton>
             </div>
           </div>

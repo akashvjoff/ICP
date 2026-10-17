@@ -5,6 +5,7 @@ import type { LeadICPScore } from '../types/scoring';
 import type { DatasetSTPAnalysis } from '../types/analysis';
 import { analyzedScores, scoreTier } from '../lib/tiers';
 import { sanitizeCsvCell } from './reportService';
+import type { Plan } from '../config/plans';
 
 export const exportQuerySchema = z.object({
   mode: z.enum(['companies', 'contacts']).default('companies'),
@@ -38,9 +39,11 @@ export interface ExportContact {
 export type ExportRow = Record<string, string | number>;
 export type ExportUser = { id: string; email?: string };
 
-// Billing will replace this gate; it stays on the server's export path.
-export function canExport(_user: ExportUser, _mode: ExportQuery['mode'], _rows: number): boolean {
-  return true;
+export function canExport(_user: ExportUser, mode: ExportQuery['mode'], rows: number, plan: Plan, query: ExportQuery): boolean {
+  if (plan.id !== 'free') return true;
+  return mode === 'companies' && query.format === 'csv' && rows <= 25 && !query.preset &&
+    !query.search && query.tier === 'all' && query.coverage === 'all' && !query.segmentId &&
+    query.analyzedOnly === 'false';
 }
 
 export function selectExportRows(

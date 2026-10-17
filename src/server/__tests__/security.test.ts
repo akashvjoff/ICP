@@ -11,6 +11,7 @@ import { InMemorySTPRepository } from '../stpService';
 import { InMemoryScoringRepository } from '../scoringService';
 import { InMemoryReportRepository, sanitizeCsvCell } from '../reportService';
 import { assertPublicAddress, normalizeCompanyHomepage } from '../websiteEnrichment';
+import { exportAccountData } from '../accountDataService';
 
 // Helper to create mock Express request, response, and next function
 function createMockHttp(headers: Record<string, string> = {}) {
@@ -394,4 +395,48 @@ test('15. CSV Injection: sanitizeCsvCell neutralizes dangerous spreadsheet trigg
 
   // Benign alphanumeric text is safely quoted
   assert.equal(sanitizeCsvCell('Acme Corp'), `"Acme Corp"`);
+});
+
+test('account export scopes every table to its owner and includes rows beyond the Supabase page limit', async () => {
+  const leads = Array.from({ length: 1001 }, (_, index) => ({ id: `lead-${index}`, owner_user_id: 'owner-a' }));
+  const visited: string[] = [];
+  const client = {
+    from(table: string) {
+      visited.push(table);
+      return {
+        select(_columns: string) {
+          return {
+            eq(column: string, value: string) {
+              if (table === 'waitlist') {
+                assert.equal(column, 'email');
+                assert.equal(value, 'owner@example.com');
+                return Promise.resolve({ data: [], error: null });
+              }
+              assert.equal(column, table === 'subscriptions' || table === 'usage' ? 'user_id' : 'owner_user_id');
+              assert.equal(value, 'owner-a');
+              return {
+                order(_sort: string) {
+                  return {
+                    async range(start: number, end: number) {
+                      return { data: table === 'leads' ? leads.slice(start, end + 1) : [], error: null };
+                    },
+                  };
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+    auth: { admin: { async getUserById(id: string) {
+      assert.equal(id, 'owner-a');
+      return { data: { user: { id } }, error: null };
+    } } },
+  } as unknown as SupabaseClient;
+  const archive = await exportAccountData(client, 'owner-a', 'owner@example.com');
+  assert.equal(archive.tables.leads.length, 1001);
+  assert.ok(visited.includes('lead_contacts'));
+  assert.ok(visited.includes('subscriptions'));
+  assert.ok(visited.includes('usage'));
+  assert.ok(visited.includes('waitlist'));
 });

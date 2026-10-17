@@ -14,8 +14,12 @@ import { Search, Filter, ExternalLink } from 'lucide-react';
 
 export const CompaniesPage: React.FC = () => {
   const { navigate } = useRouter();
-  const { leads, scores, datasets, activeDatasetId, isDemoMode, refreshLiveWorkspace } = useAppStore();
+  const { leads, scores, datasets, activeDatasetId, setActiveDatasetId, isDemoMode, refreshLiveWorkspace } = useAppStore();
   const hasDatasets = datasets.length > 0;
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('dataset');
+    if (requested && datasets.some(dataset => dataset.id === requested) && requested !== activeDatasetId) setActiveDatasetId(requested);
+  }, [datasets, activeDatasetId, setActiveDatasetId]);
   useEffect(() => {
     if (!isDemoMode && hasDatasets) refreshLiveWorkspace();
   }, [isDemoMode, hasDatasets, refreshLiveWorkspace]);

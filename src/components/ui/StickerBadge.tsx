@@ -19,7 +19,7 @@ export const StickerBadge: React.FC<StickerBadgeProps> = ({
 }) => {
   const colorMap: Record<StickerColor, string> = {
     lime: 'bg-[#A1F000] text-[#0A0A0A]',
-    purple: 'bg-[#8C6ADE] text-white',
+    purple: 'bg-[#5F3EB5] text-white',
     peach: 'bg-[#FFE3B3] text-[#0A0A0A]',
     lavender: 'bg-[#E4E6FB] text-[#0A0A0A]',
     mint: 'bg-[#E5F7E5] text-[#0A0A0A]',

@@ -93,18 +93,19 @@ export const DEFAULT_DEMO_USER: WorkspaceUser = {
 // ------------------------------------------------------------------------------
 export const dbService = {
   // Seller Profile
-  async ensureSellerProfile(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }): Promise<void> {
+  async ensureSellerProfile(user: { id: string; email?: string; user_metadata?: Record<string, unknown> }): Promise<boolean> {
     if (!supabase) throw new Error('Supabase is not configured.');
     await freshAccessToken();
     const email = user.email || '';
     const name = String(user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0] || 'Member');
     const company = String(user.user_metadata?.company_name || 'My Company');
-    const { error } = await supabase.from('seller_profiles').upsert({
+    const { data, error } = await supabase.from('seller_profiles').upsert({
       owner_user_id: user.id,
       company_name: company,
       onboarding_data: { contactName: name, contactEmail: email },
-    }, { onConflict: 'owner_user_id', ignoreDuplicates: true });
+    }, { onConflict: 'owner_user_id', ignoreDuplicates: true }).select('owner_user_id');
     if (error) throw error;
+    return Boolean(data?.length);
   },
   async getSellerProfile(userId: string): Promise<DbSellerProfile | null> {
     if (!supabase) return null;

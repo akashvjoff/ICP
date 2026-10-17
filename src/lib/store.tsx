@@ -61,6 +61,7 @@ interface AppStoreContextType {
   offering: OfferingProfile;
   updateOffering: (offering: OfferingProfile) => void;
   datasets: DatasetMeta[];
+  workspaceLoading: boolean;
   activeDatasetId: string;
   setActiveDatasetId: (id: string) => void;
   leads: NormalizedLead[];
@@ -182,6 +183,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [scores, setScores] = useState<LeadICPScore[]>(isDemoUser ? SAMPLE_SCORES : []);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [workspaceLoading, setWorkspaceLoading] = useState<boolean>(Boolean(authUser?.id));
   const refreshLiveWorkspace = useCallback(() => setRefreshVersion((value) => value + 1), []);
 
   useEffect(() => {
@@ -196,6 +198,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!authUser?.id) return;
     let current = true;
     const ownerId = authUser.id;
+    if (refreshVersion === 0) setWorkspaceLoading(true);
     setIsDemoMode(false);
     if (refreshVersion === 0) {
       setDatasets([]);
@@ -235,8 +238,15 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
           };
         });
         setDatasets(mappedDatasets);
-        const selected = mappedDatasets[0];
-        if (!selected) return;
+        const requestedDatasetId = new URLSearchParams(window.location.search).get('dataset');
+        const selected = mappedDatasets.find(dataset => dataset.id === requestedDatasetId) || mappedDatasets[0];
+        if (!selected) {
+          setActiveDatasetId('');
+          setLeads([]);
+          setScores([]);
+          setAnalysis(EMPTY_STRATEGIC_ANALYSIS);
+          return;
+        }
         setActiveDatasetId(selected.id);
         const savedLeads = await dbService.getLeads(ownerId, selected.id);
         if (!current) return;
@@ -317,6 +327,8 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
         } : dataset));
       } catch (error) {
         console.error('[Workspace] Could not load the signed-in user data:', error);
+      } finally {
+        if (current) setWorkspaceLoading(false);
       }
     })();
     return () => { current = false; };
@@ -470,6 +482,7 @@ export const AppStoreProvider: React.FC<{ children: ReactNode }> = ({ children }
         offering,
         updateOffering,
         datasets,
+        workspaceLoading,
         activeDatasetId,
         setActiveDatasetId,
         leads,

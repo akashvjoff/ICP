@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { canExport, COMPANY_COLUMNS, CONTACT_COLUMNS, encodeExport, exportFilename, exportQuerySchema, selectExportRows, type ExportContact } from '../exportService';
+import { PLANS } from '../../config/plans';
 import type { LeadForAnalysis } from '../analysisJobService';
 import type { LeadICPScore } from '../../types/scoring';
 import type { DatasetSTPAnalysis } from '../../types/analysis';
@@ -43,7 +44,8 @@ test('contacts export repeats company score for each uploaded contact and preset
   assert.ok(rows.every(row => row.Score === 90 && row.Segment === 'Manual prospecting'));
   const analyzed = selectExportRows(leads, scores, stp, contacts, exportQuerySchema.parse({ preset: 'all_analyzed' }));
   assert.deepEqual(analyzed.map(row => row.Company), ['Alpha', 'Beta']);
-  assert.equal(canExport({ id: 'owner' }, 'contacts', rows.length), true);
+  assert.equal(canExport({ id: 'owner' }, 'contacts', rows.length, PLANS[1], exportQuerySchema.parse({ preset: 'tier1_contacts' })), true);
+  assert.equal(canExport({ id: 'owner' }, 'contacts', rows.length, PLANS[0], exportQuerySchema.parse({ preset: 'tier1_contacts' })), false);
 });
 
 test('CSV has UTF-8 BOM and spreadsheet-safe cells; XLSX contains the selected columns', async () => {
