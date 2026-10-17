@@ -8,7 +8,7 @@ export const ContactPage: React.FC = () => <main className="min-h-screen bg-[#F9
       <span className="font-mono text-xs font-black">GET IN TOUCH</span>
       <h1 className="mt-4 text-4xl font-black">Contact FiguredIt.</h1>
       <p className="mt-4">Questions about your account, your data, or the app? Reach out.</p>
-      <dl className="mt-8 space-y-4 font-mono text-sm"><div><dt className="font-black">BUSINESS</dt><dd>FiguredIt</dd></div><div><dt className="font-black">LOCATION</dt><dd>Gurugram, Haryana, India</dd></div><div><dt className="font-black">EMAIL</dt><dd><a className="underline" href={contactHref}>{contactEmail}</a></dd></div></dl>
+      <dl className="mt-8 space-y-4 font-mono text-sm"><div><dt className="font-black">BUSINESS</dt><dd>FiguredIt</dd></div><div><dt className="font-black">LOCATION</dt><dd>Gurugram, Haryana, India</dd></div><div><dt className="font-black">EMAIL</dt><dd><a className="underline" href={contactHref}>{contactEmail}</a></dd></div><div><dt className="font-black">WHATSAPP</dt><dd><a className="underline" href="https://wa.me/918778068507" target="_blank" rel="noopener noreferrer">+91 87780 68507</a></dd></div><div><dt className="font-black">INSTAGRAM</dt><dd><a className="underline" href="https://www.instagram.com/akash_vijaychandran" target="_blank" rel="noopener noreferrer">@akash_vijaychandran</a></dd></div></dl>
     </div>
   </div>
 </main>;
