@@ -15,12 +15,20 @@ import { clearExpiredContacts } from './contactRetention';
 import { sendAnalysisFinishedEmail } from './analysisEmail';
 import { canAnalyzeCompany } from './billingService';
 
+export function isTransientWorkerError(error: unknown): boolean {
+  const candidate = error as { status?: number; message?: string } | null;
+  if (candidate?.status && [502, 503, 504].includes(candidate.status)) return true;
+  const message = candidate?.message || (error instanceof Error ? error.message : '');
+  return /bad gateway|gateway timeout|network connection lost|fetch failed|ECONNRESET|ETIMEDOUT/i.test(message);
+}
+
 export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessEnv = process.env): () => void {
   const configuredLimit = Number.parseInt(env.AI_DAILY_COMPANIES_PER_USER || '200', 10);
   const dailyLimit = Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : 200;
   const analyzer = createCompanyAnalyzer(env);
   let busy = false;
   let retryAfterError = 0;
+  let transientFailureCount = 0;
   let nextRetentionSweep = 0;
   let nextHoneybadgerCheckin = 0;
 
@@ -38,6 +46,7 @@ export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessE
     try {
       const { data, error } = await client.rpc('claim_next_analysis_job');
       if (error) throw error;
+      transientFailureCount = 0;
       if (env.HONEYBADGER_CHECKIN_URL && Date.now() >= nextHoneybadgerCheckin) {
         nextHoneybadgerCheckin = Date.now() + 60_000;
         void fetch(env.HONEYBADGER_CHECKIN_URL, { signal: AbortSignal.timeout(5000) }).catch(() => undefined);
@@ -147,9 +156,19 @@ export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessE
         }
       }
     } catch (error) {
-      captureServerFailure(error, { job_id: claimed?.id || 'unclaimed' });
-      console.error('[Analysis worker] Batch failed:', error instanceof Error ? error.message : error);
-      retryAfterError = Date.now() + 30_000;
+      if (!claimed && isTransientWorkerError(error)) {
+        transientFailureCount += 1;
+        if (transientFailureCount === 3 || transientFailureCount % 10 === 0) {
+          captureServerFailure(error, { component: 'analysis_worker', job_id: 'unclaimed' });
+        }
+        console.warn('[Analysis worker] Queue temporarily unavailable; retrying.');
+        retryAfterError = Date.now() + Math.min(5 * 60_000, 30_000 * 2 ** Math.min(transientFailureCount - 1, 4)) + Math.floor(Math.random() * 5000);
+      } else {
+        transientFailureCount = 0;
+        captureServerFailure(error, { component: 'analysis_worker', job_id: claimed?.id || 'unclaimed' });
+        console.error('[Analysis worker] Batch failed:', error instanceof Error ? error.message : error);
+        retryAfterError = Date.now() + 30_000;
+      }
     } finally {
       if (claimed) {
         try {

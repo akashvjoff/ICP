@@ -20,6 +20,13 @@ import {
 import {
   InMemoryCompanyAnalysisRepository,
 } from '../companyIntelligenceService';
+import { isTransientWorkerError } from '../analysisWorker';
+
+test('worker retries temporary upstream failures without hiding permission errors', () => {
+  assert.equal(isTransientWorkerError({ status: 502, message: 'Bad Gateway' }), true);
+  assert.equal(isTransientWorkerError({ message: 'TypeError: fetch failed; read ECONNRESET' }), true);
+  assert.equal(isTransientWorkerError({ status: 403, code: '42501', message: 'permission denied for table lead_contacts' }), false);
+});
 
 function createSyntheticLeads(
   datasetId: string,
