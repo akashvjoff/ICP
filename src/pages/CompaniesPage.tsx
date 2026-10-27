@@ -43,6 +43,7 @@ export const CompaniesPage: React.FC = () => {
         lead.industry.toLowerCase().includes(search.toLowerCase());
 
       if (!matchesSearch) return false;
+      if (tierFilter === 'pending') return !score;
       if (tierFilter === 'tier1' || tierFilter === 'tier2' || tierFilter === 'tier3') return score ? scoreTier(score) === tierFilter : false;
       if (tierFilter === 'tier4' || tierFilter === 'disqualified') return score ? scoreTier(score) === 'disqualified' : false;
       return true;
@@ -138,6 +139,14 @@ export const CompaniesPage: React.FC = () => {
               }`}
             >
               DISQUALIFIED ({tierCounts.disqualified})
+            </button>
+            <button
+              onClick={() => setTierFilter('pending')}
+              className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold border-[2px] border-[#0A0A0A] cursor-pointer ${
+                tierFilter === 'pending' ? 'bg-[#E4E6FB] text-[#0A0A0A] shadow-[2px_2px_0px_#0A0A0A]' : 'bg-white text-[#0A0A0A]'
+              }`}
+            >
+              PENDING ({tierCounts.pending})
             </button>
           </div>
           <select aria-label="Sort companies" value={sortBy} onChange={event => setSortBy(event.target.value as typeof sortBy)}

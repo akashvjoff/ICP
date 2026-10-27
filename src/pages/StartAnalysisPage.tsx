@@ -25,10 +25,16 @@ export const StartAnalysisPage: React.FC = () => {
             {sampleIndustries.map(value => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}
           </select>
         </label>
-        <button type="button" onClick={() => { sessionStorage.setItem(selectedSampleKey, industry); navigate('/uploads/new'); }}
-          className="bg-[#A1F000] border-[2px] border-[#0A0A0A] rounded-lg px-5 py-3 font-mono text-xs font-black shadow-[3px_3px_0px_#0A0A0A] cursor-pointer">
-          USE SAMPLE LIST →
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => { sessionStorage.setItem(selectedSampleKey, industry); navigate('/uploads/new'); }}
+            className="bg-[#A1F000] border-[2px] border-[#0A0A0A] rounded-lg px-5 py-3 font-mono text-xs font-black shadow-[3px_3px_0px_#0A0A0A] cursor-pointer">
+            USE SAMPLE LIST →
+          </button>
+          <a href={`/samples/${industry}.csv`} download={`figuredit_${industry}_sample.csv`}
+            className="bg-white border-[2px] border-[#0A0A0A] rounded-lg px-5 py-3 font-mono text-xs font-black shadow-[3px_3px_0px_#0A0A0A]">
+            DOWNLOAD SAMPLE CSV
+          </a>
+        </div>
       </div>
     </div>
   </AppLayout>;
