@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Link2, Sparkles } from 'lucide-react';
 
 type DemoLead = { name: string; industry: string; headcount: number; problem: string; context: string };
 
@@ -19,12 +19,30 @@ const presets = [
 
 const stopwords = new Set(['a', 'an', 'and', 'are', 'by', 'for', 'in', 'of', 'on', 'or', 'the', 'to', 'with', 'your', 'their', 'from', 'is']);
 const words = (value: string) => [...new Set(value.toLowerCase().match(/[a-z]{3,}/g)?.filter(word => !stopwords.has(word)) || [])];
+const sharedIndex = (value: string | null, length: number) => value !== null && /^\d+$/.test(value) && Number(value) < length ? Number(value) : 0;
 
 export const PublicDemoPage: React.FC = () => {
-  const [product, setProduct] = useState(presets[0].product);
-  const [problem, setProblem] = useState(presets[0].problem);
-  const [industry, setIndustry] = useState(presets[0].industry);
-  const [selected, setSelected] = useState(0);
+  const sharedParams = new URLSearchParams(window.location.search);
+  const initialPreset = presets[sharedIndex(sharedParams.get('example'), presets.length)];
+  const [product, setProduct] = useState(initialPreset.product);
+  const [problem, setProblem] = useState(initialPreset.problem);
+  const [industry, setIndustry] = useState(initialPreset.industry);
+  const [selected, setSelected] = useState(sharedIndex(sharedParams.get('account'), leads.length));
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareStatus, setShareStatus] = useState('');
+  const sharePreview = async () => {
+    const url = new URL('/demo', window.location.origin);
+    const example = presets.findIndex(preset => preset.product === product && preset.problem === problem && preset.industry === industry);
+    if (example >= 0) url.searchParams.set('example', String(example));
+    url.searchParams.set('account', String(selected));
+    setShareUrl(url.toString());
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setShareStatus(example >= 0 ? 'Sample preview link copied.' : 'Sample account link copied. Your custom text stays private.');
+    } catch {
+      setShareStatus('Select and copy the sample link below. Your custom text stays private.');
+    }
+  };
   const evaluated = useMemo(() => leads.map(lead => {
     const terms = words(problem);
     const accountWords = words(`${lead.problem} ${lead.context}`);
@@ -72,7 +90,7 @@ export const PublicDemoPage: React.FC = () => {
             </article>
           </div>
         </section>
-        <div className="mt-12 rounded-xl border-[3px] border-black bg-[#E4E6FB] p-6 sm:p-8"><Sparkles size={25} aria-hidden="true" /><h2 className="mt-3 text-2xl font-black">Ready for the full analysis?</h2><p className="mt-2 text-sm">Sign in to save your offering, upload a lead list, and run AI-assisted analysis with an explainable score.</p><a href="/auth" className="mt-5 inline-flex items-center gap-2 rounded-lg border-2 border-black bg-[#A1F000] px-5 py-3 font-mono text-sm font-bold hover:bg-[#92dc00]">SIGN IN FOR FULL ANALYSIS <ArrowRight size={16} /></a></div>
+        <div className="mt-12 rounded-xl border-[3px] border-black bg-[#E4E6FB] p-6 sm:p-8"><Sparkles size={25} aria-hidden="true" /><h2 className="mt-3 text-2xl font-black">Ready for the full analysis?</h2><p className="mt-2 text-sm">Sign in to save your offering, upload a lead list, and run AI-assisted analysis with an explainable score.</p><div className="mt-5 flex flex-wrap gap-3"><a href="/auth" className="inline-flex items-center gap-2 rounded-lg border-2 border-black bg-[#A1F000] px-5 py-3 font-mono text-sm font-bold hover:bg-[#92dc00]">SIGN IN FOR FULL ANALYSIS <ArrowRight size={16} /></a><button type="button" onClick={sharePreview} className="inline-flex items-center gap-2 rounded-lg border-2 border-black bg-white px-5 py-3 font-mono text-sm font-bold hover:bg-[#F9F8F4]"><Link2 size={16} /> SHARE SAMPLE PREVIEW</button></div>{shareStatus && <p role="status" className="mt-4 text-sm font-bold">{shareStatus}</p>}{shareUrl && <input aria-label="Sample preview link" readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} className="mt-2 w-full rounded-lg border-2 border-black bg-white p-2 text-xs" />}</div>
       </main>
     </div>
   );
