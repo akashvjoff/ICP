@@ -143,10 +143,10 @@ export const InteractiveTeaser: React.FC = () => {
                 </div>
                 <p className="text-xs text-[#0A0A0A]/85 leading-relaxed font-medium">
                   {selectedScore.totalScore >= 80 
-                    ? 'High-priority outbound cohort. Acute compliance trigger creates open buying window.'
+                    ? 'Prioritize outreach after confirming the need and buying timing.'
                     : selectedScore.totalScore >= 60
-                    ? 'Nurture cadence. Monitor for modern warehouse migration and VP hiring.'
-                    : 'Disqualified from outreach due to severe architecture incompatibility.'}
+                    ? 'Keep in nurture while validating the need and buyer context.'
+                    : 'Review the disqualifiers before considering outreach.'}
                 </p>
               </div>
             </div>
