@@ -1,6 +1,8 @@
 User-agent: *
 Allow: /
 Disallow: /dashboard
+Disallow: /start
+Disallow: /onboarding
 Disallow: /settings
 Disallow: /uploads
 Disallow: /companies

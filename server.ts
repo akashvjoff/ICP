@@ -1465,7 +1465,7 @@ async function startServer() {
     app.get('*', (req: Request, res: Response) => {
       const indexPath = path.resolve(__dirname, 'dist', 'index.html');
       const pathname = req.path;
-      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact', '/guides/ideal-customer-profile-from-leads', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings', '/settings/billing'].includes(pathname)
+      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact', '/guides/ideal-customer-profile-from-leads', '/start', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings', '/settings/billing'].includes(pathname)
         || /^\/(uploads|companies|segments|strategy)\/[^/]+$/.test(pathname)
         || /^\/icp\/report\/[^/]+$/.test(pathname);
       const publicMeta: Record<string, { title: string; description: string }> = {
@@ -1480,7 +1480,7 @@ async function startServer() {
         '/contact': { title: 'Contact | FiguredIt', description: 'Contact FiguredIt with questions about the product, your account, or your data.' },
       };
       const routeTitles: Record<string, string> = {
-        auth: 'Sign in or create an account', onboarding: 'Set up your offering', dashboard: 'Dashboard',
+        auth: 'Sign in or create an account', start: 'Start your analysis', onboarding: 'Set up your offering', dashboard: 'Dashboard',
         uploads: 'Lead uploads', companies: 'Companies', segments: 'Segments', strategy: 'Strategic analysis',
         icp: 'ICP report', settings: 'Settings',
       };
