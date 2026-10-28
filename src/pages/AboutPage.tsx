@@ -45,7 +45,7 @@ export const AboutPage: React.FC = () => (
           <p className="mt-6 max-w-2xl border-l-4 border-[#8C6ADE] pl-5 text-lg leading-relaxed sm:text-xl">AI-assisted analysis with an explainable, rule-based score. FiguredIt helps turn a lead list into a clearer plan for finding the right customers.</p>
           <div className="mt-9 flex flex-wrap gap-3">
             <a href="/demo" className="inline-flex items-center gap-2 rounded-lg border-[3px] border-black bg-[#A1F000] px-5 py-3 font-mono text-xs font-black shadow-[4px_4px_0px_#0A0A0A] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_#0A0A0A]">EXPLORE DEMO <ArrowRight size={16} aria-hidden="true" /></a>
-            <a href="/auth" className="inline-flex items-center gap-2 rounded-lg border-[3px] border-black bg-white px-5 py-3 font-mono text-xs font-black shadow-[4px_4px_0px_#0A0A0A] hover:bg-[#E4E6FB]">FIND MY IDEAL CUSTOMERS</a>
+            <a href="/auth?tab=signup" className="inline-flex items-center gap-2 rounded-lg border-[3px] border-black bg-white px-5 py-3 font-mono text-xs font-black shadow-[4px_4px_0px_#0A0A0A] hover:bg-[#E4E6FB]">FIND MY IDEAL CUSTOMERS</a>
           </div>
         </div>
       </section>

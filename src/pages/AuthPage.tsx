@@ -29,7 +29,9 @@ export const AuthPage: React.FC = () => {
     clearError,
   } = useAuth();
 
-  const [tab, setTab] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [tab, setTab] = useState<'signin' | 'signup' | 'forgot'>(() =>
+    new URLSearchParams(window.location.search).get('tab') === 'signup' ? 'signup' : 'signin'
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');

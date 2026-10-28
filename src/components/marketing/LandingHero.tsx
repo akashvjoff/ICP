@@ -48,7 +48,7 @@ export const LandingHero: React.FC = () => {
           <BrutalistLink
             variant="lime"
             size="lg"
-            href="/auth"
+            href="/auth?tab=signup"
             icon={<ArrowRight className="w-5 h-5" />}
           >
             START FREE ANALYSIS

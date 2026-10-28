@@ -83,7 +83,7 @@ export const PricingPage: React.FC = () => {
   const handlePlanClick = async (plan: Plan) => {
     trackPricingEvent('pricing_cta_click', { plan: plan.id });
     const cta = getPlanCta(plan, user, currentPlan);
-    if (cta.action === 'auth') { window.location.assign('/auth'); return; }
+    if (cta.action === 'auth') { window.location.assign(plan.id === 'free' ? '/auth?tab=signup' : '/auth'); return; }
     if (cta.action === 'dashboard') { window.location.assign('/dashboard'); return; }
     if (cta.action === 'billing') { window.location.assign('/settings/billing'); return; }
     if (cta.action === 'waitlist') {

@@ -56,7 +56,7 @@ export const ICPGuidePage: React.FC = () => (
       <section className="mx-auto max-w-6xl px-6 py-14">
         <h2 className="text-3xl font-black tracking-tight">Try it with your own accounts</h2>
         <p className="mt-3 max-w-2xl leading-relaxed">The public demo is a keyword preview using fictional accounts. Sign in to describe your offering, upload a lead list, and review the full analysis and score breakdown. The Free plan includes one dataset and up to 25 AI-analyzed companies.</p>
-        <a href="/auth" className="mt-6 inline-block rounded-lg border-[3px] border-black bg-[#A1F000] px-5 py-3 font-mono text-xs font-black shadow-[4px_4px_0px_#0A0A0A]">START FREE →</a>
+        <a href="/auth?tab=signup" className="mt-6 inline-block rounded-lg border-[3px] border-black bg-[#A1F000] px-5 py-3 font-mono text-xs font-black shadow-[4px_4px_0px_#0A0A0A]">START FREE →</a>
       </section>
     </main>
     <footer className="border-t-[3px] border-black px-6 py-8 font-mono text-xs font-bold"><div className="mx-auto flex max-w-6xl flex-wrap gap-5"><a href="/">HOME</a><a href="/demo">DEMO</a><a href="/pricing">PRICING</a><a href="/privacy">PRIVACY</a><a href="/contact">CONTACT</a></div></footer>
