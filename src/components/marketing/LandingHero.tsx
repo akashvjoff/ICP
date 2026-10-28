@@ -3,7 +3,7 @@ import { SectionEyebrow } from '../ui/SectionEyebrow';
 import { BrutalistLink } from '../ui/BrutalistButton';
 import { StickerBadge } from '../ui/StickerBadge';
 import { BrutalistCard } from '../ui/BrutalistCard';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Tag } from 'lucide-react';
 
 export const LandingHero: React.FC = () => {
   return (
@@ -57,10 +57,10 @@ export const LandingHero: React.FC = () => {
           <BrutalistLink
             variant="white"
             size="lg"
-            href="/demo#accounts-heading"
-            icon={<Sparkles className="w-5 h-5 text-[#8C6ADE]" />}
+            href="/pricing"
+            icon={<Tag className="w-5 h-5 text-[#8C6ADE]" />}
           >
-            EXPLORE DEMO
+            VIEW PRICING
           </BrutalistLink>
         </div>
 
