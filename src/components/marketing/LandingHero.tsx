@@ -48,10 +48,10 @@ export const LandingHero: React.FC = () => {
           <BrutalistLink
             variant="lime"
             size="lg"
-            href="/demo"
+            href="/auth"
             icon={<ArrowRight className="w-5 h-5" />}
           >
-            FIND MY IDEAL CUSTOMERS
+            START FREE ANALYSIS
           </BrutalistLink>
 
           <BrutalistLink
