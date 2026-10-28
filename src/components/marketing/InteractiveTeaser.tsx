@@ -39,16 +39,17 @@ export const InteractiveTeaser: React.FC = () => {
 
         <p className="mb-4 font-mono text-xs font-bold text-[#0A0A0A]/70">ILLUSTRATIVE SAMPLE · FICTIONAL ACCOUNTS, SCORES &amp; RECOMMENDATIONS</p>
         {/* Lead Switcher Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5 mb-8">
+        <div className="flex flex-wrap items-center gap-2.5 mb-8" role="group" aria-label="Select sample account">
           <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#0A0A0A] mr-2">
             SELECT ACCOUNT:
           </span>
-          {SAMPLE_LEADS.slice(0, 3).map((lead) => {
+          {SAMPLE_LEADS.slice(0, 4).map((lead) => {
             const isSelected = lead.id === selectedLeadId;
             return (
               <button
                 key={lead.id}
                 onClick={() => setSelectedLeadId(lead.id)}
+                aria-pressed={isSelected}
                 className={`
                   px-3.5 py-2
                   rounded-xl
@@ -70,6 +71,7 @@ export const InteractiveTeaser: React.FC = () => {
           {SAMPLE_LEADS[4] && (
             <button
               onClick={() => setSelectedLeadId(SAMPLE_LEADS[4].id)}
+              aria-pressed={selectedLeadId === SAMPLE_LEADS[4].id}
               className={`
                 px-3.5 py-2
                 rounded-xl
