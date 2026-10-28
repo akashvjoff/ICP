@@ -32,6 +32,7 @@ export const LandingPage: React.FC = () => {
             <a href="https://figuredit.in" className="underline hover:text-[#8C6ADE]">figuredit.in</a>
             <a href="/demo" className="underline hover:text-[#8C6ADE]">EXPLORE DEMO</a>
             <a href="/about" className="underline hover:text-[#8C6ADE]">ABOUT & Q&A</a>
+            <a href="/guides/ideal-customer-profile-from-leads" className="underline hover:text-[#8C6ADE]">ICP GUIDE</a>
             <a href="/privacy" className="underline hover:text-[#8C6ADE]">PRIVACY</a>
             <a href="/pricing" className="underline hover:text-[#8C6ADE]">PRICING</a>
             <a href="/terms" className="underline hover:text-[#8C6ADE]">TERMS</a>

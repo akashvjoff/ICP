@@ -1464,7 +1464,7 @@ async function startServer() {
     app.get('*', (req: Request, res: Response) => {
       const indexPath = path.resolve(__dirname, 'dist', 'index.html');
       const pathname = req.path;
-      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings', '/settings/billing'].includes(pathname)
+      const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact', '/guides/ideal-customer-profile-from-leads', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings', '/settings/billing'].includes(pathname)
         || /^\/(uploads|companies|segments|strategy)\/[^/]+$/.test(pathname)
         || /^\/icp\/report\/[^/]+$/.test(pathname);
       const publicTitles: Record<string, string> = {
@@ -1474,6 +1474,7 @@ async function startServer() {
         '/privacy': 'Privacy notice | FiguredIt',
         '/terms': 'Terms of use | FiguredIt',
         '/pricing': 'Pricing | FiguredIt',
+        '/guides/ideal-customer-profile-from-leads': 'Build an ideal customer profile from a lead list | FiguredIt',
         '/refund-policy': 'Refund policy | FiguredIt',
         '/contact': 'Contact | FiguredIt',
       };
@@ -1493,6 +1494,12 @@ async function startServer() {
             html = html.replace(/(<meta name="description" content=")[^"]*(" \/>)/, '$1Simple pricing for explainable ICP discovery. Start free, then join the waitlist for Starter or Pro as your pipeline grows.$2');
             html = html.replace(/(<meta property="og:title" content=")[^"]*(" \/>)/, '$1Pricing | FiguredIt$2');
             html = html.replace(/(<meta property="og:description" content=")[^"]*(" \/>)/, '$1Start free. Upgrade when your pipeline grows. Compare Free, Starter and Pro plans for AI-assisted ICP analysis.$2');
+          }
+          if (pathname === '/guides/ideal-customer-profile-from-leads') {
+            const description = 'A practical guide for B2B founders and sales teams: clean a lead list, identify evidence, score company fit, and validate your ideal customer profile.';
+            html = html.replace(/(<meta name="description" content=")[^"]*(" \/>)/, `$1${description}$2`);
+            html = html.replace(/(<meta property="og:title" content=")[^"]*(" \/>)/, '$1Build an ideal customer profile from a lead list | FiguredIt$2');
+            html = html.replace(/(<meta property="og:description" content=")[^"]*(" \/>)/, `$1${description}$2`);
           }
         } else {
           html = html.replace(/\s*<link rel="canonical"[^>]*>/, '');

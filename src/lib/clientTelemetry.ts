@@ -13,7 +13,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   });
 }
 
-const publicPaths = new Set(['/', '/auth', '/demo', '/about', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact']);
+const publicPaths = new Set(['/', '/auth', '/demo', '/about', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact', '/guides/ideal-customer-profile-from-leads']);
 
 export function syncPublicAnalytics(path: string): void {
   if (!publicPaths.has(path) || import.meta.env.DEV) return;

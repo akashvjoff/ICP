@@ -33,6 +33,7 @@ import { RefundPolicyPage } from './pages/RefundPolicyPage';
 import { ContactPage } from './pages/ContactPage';
 import { StartAnalysisPage } from './pages/StartAnalysisPage';
 import { BillingPage } from './pages/BillingPage';
+import { ICPGuidePage } from './pages/ICPGuidePage';
 import { UpgradeModal } from './components/billing/UpgradeModal';
 import { syncPublicAnalytics } from './lib/clientTelemetry';
 
@@ -46,7 +47,7 @@ function RouteSwitch() {
     const segment = path.split('/')[1];
     const titles: Record<string, string> = {
       auth: 'Sign in or create an account', demo: 'Try the public demo', start: 'Start your analysis',
-      privacy: 'Privacy notice', about: 'About and Q&A', terms: 'Terms of use', pricing: 'Pricing', contact: 'Contact', 'refund-policy': 'Refund policy', dashboard: 'Dashboard', onboarding: 'Set up your offering',
+      privacy: 'Privacy notice', about: 'About and Q&A', terms: 'Terms of use', pricing: 'Pricing', guides: 'Build an ideal customer profile from a lead list', contact: 'Contact', 'refund-policy': 'Refund policy', dashboard: 'Dashboard', onboarding: 'Set up your offering',
       uploads: 'Lead uploads', companies: 'Companies', segments: 'Segments',
       strategy: 'Strategic analysis', icp: 'ICP report', settings: 'Settings',
     };
@@ -79,6 +80,10 @@ function RouteSwitch() {
 
   if (path === '/pricing') {
     return <PricingPage />;
+  }
+
+  if (path === '/guides/ideal-customer-profile-from-leads') {
+    return <ICPGuidePage />;
   }
 
   if (path === '/refund-policy') {
