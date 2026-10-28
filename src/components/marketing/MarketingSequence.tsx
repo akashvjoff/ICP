@@ -11,10 +11,10 @@ export const MarketingSequence: React.FC = () => {
     <section id="how-it-works" className="scroll-mt-24 py-20 border-b-[3px] border-[#0A0A0A]">
       <div className="mx-auto max-w-6xl px-6">
         <SectionHeading
-          eyebrow="CLASSICAL MARKETING SEQUENCE"
+          eyebrow="HOW FIGUREDIT WORKS"
           eyebrowColor="bg-[#6AAAFB]"
-          title="The 4-stage pipeline that eliminates outbound guesswork."
-          description="Surface industry taxonomies lie. FiguredIt models customer decision-making using the exact sequence practiced by enterprise GTM strategists."
+          title="A four-step path from lead list to ICP hypothesis."
+          description="Use your offering and lead evidence to examine need, buying context, segments, and positioning."
         />
 
         {/* 4 Pastel Step Cards in Sequence */}
@@ -24,8 +24,8 @@ export const MarketingSequence: React.FC = () => {
             bg="peach"
             title="Need Gap Analysis"
             subtitle="PROBLEM GRAVITY"
-            description="Evaluates whether the prospect experiences acute business pain, moderate friction, or zero operational consequence."
-            takeaway="Calculates gap magnitude (Acute, Moderate, Latent, Negligible)."
+            description="Estimates how closely available account evidence matches the need your offering addresses."
+            takeaway="Shows the estimated need level and supporting evidence."
             icon={<Target className="w-5 h-5 text-white" />}
             iconColor="purple"
           />
@@ -35,8 +35,8 @@ export const MarketingSequence: React.FC = () => {
             bg="lavender"
             title="5C Dynamics"
             subtitle="DECISION ENVIRONMENT"
-            description="Maps the target account's buying committee (economic buyer, champions), competitor inertia, and macro compliance context."
-            takeaway="Unpacks who holds budget authority and what halts deals."
+            description="Explores likely buying roles, competing options, and external context when evidence is available."
+            takeaway="Highlights open questions about budget and decision makers."
             icon={<Users className="w-5 h-5 text-[#0A0A0A]" />}
             iconColor="lime"
           />
@@ -47,7 +47,7 @@ export const MarketingSequence: React.FC = () => {
             title="STP Strategy"
             subtitle="SEGMENT & POSITION"
             description="Clusters accounts by shared business problems rather than generic industry verticals; assigns targeting priority."
-            takeaway="Generates tailored high-converting positioning angles."
+            takeaway="Suggests positioning angles for your review."
             icon={<GitFork className="w-5 h-5 text-[#0A0A0A]" />}
             iconColor="blue"
           />
@@ -56,9 +56,9 @@ export const MarketingSequence: React.FC = () => {
             stepNumber="04"
             bg="pink"
             title="Marketing Mix"
-            subtitle="RESONANCE VERIFICATION"
-            description="Tests the prospect against Product capabilities, Pricing acceptability (ACV vs payroll), and Promotion hook appeal."
-            takeaway="Pre-verifies economic fit before launching outreach."
+            subtitle="MARKET FIT CHECK"
+            description="Reviews how your offering, price assumptions, and outreach messages align with available account evidence."
+            takeaway="Flags assumptions to validate in outreach."
             icon={<Layers className="w-5 h-5 text-white" />}
             iconColor="purple"
           />
@@ -70,32 +70,32 @@ export const MarketingSequence: React.FC = () => {
             <div className="lg:col-span-7 space-y-4">
               <div className="flex items-center gap-2">
                 <StickerBadge color="peach" rotate="-2">
-                  GOVERNANCE CONTRACT
+                  ICP QUALITY CHECK
                 </StickerBadge>
                 <span className="font-mono text-xs font-bold uppercase text-[#0A0A0A]/60">
-                  CRITICAL INVARIANT
+                  WORKING HYPOTHESIS
                 </span>
               </div>
 
               <h3 className="text-2xl sm:text-3xl font-black text-[#0A0A0A] tracking-tight">
-                An ICP Hypothesis is not a Validated ICP.
+                An ICP hypothesis needs real outcomes.
               </h3>
 
               <p className="text-sm sm:text-base text-[#0A0A0A]/85 leading-relaxed font-normal">
-                Lead lists without verified historical closed-won or closed-lost conversion data <strong className="text-[#0A0A0A] font-bold">cannot mathematically prove ideal customer quality</strong>. In FiguredIt, initial evaluations are explicitly governed as an <span className="bg-[#FFE3B3] px-1.5 py-0.5 rounded border border-[#0A0A0A] font-bold">ICP Hypothesis</span> until conversion velocity and retention metrics validate the cohort.
+                A lead list can suggest fit, but it cannot prove who will buy. Treat your initial ICP as a <span className="bg-[#FFE3B3] px-1.5 py-0.5 rounded border border-[#0A0A0A] font-bold">working hypothesis</span> until real outreach, deal outcomes, and retention data support it.
               </p>
 
               <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono font-bold text-[#0A0A0A]">
                 <span className="bg-[#E4E6FB] px-2.5 py-1 rounded-md border border-[#0A0A0A]">
-                  1. Theoretical Alignment
+                  1. Initial Fit Estimate
                 </span>
                 <span>→</span>
                 <span className="bg-[#FFE3B3] px-2.5 py-1 rounded-md border border-[#0A0A0A]">
-                  2. Outbound Sprints
+                  2. Customer Outreach
                 </span>
                 <span>→</span>
                 <span className="bg-[#A1F000] px-2.5 py-1 rounded-md border border-[#0A0A0A]">
-                  3. Deal Outcome Validation
+                  3. Outcome Review
                 </span>
               </div>
             </div>
@@ -105,11 +105,11 @@ export const MarketingSequence: React.FC = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <ShieldAlert className="w-4 h-4 text-amber-600" />
                   <span className="font-mono text-xs font-bold uppercase text-[#0A0A0A]">
-                    Lead List Ingestion Stage
+                    Starting Point
                   </span>
                 </div>
                 <p className="text-xs text-[#0A0A0A]/75 leading-relaxed font-medium">
-                  Identifies accounts with acute need urgency and tech stack overlap. Marked strictly as Hypothesis.
+                  Uses your lead list and offering to highlight possible need and fit. Findings remain a hypothesis.
                 </p>
               </div>
 
@@ -117,11 +117,11 @@ export const MarketingSequence: React.FC = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <CheckCircle2 className="w-4 h-4 text-emerald-700" />
                   <span className="font-mono text-xs font-bold uppercase text-[#0A0A0A]">
-                    Validated ICP Criteria
+                    What to Validate
                   </span>
                 </div>
                 <p className="text-xs text-[#0A0A0A]/75 leading-relaxed font-medium">
-                  Requires ≥20% win-rate, target ACV realization, and measurable retention proof.
+                  Compare win rates, deal size, and retention against targets you set for your business.
                 </p>
               </div>
             </div>
