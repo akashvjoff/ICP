@@ -336,8 +336,11 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
     : 100;
   const inFlightCount = job.status === 'running' ? Math.min(1, remainingCount) : 0;
   const retryTime = job.next_retry_at ? new Date(job.next_retry_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const needsOffering = job.status === 'paused' && job.last_error?.startsWith('Complete your offering');
   const recoveryGuidance = job.status === 'waiting_for_quota'
     ? `Paused: resumes automatically at ${retryTime}`
+    : needsOffering
+      ? 'Save your offering, then return here to resume analysis.'
     : job.failed_count > 0
       ? `Completed records are saved. Choose Retry ${job.failed_count} Failed to reprocess only the failed records.`
       : job.status === 'paused'
@@ -414,6 +417,7 @@ export const DatasetDetailsPage: React.FC<{ params: { id: string } }> = ({ param
               <p className="text-xs font-mono text-[#0A0A0A]/70">
                 {recoveryGuidance}
               </p>
+              {needsOffering && <a href="/onboarding" className="inline-block text-xs font-mono font-black underline underline-offset-2">COMPLETE YOUR OFFERING →</a>}
             </div>
           </div>
         )}

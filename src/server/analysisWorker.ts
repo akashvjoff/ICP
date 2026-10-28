@@ -5,7 +5,7 @@ import { createSupabaseAnalysisJobRepository, processBatch, type AnalysisJobReco
 import { analyzeLeadNeedGap, createSupabaseStrategicAnalysisRepository, toScoringNeedGap } from './strategicAnalysisService';
 import { createSupabaseScoringRepository } from './scoringService';
 import { calculateDeterministicICPScore } from '../lib/scoring';
-import { contextToOfferingProfile, DEFAULT_SELLER_CONTEXT } from '../types/offering';
+import { contextToOfferingProfile, EMPTY_SELLER_CONTEXT, type SellerProductContext } from '../types/offering';
 import type { NormalizedLead } from '../types/lead';
 import { companyIntelligenceSchema } from '../types/companyIntelligence';
 import type { CompanyAnalysisEnvelope } from '../types/companyIntelligence';
@@ -20,6 +20,27 @@ export function isTransientWorkerError(error: unknown): boolean {
   if (candidate?.status && [502, 503, 504].includes(candidate.status)) return true;
   const message = candidate?.message || (error instanceof Error ? error.message : '');
   return /bad gateway|gateway timeout|network connection lost|fetch failed|ECONNRESET|ETIMEDOUT/i.test(message);
+}
+
+export function savedSellerContext(seller: {
+  company_name?: string | null;
+  product_description?: string | null;
+  main_customer_problem?: string | null;
+  onboarding_data?: Partial<SellerProductContext> | null;
+} | null): SellerProductContext | null {
+  if (!seller) return null;
+  const details = seller.onboarding_data || {};
+  const context: SellerProductContext = {
+    ...EMPTY_SELLER_CONTEXT, ...details,
+    companyName: String(seller.company_name || details.companyName || ''),
+    productDescription: String(seller.product_description || details.productDescription || ''),
+    currentCustomerProblem: String(seller.main_customer_problem || details.currentCustomerProblem || ''),
+    coreFeatures: Array.isArray(details.coreFeatures)
+      ? details.coreFeatures.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      : [],
+    buyerRoles: Array.isArray(details.buyerRoles) ? details.buyerRoles : [],
+  };
+  return context.currentCustomerProblem.trim() && context.coreFeatures.length ? context : null;
 }
 
 export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessEnv = process.env): () => void {
@@ -67,14 +88,22 @@ export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessE
         .select('company_name, product_description, main_customer_problem, onboarding_data')
         .eq('owner_user_id', claimed.owner_user_id).maybeSingle();
       if (sellerError) throw sellerError;
-      const sellerContext = seller ? {
-        companyName: seller.company_name,
-        productName: seller.onboarding_data?.productName || '',
-        productDescription: seller.product_description,
-        currentCustomerProblem: seller.main_customer_problem,
-        coreFeatures: seller.onboarding_data?.coreFeatures || [],
-        mainBenefit: seller.onboarding_data?.mainBenefit || '',
-      } : {};
+      const context = savedSellerContext(seller);
+      if (!context) {
+        const { error: profileError } = await client.from('analysis_jobs').update({
+          status: 'paused', last_error: 'Complete your offering problem and capabilities before analysis.',
+          worker_locked_at: null,
+        }).eq('id', claimed.id).eq('owner_user_id', claimed.owner_user_id);
+        if (profileError) throw profileError;
+        return;
+      }
+
+      const sellerContext = {
+        companyName: context.companyName, productName: context.productName,
+        productDescription: context.productDescription,
+        currentCustomerProblem: context.currentCustomerProblem,
+        coreFeatures: context.coreFeatures, mainBenefit: context.mainBenefit,
+      };
 
       const repository = createSupabaseAnalysisJobRepository(client, true);
       await repository.resetStaleProcessingLeads(claimed.owner_user_id, claimed.dataset_id);
@@ -103,7 +132,6 @@ export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessE
             .eq('owner_user_id', claimed.owner_user_id).in('lead_id', pendingScoreIds).eq('analysis_status', 'completed')
           : { data: [], error: null };
         if (analysesError) throw analysesError;
-        const context = { ...DEFAULT_SELLER_CONTEXT, ...(seller?.onboarding_data || {}) };
         const offering = contextToOfferingProfile(context);
         const strategic = createSupabaseStrategicAnalysisRepository(client);
         const scores = [];

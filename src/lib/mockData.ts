@@ -206,7 +206,7 @@ export const SAMPLE_STRATEGIC_ANALYSIS: FullStrategicAnalysis = {
       identifiedNeed: 'Continuous clinical telemetry validation preventing corrupted patient outcome model inference.',
       gapMagnitude: 'Acute',
       urgencyDriver: 'FDA clinical model submission requires auditable data pipeline transformation integrity.',
-      offeringCapabilityMatch: 'Pre-merge PR regression testing in CI/CD guarantees transformation invariants.',
+      offeringCapabilityMatch: 'Pre-merge PR regression testing in CI/CD could help detect transformation changes.',
       consequenceOfInaction: 'Erroneous clinical telemetry risk scoring and halted hospital enterprise pilots.',
       gapScore: 91
     },
@@ -305,9 +305,9 @@ export const SAMPLE_STRATEGIC_ANALYSIS: FullStrategicAnalysis = {
   ],
   marketingMix: {
     productResonance: 'Strong feature alignment with modern data teams (dbt CI/CD regression tests). Needs SOC 2 bridge.',
-    priceAcceptability: '$36,000 ACV represents under 2% of annual data engineering payroll for a 300-person team.',
+    priceAcceptability: 'Pricing fit needs validation with the buyer and their budget.',
     placeChannelFit: 'Direct outbound to VP Data Engineering combined with dbt community co-marketing.',
-    promotionHook: '"How Finova stopped 2 AM dbt pipeline alerts before their monthly ledger audit."'
+    promotionHook: '"How could earlier dbt alerts help before a monthly ledger audit?"'
   }
 };
 

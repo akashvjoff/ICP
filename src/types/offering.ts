@@ -118,7 +118,7 @@ export const DEFAULT_SELLER_CONTEXT: SellerProductContext = {
     'Real-time Slack & PagerDuty alerts with root-cause traces',
     'Zero-copy anomaly simulation sandbox',
   ],
-  mainBenefit: 'Eliminates silent data corruption in mission-critical executive pipelines, reducing analytics downtime by 85%.',
+  mainBenefit: 'Helps teams catch schema changes before they disrupt important reports.',
   businessModel: 'B2B SaaS',
   indicativePricing: '$36,000 / year ($3,000/mo billed annually)',
 
@@ -132,7 +132,7 @@ export const DEFAULT_SELLER_CONTEXT: SellerProductContext = {
       id: 'br-1',
       role: 'VP of Data & Analytics',
       seniority: 'VP',
-      motivation: 'Guaranteed accuracy of C-suite reporting without weekend incident firefights.',
+      motivation: 'More confidence in C-suite reporting with fewer surprise data incidents.',
       isDecisionMaker: true,
     },
     {
@@ -154,8 +154,8 @@ export const DEFAULT_SELLER_CONTEXT: SellerProductContext = {
   idealCustomerOutcome: 'Zero surprise pipeline failures with proactive schema contract verification and automated stakeholder notifications.',
   problemIntensity: 'Critical / Mission-Critical',
   motivationToChange: 'An embarrassing CEO or board-level dashboard error caused by broken data models.',
-  purchaseInvolvement: 'Moderate friction: requires read-only IAM warehouse credential and 20-minute CLI deployment.',
-  whyCustomersChoose: 'Installs in under 30 minutes without modifying existing queries, with sub-minute alert delivery.',
+  purchaseInvolvement: 'Moderate friction: requires read-only IAM warehouse access and deployment review.',
+  whyCustomersChoose: 'Designed to flag schema changes without modifying existing queries.',
   mainAlternatives: 'Homegrown Python/dbt assert scripts, Monte Carlo (enterprise pricing hurdle), or manual spot-checking.',
   pointOfParity: 'Standard schema validation and anomaly tracking alerts.',
   pointOfDifference: 'Bidirectional CI/CD contract simulation that catches breaks before warehouse write commits.',

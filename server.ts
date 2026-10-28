@@ -669,6 +669,7 @@ app.post('/api/analysis-jobs/:id/start', requireAuthenticatedUser, async (req: A
     const jobRepo = getWritableJobRepository(req);
     const existing = await jobRepo.getJob(req.user!.id, req.params.id);
     if (existing && !(await canAnalyzeCompany(billingClient(), req.user!.id, existing.dataset_id))) return planLimit(res, 'Your plan has reached its AI company limit.');
+    await getSavedSellerOffering(req);
     const job = await startJob(jobRepo, req.user!.id, req.params.id);
     const progress = calculateJobProgress(job);
     return res.json({ success: true, job, progress });

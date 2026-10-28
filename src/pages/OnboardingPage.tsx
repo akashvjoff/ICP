@@ -8,6 +8,7 @@ import {
   SellerProductContext,
   BuyerRole,
   DEFAULT_SELLER_CONTEXT,
+  EMPTY_SELLER_CONTEXT,
   calculateContextCompletion,
 } from '../types/offering';
 import { SectionHeading } from '../components/ui/SectionHeading';
@@ -401,10 +402,10 @@ export const OnboardingPage: React.FC = () => {
             </div>
             <button
               onClick={() => {
-                localStorage.removeItem('icp_mode_onboarding_draft');
-                setFormData(DEFAULT_SELLER_CONTEXT);
+                localStorage.removeItem(draftKey);
+                setFormData(user?.id ? EMPTY_SELLER_CONTEXT : DEFAULT_SELLER_CONTEXT);
                 setResumedDraft(false);
-                addToast('Draft reset to baseline default.', 'info');
+                addToast('Draft reset.', 'info');
               }}
               className="text-rose-600 font-bold hover:underline cursor-pointer text-[11px]"
             >

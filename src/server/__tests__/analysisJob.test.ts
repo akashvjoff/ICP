@@ -20,12 +20,26 @@ import {
 import {
   InMemoryCompanyAnalysisRepository,
 } from '../companyIntelligenceService';
-import { isTransientWorkerError } from '../analysisWorker';
+import { isTransientWorkerError, savedSellerContext } from '../analysisWorker';
 
 test('worker retries temporary upstream failures without hiding permission errors', () => {
   assert.equal(isTransientWorkerError({ status: 502, message: 'Bad Gateway' }), true);
   assert.equal(isTransientWorkerError({ message: 'TypeError: fetch failed; read ECONNRESET' }), true);
   assert.equal(isTransientWorkerError({ status: 403, code: '42501', message: 'permission denied for table lead_contacts' }), false);
+});
+
+test('real analysis never inherits the fictional demo seller offering', () => {
+  assert.equal(savedSellerContext(null), null);
+  assert.equal(savedSellerContext({ company_name: 'My Company', onboarding_data: {} }), null);
+  const context = savedSellerContext({
+    company_name: 'Real Seller', product_description: 'Approval software', main_customer_problem: 'Manual approvals',
+    onboarding_data: { productName: 'Flow', coreFeatures: ['Approval routing'] },
+  });
+  assert.equal(context?.companyName, 'Real Seller');
+  assert.equal(context?.productName, 'Flow');
+  assert.equal(context?.currentCustomerProblem, 'Manual approvals');
+  assert.equal(context?.coreFeatures[0], 'Approval routing');
+  assert.notEqual(context?.companyName, 'Synthetix Data Cloud');
 });
 
 function createSyntheticLeads(
