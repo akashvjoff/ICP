@@ -19,10 +19,10 @@ export const InteractiveTeaser: React.FC = () => {
       <div className="mx-auto max-w-6xl px-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
           <SectionHeading
-            eyebrow="EXPLAINABILITY IN ACTION"
+            eyebrow="SAMPLE SCORE BREAKDOWN"
             eyebrowColor="bg-[#A1F000]"
-            title="Every single point is mathematically accounted for."
-            description="Toggle between calibrated accounts to see how acute need urgency and architecture match calculate the final ICP score."
+            title="See how a sample score is broken down."
+            description="Toggle between fictional accounts to inspect illustrative score components. Your results depend on your own offering and lead evidence."
             className="mb-0"
           />
 
@@ -33,10 +33,11 @@ export const InteractiveTeaser: React.FC = () => {
             icon={<ArrowRight className="w-4 h-4" />}
             className="self-start md:self-auto shrink-0"
           >
-            TEST DRIVE ENGINE
+            TRY THE KEYWORD PREVIEW
           </BrutalistLink>
         </div>
 
+        <p className="mb-4 font-mono text-xs font-bold text-[#0A0A0A]/70">ILLUSTRATIVE SAMPLE · FICTIONAL ACCOUNTS, SCORES &amp; RECOMMENDATIONS</p>
         {/* Lead Switcher Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 mb-8">
           <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#0A0A0A] mr-2">

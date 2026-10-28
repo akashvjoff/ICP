@@ -14,7 +14,7 @@ const questions = [
   },
   {
     question: 'Can I explore it before creating an account?',
-    answer: 'Yes. The public demo lets you inspect sample leads and their score breakdown without signing in. The sample data is illustrative; your own results depend on the offering and accounts you provide.',
+    answer: 'Yes. The homepage shows an illustrative score breakdown, and the public demo lets you try a keyword preview with fictional accounts. Your own results depend on the offering and accounts you provide.',
   },
   {
     question: 'Can I use my own lead list?',
