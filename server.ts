@@ -1468,16 +1468,16 @@ async function startServer() {
       const knownRoute = ['/', '/demo', '/about', '/auth', '/privacy', '/terms', '/pricing', '/refund-policy', '/contact', '/guides/ideal-customer-profile-from-leads', '/onboarding', '/dashboard', '/uploads/new', '/companies', '/segments', '/strategy', '/icp/report', '/settings', '/settings/billing'].includes(pathname)
         || /^\/(uploads|companies|segments|strategy)\/[^/]+$/.test(pathname)
         || /^\/icp\/report\/[^/]+$/.test(pathname);
-      const publicTitles: Record<string, string> = {
-        '/': 'FiguredIt — AI-assisted ICP discovery and explainable lead scoring',
-        '/demo': 'Try the public demo | FiguredIt',
-        '/about': 'About and Q&A | FiguredIt',
-        '/privacy': 'Privacy notice | FiguredIt',
-        '/terms': 'Terms of use | FiguredIt',
-        '/pricing': 'Pricing | FiguredIt',
-        '/guides/ideal-customer-profile-from-leads': 'Build an ideal customer profile from a lead list | FiguredIt',
-        '/refund-policy': 'Refund policy | FiguredIt',
-        '/contact': 'Contact | FiguredIt',
+      const publicMeta: Record<string, { title: string; description: string }> = {
+        '/': { title: 'FiguredIt — AI-assisted analysis with an explainable, rule-based score', description: 'AI-assisted analysis with an explainable, rule-based score. Find your ideal B2B customers, prioritize leads, and plan your go-to-market strategy with FiguredIt.' },
+        '/demo': { title: 'Try the public demo | FiguredIt', description: 'Preview keyword matching on five fictional B2B accounts, then sign in to analyze your own lead list with FiguredIt.' },
+        '/about': { title: 'About and Q&A | FiguredIt', description: 'Learn how FiguredIt helps B2B teams find promising companies from their lead lists with AI-assisted analysis and explainable scoring.' },
+        '/privacy': { title: 'Privacy notice | FiguredIt', description: 'Read how FiguredIt handles your account, uploaded lead data, AI processing, retention, and deletion requests.' },
+        '/terms': { title: 'Terms of use | FiguredIt', description: 'Read the FiguredIt terms of use, including acceptable use, uploaded data ownership, and service limitations.' },
+        '/pricing': { title: 'Pricing | FiguredIt', description: 'Simple pricing for explainable ICP discovery. Start free, then join the waitlist for Starter or Pro as your pipeline grows.' },
+        '/guides/ideal-customer-profile-from-leads': { title: 'Build an ideal customer profile from a lead list | FiguredIt', description: 'A practical guide for B2B founders and sales teams: clean a lead list, identify evidence, score company fit, and validate your ideal customer profile.' },
+        '/refund-policy': { title: 'Refund policy | FiguredIt', description: 'Read FiguredIt’s cancellation and refund policy for paid subscriptions.' },
+        '/contact': { title: 'Contact | FiguredIt', description: 'Contact FiguredIt with questions about the product, your account, or your data.' },
       };
       const routeTitles: Record<string, string> = {
         auth: 'Sign in or create an account', onboarding: 'Set up your offering', dashboard: 'Dashboard',
@@ -1486,22 +1486,17 @@ async function startServer() {
       };
       try {
         let html = fs.readFileSync(indexPath, 'utf8');
-        const title = publicTitles[pathname] || `${knownRoute ? routeTitles[pathname.split('/')[1]] : 'Page not found'} | FiguredIt`;
+        const meta = publicMeta[pathname];
+        const title = meta?.title || `${knownRoute ? routeTitles[pathname.split('/')[1]] : 'Page not found'} | FiguredIt`;
         html = html.replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
-        if (publicTitles[pathname]) {
+        if (meta) {
           html = html.replace('rel="canonical" href="https://figuredit.in/"', `rel="canonical" href="https://figuredit.in${pathname}"`);
           html = html.replace('property="og:url" content="https://figuredit.in/"', `property="og:url" content="https://figuredit.in${pathname}"`);
-          if (pathname === '/pricing') {
-            html = html.replace(/(<meta name="description" content=")[^"]*(" \/>)/, '$1Simple pricing for explainable ICP discovery. Start free, then join the waitlist for Starter or Pro as your pipeline grows.$2');
-            html = html.replace(/(<meta property="og:title" content=")[^"]*(" \/>)/, '$1Pricing | FiguredIt$2');
-            html = html.replace(/(<meta property="og:description" content=")[^"]*(" \/>)/, '$1Start free. Upgrade when your pipeline grows. Compare Free, Starter and Pro plans for AI-assisted ICP analysis.$2');
-          }
-          if (pathname === '/guides/ideal-customer-profile-from-leads') {
-            const description = 'A practical guide for B2B founders and sales teams: clean a lead list, identify evidence, score company fit, and validate your ideal customer profile.';
-            html = html.replace(/(<meta name="description" content=")[^"]*(" \/>)/, `$1${description}$2`);
-            html = html.replace(/(<meta property="og:title" content=")[^"]*(" \/>)/, '$1Build an ideal customer profile from a lead list | FiguredIt$2');
-            html = html.replace(/(<meta property="og:description" content=")[^"]*(" \/>)/, `$1${description}$2`);
-          }
+          html = html.replace(/(<meta name="description" content=")[^"]*(" \/>)/, `$1${meta.description}$2`);
+          html = html.replace(/(<meta property="og:title" content=")[^"]*(" \/>)/, `$1${meta.title}$2`);
+          html = html.replace(/(<meta property="og:description" content=")[^"]*(" \/>)/, `$1${meta.description}$2`);
+          html = html.replace(/(<meta name="twitter:title" content=")[^"]*(" \/>)/, `$1${meta.title}$2`);
+          html = html.replace(/(<meta name="twitter:description" content=")[^"]*(" \/>)/, `$1${meta.description}$2`);
         } else {
           html = html.replace(/\s*<link rel="canonical"[^>]*>/, '');
           html = html.replace('</head>', '<meta name="robots" content="noindex" /></head>');
