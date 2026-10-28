@@ -13,27 +13,27 @@ import { EmptyState } from './components/ui/EmptyState';
 
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
-import { PrivacyPage } from './pages/PrivacyPage';
-import { AboutPage } from './pages/AboutPage';
-import { OnboardingPage } from './pages/OnboardingPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { UploadWizardPage } from './pages/UploadWizardPage';
-import { DatasetDetailsPage } from './pages/DatasetDetailsPage';
-import { CompaniesPage } from './pages/CompaniesPage';
-import { CompanyProfilePage } from './pages/CompanyProfilePage';
-import { SegmentsPage } from './pages/SegmentsPage';
-import { StrategicAnalysisPage } from './pages/StrategicAnalysisPage';
-import { ICPReportPage } from './pages/ICPReportPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { PublicDemoPage } from './pages/PublicDemoPage';
-import { NotFoundPage } from './pages/NotFoundPage';
-import { TermsPage } from './pages/TermsPage';
-import { PricingPage } from './pages/PricingPage';
-import { RefundPolicyPage } from './pages/RefundPolicyPage';
-import { ContactPage } from './pages/ContactPage';
-import { StartAnalysisPage } from './pages/StartAnalysisPage';
-import { BillingPage } from './pages/BillingPage';
-import { ICPGuidePage } from './pages/ICPGuidePage';
+const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const AboutPage = React.lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
+const OnboardingPage = React.lazy(() => import('./pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })));
+const DashboardPage = React.lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const UploadWizardPage = React.lazy(() => import('./pages/UploadWizardPage').then(m => ({ default: m.UploadWizardPage })));
+const DatasetDetailsPage = React.lazy(() => import('./pages/DatasetDetailsPage').then(m => ({ default: m.DatasetDetailsPage })));
+const CompaniesPage = React.lazy(() => import('./pages/CompaniesPage').then(m => ({ default: m.CompaniesPage })));
+const CompanyProfilePage = React.lazy(() => import('./pages/CompanyProfilePage').then(m => ({ default: m.CompanyProfilePage })));
+const SegmentsPage = React.lazy(() => import('./pages/SegmentsPage').then(m => ({ default: m.SegmentsPage })));
+const StrategicAnalysisPage = React.lazy(() => import('./pages/StrategicAnalysisPage').then(m => ({ default: m.StrategicAnalysisPage })));
+const ICPReportPage = React.lazy(() => import('./pages/ICPReportPage').then(m => ({ default: m.ICPReportPage })));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const PublicDemoPage = React.lazy(() => import('./pages/PublicDemoPage').then(m => ({ default: m.PublicDemoPage })));
+const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const PricingPage = React.lazy(() => import('./pages/PricingPage').then(m => ({ default: m.PricingPage })));
+const RefundPolicyPage = React.lazy(() => import('./pages/RefundPolicyPage').then(m => ({ default: m.RefundPolicyPage })));
+const ContactPage = React.lazy(() => import('./pages/ContactPage').then(m => ({ default: m.ContactPage })));
+const StartAnalysisPage = React.lazy(() => import('./pages/StartAnalysisPage').then(m => ({ default: m.StartAnalysisPage })));
+const BillingPage = React.lazy(() => import('./pages/BillingPage').then(m => ({ default: m.BillingPage })));
+const ICPGuidePage = React.lazy(() => import('./pages/ICPGuidePage').then(m => ({ default: m.ICPGuidePage })));
 import { UpgradeModal } from './components/billing/UpgradeModal';
 import { syncPublicAnalytics } from './lib/clientTelemetry';
 
@@ -228,7 +228,9 @@ function ScopedWorkspace() {
   const scope = user?.id || (isDemoUser ? 'demo' : 'anonymous');
   return (
     <AppStoreProvider key={scope}>
-      <RouteSwitch />
+      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center font-mono text-sm" role="status">Opening FiguredIt…</div>}>
+        <RouteSwitch />
+      </React.Suspense>
       <UpgradeModal />
     </AppStoreProvider>
   );
