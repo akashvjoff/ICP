@@ -201,7 +201,7 @@ export const AuthPage: React.FC = () => {
             </h1>
             <p className="text-xs text-[#0A0A0A]/70 font-medium">
               {tab === 'signin' && 'Access your Ideal Customer Profile discoveries and lead dossiers.'}
-              {tab === 'signup' && 'Provision your private workspace and connect your ICP analysis engine.'}
+              {tab === 'signup' && 'Save your offering, upload a lead list, and start your first analysis.'}
               {tab === 'forgot' && 'Enter your email to receive a secure recovery magic link.'}
             </p>
           </div>
