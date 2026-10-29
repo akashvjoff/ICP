@@ -12,9 +12,9 @@ const leads: DemoLead[] = [
 ];
 
 const presets = [
-  { label: 'Workflow automation', product: 'Workflow automation', problem: 'manual approvals spreadsheets scheduling', industry: '' },
-  { label: 'Inventory planning', product: 'Inventory planning', problem: 'inventory forecasts stockouts overstock', industry: 'Retail' },
-  { label: 'Data reliability', product: 'Data reliability', problem: 'data pipeline dashboards reporting', industry: 'Technology' },
+  { label: 'Workflow automation', product: 'Workflow automation', problem: 'manual approvals spreadsheets scheduling', industry: '', account: 0 },
+  { label: 'Inventory planning', product: 'Inventory planning', problem: 'inventory forecasts stockouts overstock', industry: 'Retail', account: 2 },
+  { label: 'Data reliability', product: 'Data reliability', problem: 'data pipeline dashboards reporting', industry: 'Technology', account: 3 },
 ];
 
 const stopwords = new Set(['a', 'an', 'and', 'are', 'by', 'for', 'in', 'of', 'on', 'or', 'the', 'to', 'with', 'your', 'their', 'from', 'is']);
@@ -27,7 +27,7 @@ export const PublicDemoPage: React.FC = () => {
   const [product, setProduct] = useState(initialPreset.product);
   const [problem, setProblem] = useState(initialPreset.problem);
   const [industry, setIndustry] = useState(initialPreset.industry);
-  const [selected, setSelected] = useState(sharedIndex(sharedParams.get('account'), leads.length));
+  const [selected, setSelected] = useState(sharedParams.has('account') ? sharedIndex(sharedParams.get('account'), leads.length) : initialPreset.account);
   const [shareUrl, setShareUrl] = useState('');
   const [shareStatus, setShareStatus] = useState('');
   const sharePreview = async () => {
@@ -69,7 +69,7 @@ export const PublicDemoPage: React.FC = () => {
         </div>
         <section aria-labelledby="product-heading" className="mt-10 rounded-2xl border-[3px] border-black bg-white p-5 sm:p-7 shadow-[5px_6px_0px_#0A0A0A]">
           <h2 id="product-heading" className="text-xl font-black">What do you sell?</h2>
-          <div className="mt-4 flex flex-wrap gap-2">{presets.map(preset => <button key={preset.label} type="button" onClick={() => { setProduct(preset.product); setProblem(preset.problem); setIndustry(preset.industry); }} className="rounded-lg border-2 border-black bg-[#E4E6FB] px-3 py-2 text-xs font-bold hover:bg-[#A1F000]">{preset.label}</button>)}</div>
+          <div className="mt-4 flex flex-wrap gap-2">{presets.map(preset => <button key={preset.label} type="button" onClick={() => { setProduct(preset.product); setProblem(preset.problem); setIndustry(preset.industry); setSelected(preset.account); }} className="rounded-lg border-2 border-black bg-[#E4E6FB] px-3 py-2 text-xs font-bold hover:bg-[#A1F000]">{preset.label}</button>)}</div>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             <label className="block text-xs font-bold">PRODUCT NAME<input value={product} onChange={e => setProduct(e.target.value)} maxLength={80} className="mt-2 w-full rounded-lg border-2 border-black p-3 text-sm font-normal" placeholder="Your product" /></label>
             <label className="block text-xs font-bold">PROBLEM YOU SOLVE<input value={problem} onChange={e => setProblem(e.target.value)} maxLength={240} className="mt-2 w-full rounded-lg border-2 border-black p-3 text-sm font-normal" placeholder="e.g. inventory stockouts" /></label>
