@@ -49,7 +49,11 @@ export function BillingPage() {
       const response = await fetch(`/api/billing/${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Please try again.');
-      if (path === 'portal') window.location.assign(body.url);
+      if (path === 'portal') {
+        const portalUrl = new URL(body.url);
+        if (portalUrl.protocol !== 'https:') throw new Error('The subscription portal returned an invalid link.');
+        window.location.assign(portalUrl.toString());
+      }
       else setMessage(body.message);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Please try again.'); }
     finally { setBusy(false); }

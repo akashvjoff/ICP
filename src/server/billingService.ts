@@ -1,9 +1,23 @@
 import DodoPayments from 'dodopayments';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PLANS, type BillingInterval, type PaidPlanId } from '../config/plans';
+import { BILLING_CURRENCIES, PLANS, type BillingInterval, type PaidPlanId } from '../config/plans';
 
-const checkoutSchema = z.object({ plan: z.enum(['starter', 'pro']), interval: z.enum(['monthly', 'annual']) });
+const checkoutSchema = z.object({
+  plan: z.enum(['starter', 'pro']), interval: z.enum(['monthly', 'annual']),
+  currency: z.enum(BILLING_CURRENCIES).default('INR'),
+});
+
+// Only send browsers to Dodo-hosted pages (checkout, test checkout, customer portal).
+export function assertDodoHostedUrl(value: unknown): string {
+  let url: URL;
+  try { url = new URL(String(value)); } catch { throw new Error('Billing provider returned an invalid link.'); }
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== 'https:' || url.username || url.password || !(host === 'dodopayments.com' || host.endsWith('.dodopayments.com'))) {
+    throw new Error('Billing provider returned an unexpected link.');
+  }
+  return url.toString();
+}
 const webhookSchema = z.object({
   type: z.string(), timestamp: z.string(), data: z.record(z.string(), z.unknown()),
 });
@@ -24,19 +38,21 @@ function productMap(env: NodeJS.ProcessEnv = process.env): Record<PaidPlanId, Re
 }
 
 export async function createCheckout(input: unknown, user: { id: string; email?: string; name?: string }, env = process.env) {
-  const { plan, interval } = checkoutSchema.parse(input);
+  const { plan, interval, currency } = checkoutSchema.parse(input);
   if (!user.email) throw new Error('Add an email address before checkout.');
   const productId = productMap(env)[plan][interval];
   if (!productId) throw new Error('This plan is not configured for checkout.');
   const session = await dodoClient(env).checkoutSessions.create({
     product_cart: [{ product_id: productId, quantity: 1 }],
+    // Honoured only when Adaptive Pricing is enabled in Dodo; otherwise Dodo ignores it.
+    billing_currency: currency,
     customer: { email: user.email, ...(user.name ? { name: user.name } : {}) },
     metadata: { user_id: user.id },
     return_url: 'https://figuredit.in/settings/billing?status=success',
     cancel_url: 'https://figuredit.in/pricing',
   });
   if (!session.checkout_url) throw new Error('Checkout did not return a link.');
-  return session.checkout_url;
+  return assertDodoHostedUrl(session.checkout_url);
 }
 
 export async function getEntitlements(client: SupabaseClient, userId: string, now = new Date()) {
@@ -139,5 +155,5 @@ export async function createPortalLink(client: SupabaseClient, userId: string, e
   const portal = await dodoClient(env).customers.customerPortal.create(data.provider_customer_id, {
     return_url: 'https://figuredit.in/settings/billing',
   });
-  return portal.link;
+  return assertDodoHostedUrl(portal.link);
 }
