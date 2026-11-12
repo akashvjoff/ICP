@@ -20,12 +20,23 @@ import {
 import {
   InMemoryCompanyAnalysisRepository,
 } from '../companyIntelligenceService';
-import { isTransientWorkerError, savedSellerContext } from '../analysisWorker';
+import { isTransientWorkerError, savedSellerContext, withHttpStatus } from '../analysisWorker';
 
 test('worker retries temporary upstream failures without hiding permission errors', () => {
   assert.equal(isTransientWorkerError({ status: 502, message: 'Bad Gateway' }), true);
   assert.equal(isTransientWorkerError({ message: 'TypeError: fetch failed; read ECONNRESET' }), true);
   assert.equal(isTransientWorkerError({ status: 403, code: '42501', message: 'permission denied for table lead_contacts' }), false);
+});
+
+test('queue polls classify gateway outages from the Supabase response status (Sentry FIGUREDIT-SERVER-2)', () => {
+  // supabase-js returns { error, status }; the error itself has no status and may carry an HTML body.
+  for (const status of [502, 522, 524, 530]) {
+    assert.equal(isTransientWorkerError(withHttpStatus({ message: '<!DOCTYPE html><title>edge error</title>' }, status)), true, String(status));
+  }
+  assert.equal(isTransientWorkerError({ message: 'Error code 522: Connection timed out' }), true);
+  assert.equal(isTransientWorkerError(withHttpStatus({ code: '42501', message: 'permission denied' }, 403)), false);
+  assert.equal(isTransientWorkerError(withHttpStatus({ code: 'P0001', message: 'function failed' }, 500)), false);
+  assert.equal(isTransientWorkerError(withHttpStatus({ message: 'x' }, undefined)), false);
 });
 
 test('real analysis never inherits the fictional demo seller offering', () => {

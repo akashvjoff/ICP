@@ -15,11 +15,20 @@ import { clearExpiredContacts } from './contactRetention';
 import { sendAnalysisFinishedEmail } from './analysisEmail';
 import { canAnalyzeCompany } from './billingService';
 
+// Gateway and Cloudflare edge failures (e.g. 522 connection timed out) are temporary upstream outages.
+const TRANSIENT_HTTP_STATUSES = new Set([502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 530]);
+
 export function isTransientWorkerError(error: unknown): boolean {
   const candidate = error as { status?: number; message?: string } | null;
-  if (candidate?.status && [502, 503, 504].includes(candidate.status)) return true;
+  if (typeof candidate?.status === 'number' && TRANSIENT_HTTP_STATUSES.has(candidate.status)) return true;
   const message = candidate?.message || (error instanceof Error ? error.message : '');
-  return /bad gateway|gateway timeout|network connection lost|fetch failed|ECONNRESET|ETIMEDOUT/i.test(message);
+  return /bad gateway|gateway timeout|service unavailable|connection timed out|error code:? 52\d|network connection lost|fetch failed|socket hang up|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/i.test(message);
+}
+
+// supabase-js reports the HTTP status beside the error, not on it; keep it so retries can classify it.
+export function withHttpStatus<T>(error: T, status: number | undefined): T {
+  if (error && typeof error === 'object' && typeof status === 'number') Object.assign(error, { status });
+  return error;
 }
 
 export function savedSellerContext(seller: {
@@ -65,8 +74,8 @@ export function startAnalysisWorker(client: SupabaseClient, env: NodeJS.ProcessE
     busy = true;
     let claimed: AnalysisJobRecord | undefined;
     try {
-      const { data, error } = await client.rpc('claim_next_analysis_job');
-      if (error) throw error;
+      const { data, error, status } = await client.rpc('claim_next_analysis_job');
+      if (error) throw withHttpStatus(error, status);
       transientFailureCount = 0;
       if (env.HONEYBADGER_CHECKIN_URL && Date.now() >= nextHoneybadgerCheckin) {
         nextHoneybadgerCheckin = Date.now() + 60_000;
