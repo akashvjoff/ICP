@@ -11,6 +11,7 @@ Set production values in Render. Keep secrets out of Git. `VITE_` values are bun
 | `RESEND_API_KEY` | Send analysis completion emails via Resend | Yes |
 | `VITE_CONTACT_EMAIL` | Public contact address | No |
 | `VITE_BILLING_ENABLED` | Legacy pricing switch; checkout is handled by the server | No |
+| `BILLING_CHECKOUT_ENABLED` | Server switch for paid checkout; only `true` allows it | No |
 | `DODO_PAYMENTS_API_KEY` | Dodo Payments server API credential | Yes |
 | `DODO_WEBHOOK_SECRET` | Verifies signed Dodo webhook payloads | Yes |
 | `DODO_ENVIRONMENT` | `test_mode` or `live_mode` | No |

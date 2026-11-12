@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { assertDodoHostedUrl, createCheckout, processDodoWebhook } from '../billingService';
+import { assertDodoHostedUrl, CheckoutDisabledError, createCheckout, isCheckoutEnabled, processDodoWebhook } from '../billingService';
 
 // Synthetic credentials generated per run; never real values.
 const secretBytes = randomBytes(24);
 const env = {
   DODO_PAYMENTS_API_KEY: 'test-only-key',
   DODO_ENVIRONMENT: 'test_mode',
+  BILLING_CHECKOUT_ENABLED: 'true',
   DODO_WEBHOOK_SECRET: `whsec_${secretBytes.toString('base64')}`,
   DODO_PRODUCT_STARTER_MONTHLY: 'pdt_starter_m',
   DODO_PRODUCT_STARTER_YEARLY: 'pdt_starter_y',
@@ -140,6 +141,21 @@ test('checkout sends the selected currency and the mapped product', async (t) =>
   assert.deepEqual(bodies[0].metadata, { user_id: userId });
   assert.equal(bodies[1].billing_currency, 'INR');
   await assert.rejects(createCheckout({ plan: 'pro', interval: 'monthly', currency: 'EUR' }, user, env));
+});
+
+test('checkout stays off unless BILLING_CHECKOUT_ENABLED is exactly "true", without calling Dodo', async (t) => {
+  let calls = 0;
+  const realFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = realFetch; });
+  globalThis.fetch = (async () => { calls++; return new Response('{}'); }) as typeof fetch;
+  const user = { id: userId, email: 'synthetic@example.com' };
+  for (const value of [undefined, '', 'false', 'TRUE', '1', 'yes']) {
+    const off = { ...env, BILLING_CHECKOUT_ENABLED: value };
+    assert.equal(isCheckoutEnabled(off), false, String(value));
+    await assert.rejects(createCheckout({ plan: 'pro', interval: 'monthly' }, user, off), CheckoutDisabledError);
+  }
+  assert.equal(isCheckoutEnabled(env), true);
+  assert.equal(calls, 0);
 });
 
 test('checkout refuses a non-Dodo link from the provider', async (t) => {

@@ -23,6 +23,12 @@ const webhookSchema = z.object({
 });
 const uuid = z.uuid();
 export class PlanLimitError extends Error { constructor(message: string) { super(message); } }
+export class CheckoutDisabledError extends Error { constructor() { super('Paid checkout is not enabled.'); } }
+
+// Server-side kill switch: paid checkout stays off unless explicitly enabled, whatever the browser shows.
+export function isCheckoutEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.BILLING_CHECKOUT_ENABLED === 'true';
+}
 
 export function dodoClient(env: NodeJS.ProcessEnv = process.env) {
   if (!env.DODO_PAYMENTS_API_KEY) throw new Error('Billing is not configured.');
@@ -38,6 +44,7 @@ function productMap(env: NodeJS.ProcessEnv = process.env): Record<PaidPlanId, Re
 }
 
 export async function createCheckout(input: unknown, user: { id: string; email?: string; name?: string }, env = process.env) {
+  if (!isCheckoutEnabled(env)) throw new CheckoutDisabledError();
   const { plan, interval, currency } = checkoutSchema.parse(input);
   if (!user.email) throw new Error('Add an email address before checkout.');
   const productId = productMap(env)[plan][interval];

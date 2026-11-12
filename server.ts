@@ -87,7 +87,7 @@ import type { ExecutiveICPReport } from './src/types/analysis.ts';
 import { canExport, COMPANY_COLUMNS, CONTACT_COLUMNS, encodeExport, exportFilename, exportQuerySchema, selectExportRows, type ExportContact } from './src/server/exportService.ts';
 import { captureServerFailure, trackServerEvent } from './src/server/telemetry.ts';
 import { deleteAccountData, exportAccountData } from './src/server/accountDataService.ts';
-import { billingPeriodStart, canAnalyzeCompany, cancelDodoSubscription, createCheckout, createPortalLink, getBillingUsage, getEntitlements, processDodoWebhook } from './src/server/billingService.ts';
+import { billingPeriodStart, canAnalyzeCompany, cancelDodoSubscription, createCheckout, createPortalLink, getBillingUsage, getEntitlements, isCheckoutEnabled, processDodoWebhook } from './src/server/billingService.ts';
 
 dotenv.config();
 
@@ -205,6 +205,7 @@ function planLimit(res: Response, error: string) { return res.status(402).json({
 app.post('/api/billing/checkout', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (req.accessToken === 'demo-token') return res.status(401).json({ error: 'Sign in to choose a plan.' });
+    if (!isCheckoutEnabled()) return res.status(503).json({ code: 'CHECKOUT_DISABLED', error: 'Paid plans are not open yet. Join the waitlist on the pricing page.' });
     const { plan: currentPlan } = await getEntitlements(billingClient(), req.user!.id);
     if (currentPlan.id !== 'free') return res.status(409).json({ error: 'Manage your existing subscription from Settings → Billing before choosing another plan.' });
     const url = await createCheckout(req.body, { id: req.user!.id, email: req.user!.email });
