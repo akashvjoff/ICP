@@ -1,7 +1,8 @@
 import DodoPayments from 'dodopayments';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { BILLING_CURRENCIES, PLANS, type BillingInterval, type PaidPlanId } from '../config/plans';
+import { BILLING_CURRENCIES, PLANS, type BillingInterval, type PaidPlanId, type Plan } from '../config/plans';
+import { UPLOAD_CONFIG } from '../lib/uploadConfig';
 
 const checkoutSchema = z.object({
   plan: z.enum(['starter', 'pro']), interval: z.enum(['monthly', 'annual']),
@@ -62,10 +63,26 @@ export async function createCheckout(input: unknown, user: { id: string; email?:
   return assertDodoHostedUrl(session.checkout_url);
 }
 
+// Owner/staff accounts listed in account_overrides: every Pro feature, no dataset or AI-company cap.
+// The per-file row cap stays at the app's hard upload limit.
+export const UNLIMITED_PLAN = {
+  ...PLANS.find(plan => plan.id === 'pro')!,
+  datasetsPerMonth: null,
+  companiesPerDataset: Number.POSITIVE_INFINITY,
+  uploadRowLimit: UPLOAD_CONFIG.MAX_ROWS_PER_DATASET,
+} as unknown as Plan;
+
+export async function hasUnlimitedAccess(client: SupabaseClient, userId: string): Promise<boolean> {
+  const { data, error } = await client.from('account_overrides').select('unlimited').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  return data?.unlimited === true;
+}
+
 export async function getEntitlements(client: SupabaseClient, userId: string, now = new Date()) {
   const { data, error } = await client.from('subscriptions').select('*').eq('user_id', userId)
     .order('created_at', { ascending: false }).limit(5);
   if (error) throw error;
+  if (await hasUnlimitedAccess(client, userId)) return { plan: UNLIMITED_PLAN, subscription: null, unlimited: true };
   const subscription = (data || []).find(row => {
     const end = row.current_period_end ? Date.parse(row.current_period_end) : 0;
     if (row.status === 'active') return end > now.getTime();
@@ -74,7 +91,7 @@ export async function getEntitlements(client: SupabaseClient, userId: string, no
     return false;
   });
   const planId = subscription?.plan === 'starter' || subscription?.plan === 'pro' ? subscription.plan : 'free';
-  return { plan: PLANS.find(plan => plan.id === planId)!, subscription: subscription || null };
+  return { plan: PLANS.find(plan => plan.id === planId)! as Plan, subscription: subscription || null, unlimited: false };
 }
 
 export async function getBillingUsage(client: SupabaseClient, userId: string, periodStart: string) {

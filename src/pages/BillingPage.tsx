@@ -7,9 +7,10 @@ import { useAuth } from '../lib/auth';
 
 type BillingStatus = {
   plan: string;
+  unlimited?: boolean;
   subscription: { status: string; interval: string; current_period_end: string | null; cancel_at_period_end: boolean } | null;
   usage: { datasets_count: number; ai_companies_used: number };
-  limits: { datasets: number | null; companies: number; rows: number };
+  limits: { datasets: number | null; companies: number | null; rows: number };
 };
 
 export function BillingPage() {
@@ -66,7 +67,7 @@ export function BillingPage() {
     <div><p className="font-mono text-xs font-black">YOUR ACCOUNT</p><h1 className="text-4xl font-black">Billing</h1></div>
     <BrutalistCard bg="white" shadowSize="md" className="space-y-5 p-7">
       {isDemoUser ? <p>Sign in to manage a subscription.</p> : !billing ? <p>{message || 'Loading billing…'}</p> : <>
-        <div><p className="font-mono text-xs font-black">CURRENT PLAN</p><p className="text-2xl font-black capitalize">{billing.plan}</p></div>
+        <div><p className="font-mono text-xs font-black">CURRENT PLAN</p><p className="text-2xl font-black capitalize">{billing.unlimited ? 'Unlimited' : billing.plan}</p></div>
         {billing.subscription && <p className="text-sm">{billing.subscription.cancel_at_period_end ? 'Access until' : 'Renews'} {billing.subscription.current_period_end ? new Date(billing.subscription.current_period_end).toLocaleDateString() : '—'} · {billing.subscription.status.replaceAll('_', ' ')}</p>}
         {bar('Datasets this period', billing.usage.datasets_count, billing.limits.datasets)}
         {bar('AI-analyzed companies this period', billing.usage.ai_companies_used, null)}

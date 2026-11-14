@@ -49,6 +49,32 @@ export const UploadWizardPage: React.FC = () => {
   const { addDataset, addToast, isContextComplete, missingContextFields } = useAppStore();
   const { isDemoUser } = useAuth();
 
+  // Upload limits come from the server's view of the account; Free limits apply until they load.
+  const [planLimits, setPlanLimits] = useState({
+    name: PLANS[0].name as string, rows: PLANS[0].uploadRowLimit as number,
+    companies: PLANS[0].companiesPerDataset as number | null, xlsx: false,
+  });
+  useEffect(() => {
+    if (isDemoUser || !isSupabaseConfigured) return;
+    let active = true;
+    void (async () => {
+      try {
+        const token = await freshAccessToken();
+        const response = await fetch('/api/billing/status', { headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) return;
+        const status = await response.json() as { plan: string; unlimited?: boolean; formats?: string[]; limits: { rows: number; companies: number | null } };
+        const plan = PLANS.find(item => item.id === status.plan);
+        if (active && plan) setPlanLimits({
+          name: status.unlimited ? 'Unlimited' : plan.name,
+          rows: status.limits.rows, companies: status.limits.companies,
+          xlsx: Boolean(status.formats?.includes('XLSX')),
+        });
+      } catch { /* Keep Free limits; the server enforces the real ones on upload. */ }
+    })();
+    return () => { active = false; };
+  }, [isDemoUser]);
+  const aiCompanyLimit = planLimits.companies ?? planLimits.rows;
+
   // Wizard Navigation
   const [wizardStep, setWizardStep] = useState<number>(1);
 
@@ -94,8 +120,8 @@ export const UploadWizardPage: React.FC = () => {
   const runPipeline = (currentRaw: RawLeadRecord[], currentMapping: ColumnMapping, dedupe: boolean) => {
     if (currentRaw.length === 0) return;
     const res = processLeadPipeline(currentRaw, currentMapping, {
-      maxTotalRows: isDemoUser ? UPLOAD_CONFIG.MAX_ROWS_PER_DATASET : PLANS[0].uploadRowLimit,
-      maxAiEnrichedDemo: isDemoUser ? UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO : PLANS[0].companiesPerDataset,
+      maxTotalRows: isDemoUser ? UPLOAD_CONFIG.MAX_ROWS_PER_DATASET : planLimits.rows,
+      maxAiEnrichedDemo: isDemoUser ? UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO : aiCompanyLimit,
       skipDuplicates: dedupe,
       piiColumnsToScrub: piiColumnsDetected,
     });
@@ -109,8 +135,8 @@ export const UploadWizardPage: React.FC = () => {
     setFileError(null);
     try {
       const parsed: ParseResult = await parseLeadFile(selectedFile);
-      if (!isDemoUser && !selectedFile.name.toLowerCase().endsWith('.csv')) throw new Error('The Free plan accepts CSV files only.');
-      if (!isDemoUser && parsed.rawRows.length > PLANS[0].uploadRowLimit) throw new Error(`The Free plan accepts up to ${PLANS[0].uploadRowLimit} rows per file.`);
+      if (!isDemoUser && !planLimits.xlsx && !selectedFile.name.toLowerCase().endsWith('.csv')) throw new Error(`The ${planLimits.name} plan accepts CSV files only.`);
+      if (!isDemoUser && parsed.rawRows.length > planLimits.rows) throw new Error(`The ${planLimits.name} plan accepts up to ${planLimits.rows} rows per file.`);
       setFile(selectedFile);
       setFileName(selectedFile.name);
       setFileSizeStr(formatBytes(selectedFile.size));
@@ -125,8 +151,8 @@ export const UploadWizardPage: React.FC = () => {
 
       // Run pipeline on raw rows with auto-detected mapping
       const res = processLeadPipeline(parsed.rawRows, activeMapping, {
-        maxTotalRows: isDemoUser ? UPLOAD_CONFIG.MAX_ROWS_PER_DATASET : PLANS[0].uploadRowLimit,
-        maxAiEnrichedDemo: isDemoUser ? UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO : PLANS[0].companiesPerDataset,
+        maxTotalRows: isDemoUser ? UPLOAD_CONFIG.MAX_ROWS_PER_DATASET : planLimits.rows,
+        maxAiEnrichedDemo: isDemoUser ? UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO : aiCompanyLimit,
         skipDuplicates: activeDedupe,
         piiColumnsToScrub: parsed.piiColumnsDetected,
       });
@@ -400,7 +426,7 @@ export const UploadWizardPage: React.FC = () => {
             }
             description={
               wizardStep === 1
-                ? isDemoUser ? `Preview CSV or XLSX spreadsheets up to ${UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}.` : `Upload CSV files up to ${UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Max ${PLANS[0].uploadRowLimit} rows and ${PLANS[0].companiesPerDataset} AI-analyzed companies.`
+                ? isDemoUser ? `Preview CSV or XLSX spreadsheets up to ${UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}.` : `Upload ${planLimits.xlsx ? 'CSV or XLSX' : 'CSV'} files up to ${UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Max ${planLimits.rows} rows and ${planLimits.companies === null ? 'unlimited' : planLimits.companies} AI-analyzed companies.`
                 : wizardStep === 2
                 ? 'Confirm company identifiers, firmographics, and CRM commercial parameters. Personal contact data will be automatically redacted.'
                 : wizardStep === 3
@@ -459,17 +485,17 @@ export const UploadWizardPage: React.FC = () => {
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept={isDemoUser ? '.csv,.xlsx' : '.csv'}
+                accept={isDemoUser || planLimits.xlsx ? '.csv,.xlsx' : '.csv'}
                 className="hidden"
               />
               <div className="w-16 h-16 rounded-full bg-[#A1F000] border-[2.5px] border-[#0A0A0A] flex items-center justify-center text-[#0A0A0A] mb-4 shadow-[2px_2px_0px_#0A0A0A] group-hover:scale-110 transition-transform">
                 <UploadCloud className="w-8 h-8 stroke-[2.5]" />
               </div>
               <h3 className="text-xl sm:text-2xl font-black text-[#0A0A0A] mb-1">
-                Drop your {isDemoUser ? 'CSV or XLSX' : 'CSV'} file here
+                Drop your {isDemoUser || planLimits.xlsx ? 'CSV or XLSX' : 'CSV'} file here
               </h3>
               <p className="text-xs sm:text-sm text-[#0A0A0A]/70 max-w-md mb-4 font-medium">
-                Supports {isDemoUser ? '.csv and .xlsx' : '.csv'} files up to {UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Headers are detected automatically.
+                Supports {isDemoUser || planLimits.xlsx ? '.csv and .xlsx' : '.csv'} files up to {UPLOAD_CONFIG.MAX_FILE_SIZE_LABEL}. Headers are detected automatically.
               </p>
               <span className="font-mono text-xs font-bold text-[#8C6ADE] underline underline-offset-4">
                 Click to browse files on your computer
@@ -485,12 +511,12 @@ export const UploadWizardPage: React.FC = () => {
               </div>
               <div className="bg-[#F9F8F4] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[2px_2px_0px_#0A0A0A]">
                 <span className="font-black text-[#0A0A0A]/60 block text-[10px] uppercase">MAX STORED ROWS</span>
-                <span className="text-base font-black text-[#0A0A0A]">{isDemoUser ? UPLOAD_CONFIG.MAX_ROWS_PER_DATASET : PLANS[0].uploadRowLimit} Records</span>
+                <span className="text-base font-black text-[#0A0A0A]">{isDemoUser ? UPLOAD_CONFIG.MAX_ROWS_PER_DATASET : planLimits.rows} Records</span>
                 <span className="text-[10px] text-[#0A0A0A]/70 block mt-1">All rows stored & inspectable</span>
               </div>
               <div className="bg-[#E5F7E5] border-[2px] border-[#0A0A0A] p-4 rounded-xl shadow-[2px_2px_0px_#0A0A0A]">
                 <span className="font-black text-[#0A0A0A]/60 block text-[10px] uppercase">AI ENRICHMENT TIER</span>
-                <span className="text-base font-black text-emerald-900">{isDemoUser ? UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO : PLANS[0].companiesPerDataset} Accounts</span>
+                <span className="text-base font-black text-emerald-900">{isDemoUser ? UPLOAD_CONFIG.MAX_AI_ENRICHED_ROWS_DEMO : planLimits.companies === null ? 'Unlimited' : planLimits.companies} Accounts</span>
                 <span className="text-[10px] text-emerald-800 block mt-1">Deep strategic classification</span>
               </div>
             </div>

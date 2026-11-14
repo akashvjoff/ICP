@@ -220,12 +220,13 @@ app.post('/api/billing/checkout', requireAuthenticatedUser, async (req: Authenti
 app.get('/api/billing/status', requireAuthenticatedUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const client = billingClient();
-    const { plan, subscription } = await getEntitlements(client, req.user!.id);
+    const { plan, subscription, unlimited } = await getEntitlements(client, req.user!.id);
     const periodStart = subscription?.current_period_end && subscription.interval === 'annual'
       ? new Date(new Date(subscription.current_period_end).setUTCFullYear(new Date(subscription.current_period_end).getUTCFullYear() - 1)).toISOString()
       : billingPeriodStart(subscription?.interval || null);
     const usage = await getBillingUsage(client, req.user!.id, periodStart);
-    return res.json({ plan: plan.id, subscription: subscription && {
+    // Infinite limits serialize as null, which the browser shows as "Unlimited".
+    return res.json({ plan: plan.id, unlimited, formats: plan.formats, subscription: subscription && {
       status: subscription.status, interval: subscription.interval, current_period_end: subscription.current_period_end,
       cancel_at_period_end: subscription.cancel_at_period_end,
     }, usage, limits: { datasets: plan.datasetsPerMonth, companies: plan.companiesPerDataset, rows: plan.uploadRowLimit } });
